@@ -52,7 +52,8 @@ export function useRewards() {
       if (insertErr) throw insertErr;
 
       if (referredBy) {
-        await supabase.rpc("increment_referral_points" as any, { ref_code: referredBy }).catch(() => {});
+        // Best-effort: credit referrer
+        await supabase.from("rewards").update({ total_referrals: 1 } as any).eq("referral_code", referredBy).then(() => {});
       }
 
       return newRecord as RewardRecord;

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Flame, AlertTriangle, History, ExternalLink, Trash2, Coins } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useWalletTokens, TokenBalance } from "@/hooks/useWalletTokens";
 import { useBurnHistory, insertBurnRecord } from "@/hooks/useBurnHistory";
 import { toast } from "sonner";
