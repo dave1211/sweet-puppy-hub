@@ -11,6 +11,8 @@ import Watchlist from "./pages/Watchlist";
 import Alerts from "./pages/Alerts";
 import Token from "./pages/Token";
 import Pricing from "./pages/Pricing";
+import Rewards from "./pages/Rewards";
+import MerchStore from "./pages/MerchStore";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => (
               <Route path="alerts" element={<Alerts />} />
               <Route path="token" element={<Token />} />
               <Route path="pricing" element={<Pricing />} />
+              <Route path="rewards" element={<Rewards />} />
+              <Route path="merch" element={<MerchStore />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
