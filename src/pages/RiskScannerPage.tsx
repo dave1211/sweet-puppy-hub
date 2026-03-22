@@ -26,7 +26,6 @@ export default function RiskScannerPage() {
         volume24h: t.volume24h,
         change24h: t.change24h,
         pairCreatedAt: t.pairCreatedAt,
-        marketCap: t.marketCap,
       }),
     }))
     .sort((a, b) => b.risk.overallScore - a.risk.overallScore);
