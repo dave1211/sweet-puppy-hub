@@ -43,6 +43,7 @@ const App = () => (
                 <Route path="merch" element={<MerchStore />} />
                 <Route path="merch/:id" element={<MerchProduct />} />
                 <Route path="merch/admin" element={<MerchAdmin />} />
+                <Route path="sniper" element={<SniperPage />} />
               </Route>
               {/* XRPL Trading — secondary */}
               <Route path="/xrpl" element={<TerminalLayout />}>
