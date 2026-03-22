@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const cache: Record<string, { data: unknown; ts: number }> = {};
-const CACHE_TTL = 30_000;
+const CACHE_TTL = 15_000;
 
 function getCached<T>(key: string): T | null {
   const entry = cache[key];
