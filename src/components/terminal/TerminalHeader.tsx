@@ -1,8 +1,9 @@
-import { Terminal, Activity } from "lucide-react";
+import { Activity } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { TierSelector } from "./TierSelector";
 import { WalletConnectButton } from "./WalletConnectButton";
+import tannerIcon from "@/assets/tanner-icon.png";
 
 const NAV_ITEMS = [
   { label: "Dashboard", path: "/" },

@@ -1,8 +1,9 @@
-import { ShoppingBag, Tag, Loader2, ShoppingCart, Star, Truck, Shield, RotateCcw, Plus, Minus } from "lucide-react";
+import { Tag, Loader2, ShoppingCart, Star, Truck, Shield, RotateCcw, Plus, Minus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMerchProducts } from "@/hooks/useMerchProducts";
 import { toast } from "sonner";
 import { useState } from "react";
+import tannerLogo from "@/assets/tanner-logo.png";
 
 // Static image imports
 import tshirtTerminal from "@/assets/merch/tshirt-terminal.png";
