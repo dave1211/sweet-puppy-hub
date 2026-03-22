@@ -1,14 +1,14 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useWalletStore } from "@/stores/walletStore";
 import { xrplService } from "@/services/xrplService";
+import { signAndSubmitXRPL } from "@/services/walletService";
 import { Link2, AlertTriangle, Shield, ShieldAlert, Plus, Trash2, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import type { TrustLine } from "@/types/xrpl";
 
-// Known verified issuers for risk classification
 const VERIFIED_ISSUERS: Record<string, { name: string; risk: "safe" | "caution" }> = {
   "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq": { name: "GateHub", risk: "safe" },
   "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz": { name: "Sologenic", risk: "safe" },
@@ -24,47 +24,35 @@ function classifyRisk(issuer: string): { name?: string; risk: TrustLine["riskLev
 }
 
 export function TrustLineManager() {
-  const { isConnected, address } = useWalletStore();
+  const { isConnected, address, provider } = useWalletStore();
   const [showAdd, setShowAdd] = useState(false);
   const [newCurrency, setNewCurrency] = useState("");
   const [newIssuer, setNewIssuer] = useState("");
+  const [newLimit, setNewLimit] = useState("1000000000");
   const [trustLines, setTrustLines] = useState<TrustLine[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
 
-  // Fetch real trust lines from XRPL
-  useEffect(() => {
-    if (!isConnected || !address) {
-      setTrustLines([]);
-      return;
-    }
-
-    let cancelled = false;
+  const fetchTrustLines = async () => {
+    if (!isConnected || !address) { setTrustLines([]); return; }
     setIsLoading(true);
-
-    xrplService.getBalances(address).then(({ tokens }) => {
-      if (cancelled) return;
+    try {
+      const { tokens } = await xrplService.getBalances(address);
       const lines: TrustLine[] = tokens.map((t) => {
         const { name, risk } = classifyRisk(t.issuer);
         return {
-          currency: t.currency,
-          issuer: t.issuer,
-          balance: t.value,
-          limit: t.limit ?? "0",
-          limitPeer: "0",
-          noRipple: false,
-          freeze: false,
-          authorized: true,
-          issuerName: name,
-          riskLevel: risk,
+          currency: t.currency, issuer: t.issuer, balance: t.value,
+          limit: t.limit ?? "0", limitPeer: "0", noRipple: false,
+          freeze: false, authorized: true, issuerName: name, riskLevel: risk,
         };
       });
       setTrustLines(lines);
-      setIsLoading(false);
-    }).catch(() => {
-      if (!cancelled) setIsLoading(false);
-    });
+    } catch { /* ignore */ }
+    setIsLoading(false);
+  };
 
-    return () => { cancelled = true; };
+  useEffect(() => {
+    fetchTrustLines();
   }, [isConnected, address]);
 
   const riskConfig = {
@@ -74,17 +62,38 @@ export function TrustLineManager() {
     unknown: { icon: Info, color: "text-muted-foreground/40", bg: "bg-muted/20", label: "Unknown" },
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newCurrency || !newIssuer) { toast.error("Enter currency code and issuer address"); return; }
-    // In production, this would submit a TrustSet transaction via xrplService
-    toast.info(`Trust line for ${newCurrency} would require wallet signature (TrustSet tx)`);
-    setShowAdd(false);
-    setNewCurrency("");
-    setNewIssuer("");
+    if (!address || !provider) { toast.error("Connect wallet first"); return; }
+    setIsSigning(true);
+    try {
+      const txJson = await xrplService.setTrustLine(address, newCurrency.toUpperCase(), newIssuer, newLimit);
+      const txHash = await signAndSubmitXRPL(provider, txJson);
+      toast.success(`Trust line added! TX: ${txHash.slice(0, 12)}…`);
+      setShowAdd(false);
+      setNewCurrency("");
+      setNewIssuer("");
+      setNewLimit("1000000000");
+      // Refresh after a short delay
+      setTimeout(fetchTrustLines, 3000);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to add trust line");
+    }
+    setIsSigning(false);
   };
 
-  const handleRemove = (currency: string) => {
-    toast.info(`Removing trust line for ${currency} would require wallet signature (TrustSet limit=0)`);
+  const handleRemove = async (currency: string, issuer: string) => {
+    if (!address || !provider) { toast.error("Connect wallet first"); return; }
+    setIsSigning(true);
+    try {
+      const txJson = await xrplService.removeTrustLine(address, currency, issuer);
+      const txHash = await signAndSubmitXRPL(provider, txJson);
+      toast.success(`Trust line removed! TX: ${txHash.slice(0, 12)}…`);
+      setTimeout(fetchTrustLines, 3000);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to remove trust line");
+    }
+    setIsSigning(false);
   };
 
   if (!isConnected) {
@@ -121,7 +130,7 @@ export function TrustLineManager() {
           <div className="p-1.5 rounded bg-terminal-amber/5 border border-terminal-amber/20 flex items-start gap-1.5">
             <AlertTriangle className="h-3 w-3 text-terminal-amber/60 shrink-0 mt-0.5" />
             <p className="text-[8px] font-mono text-terminal-amber/60 leading-relaxed">
-              Adding a trust line allows this issuer to send you tokens. Only trust verified issuers.
+              Adding a trust line allows this issuer to send you tokens. Only trust verified issuers. This will submit a real TrustSet transaction.
             </p>
           </div>
           <Input
@@ -136,8 +145,19 @@ export function TrustLineManager() {
             placeholder="Issuer address (r...)"
             className="h-6 text-[9px] font-mono bg-background/50 border-border/60"
           />
-          <Button onClick={handleAdd} className="w-full h-6 text-[8px] font-mono bg-primary/10 text-primary border border-primary/20">
-            Add Trust Line
+          <Input
+            value={newLimit}
+            onChange={(e) => setNewLimit(e.target.value)}
+            placeholder="Limit (default: 1000000000)"
+            className="h-6 text-[9px] font-mono bg-background/50 border-border/60"
+          />
+          <Button
+            onClick={handleAdd}
+            disabled={isSigning}
+            className="w-full h-6 text-[8px] font-mono bg-primary/10 text-primary border border-primary/20"
+          >
+            {isSigning ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+            {isSigning ? "Signing…" : "Add Trust Line (TrustSet TX)"}
           </Button>
         </div>
       )}
@@ -167,8 +187,10 @@ export function TrustLineManager() {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleRemove(tl.currency)}
+                    onClick={() => handleRemove(tl.currency, tl.issuer)}
+                    disabled={isSigning}
                     className="p-0.5 hover:bg-destructive/10 rounded transition-colors"
+                    title="Remove trust line (TrustSet limit=0)"
                   >
                     <Trash2 className="h-2.5 w-2.5 text-muted-foreground/20 hover:text-destructive/60" />
                   </button>
