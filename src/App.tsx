@@ -18,6 +18,7 @@ import MerchAdmin from "./pages/MerchAdmin";
 import TerminalLayout from "./pages/TerminalLayout";
 import TradingPage from "./pages/TradingPage";
 import PortfolioPage from "./pages/PortfolioPage";
+import SniperPage from "./features/sniper/SniperPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
