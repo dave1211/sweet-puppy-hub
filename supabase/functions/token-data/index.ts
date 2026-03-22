@@ -629,6 +629,190 @@ async function enrichTokens(addresses: string[]): Promise<EnrichedTokenData[]> {
   }
 }
 
+// ── Live Pairs (DexScreener Solana gainers + volume leaders) ──
+interface LivePair {
+  address: string;
+  symbol: string;
+  name: string;
+  price: number;
+  change24h: number;
+  change1h: number;
+  change5m: number;
+  volume24h: number;
+  volume1h: number;
+  liquidity: number;
+  marketCap: number;
+  pairCreatedAt: number;
+  dexId: string;
+  url: string;
+  buyCount24h: number;
+  sellCount24h: number;
+  makers24h: number;
+  imageUrl: string | null;
+}
+
+async function fetchLivePairs(): Promise<LivePair[]> {
+  const cacheKey = "live-pairs";
+  const cached = getCached<LivePair[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    // Fetch DexScreener search for trending Solana pairs
+    const [trendingRes, boostRes] = await Promise.all([
+      fetch("https://api.dexscreener.com/latest/dex/search?q=sol"),
+      fetch("https://api.dexscreener.com/token-boosts/top/v1"),
+    ]);
+
+    const pairs: LivePair[] = [];
+    const seen = new Set<string>();
+
+    // Process search results (high volume Solana pairs)
+    if (trendingRes.ok) {
+      const trendingData = await trendingRes.json();
+      for (const pair of (trendingData.pairs ?? []).slice(0, 30)) {
+        if (pair.chainId !== "solana") continue;
+        const addr = pair.baseToken?.address;
+        if (!addr || seen.has(addr)) continue;
+        seen.add(addr);
+        pairs.push(parseDexPair(pair));
+      }
+    }
+
+    // Process boosted tokens
+    if (boostRes.ok) {
+      const boostData = await boostRes.json();
+      const solBoosts = (Array.isArray(boostData) ? boostData : [])
+        .filter((t: Record<string, unknown>) => t.chainId === "solana")
+        .slice(0, 15);
+      const boostAddrs = solBoosts
+        .map((t: Record<string, unknown>) => t.tokenAddress as string)
+        .filter((a: string) => !seen.has(a));
+      
+      if (boostAddrs.length > 0) {
+        const batch = boostAddrs.slice(0, 15).join(",");
+        const pairRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${batch}`);
+        if (pairRes.ok) {
+          const pairData = await pairRes.json();
+          for (const pair of (pairData.pairs ?? [])) {
+            if (pair.chainId !== "solana") continue;
+            const addr = pair.baseToken?.address;
+            if (!addr || seen.has(addr)) continue;
+            seen.add(addr);
+            pairs.push(parseDexPair(pair));
+          }
+        }
+      }
+    }
+
+    // Sort by volume descending
+    pairs.sort((a, b) => b.volume24h - a.volume24h);
+    const results = pairs.slice(0, 50);
+    setCache(cacheKey, results);
+    return results;
+  } catch {
+    return cache[cacheKey]?.data as LivePair[] ?? [];
+  }
+}
+
+function parseDexPair(pair: Record<string, unknown>): LivePair {
+  const txns = (pair.txns ?? {}) as Record<string, Record<string, number>>;
+  const h24 = txns.h24 ?? {};
+  const priceChange = (pair.priceChange ?? {}) as Record<string, number>;
+  const info = (pair.info ?? {}) as Record<string, unknown>;
+
+  return {
+    address: (pair.baseToken as any)?.address ?? "",
+    symbol: (pair.baseToken as any)?.symbol ?? "???",
+    name: (pair.baseToken as any)?.name ?? "Unknown",
+    price: parseFloat((pair.priceUsd as string) ?? "0") || 0,
+    change24h: priceChange.h24 ?? 0,
+    change1h: priceChange.h1 ?? 0,
+    change5m: priceChange.m5 ?? 0,
+    volume24h: ((pair.volume as any)?.h24 ?? 0),
+    volume1h: ((pair.volume as any)?.h1 ?? 0),
+    liquidity: ((pair.liquidity as any)?.usd ?? 0),
+    marketCap: (pair.marketCap as number) ?? ((pair.fdv as number) ?? 0),
+    pairCreatedAt: (pair.pairCreatedAt as number) ?? Date.now(),
+    dexId: (pair.dexId as string) ?? "unknown",
+    url: (pair.url as string) ?? `https://dexscreener.com/solana/${(pair.baseToken as any)?.address}`,
+    buyCount24h: h24.buys ?? 0,
+    sellCount24h: h24.sells ?? 0,
+    makers24h: ((pair.makers as any)?.h24 ?? 0),
+    imageUrl: (info.imageUrl as string) ?? null,
+  };
+}
+
+// ── Birdeye Token Overview (requires BIRDEYE_API_KEY) ──
+async function fetchBirdeyeOverview(address: string): Promise<Record<string, unknown> | null> {
+  const apiKey = Deno.env.get("BIRDEYE_API_KEY");
+  if (!apiKey) return null;
+  
+  const cacheKey = `birdeye-${address}`;
+  const cached = getCached<Record<string, unknown>>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(`https://public-api.birdeye.so/defi/token_overview?address=${address}`, {
+      headers: { "X-API-KEY": apiKey, "x-chain": "solana" },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const overview = data.data ?? {};
+    const result = {
+      holders: overview.holder ?? 0,
+      uniqueWallets: overview.uniqueWallet24h ?? 0,
+      trade24h: overview.trade24h ?? 0,
+      buy24h: overview.buy24h ?? 0,
+      sell24h: overview.sell24h ?? 0,
+      v24hUSD: overview.v24hUSD ?? 0,
+      mc: overview.mc ?? 0,
+      supply: overview.supply ?? 0,
+      decimals: overview.decimals ?? 0,
+      lastTradeHumanTime: overview.lastTradeHumanTime ?? null,
+      price: overview.price ?? 0,
+      priceChange24h: overview.priceChange24hPercent ?? 0,
+    };
+    setCache(cacheKey, result);
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+// ── Helius Enhanced Wallet Transactions (requires HELIUS_API_KEY) ──
+async function fetchHeliusTransactions(address: string, limit = 15): Promise<unknown[]> {
+  const apiKey = Deno.env.get("HELIUS_API_KEY");
+  if (!apiKey) return [];
+
+  const cacheKey = `helius-${address}`;
+  const cached = getCached<unknown[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      `https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${apiKey}&limit=${limit}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results = (Array.isArray(data) ? data : []).map((tx: Record<string, unknown>) => ({
+      signature: tx.signature,
+      timestamp: tx.timestamp,
+      type: tx.type,
+      description: tx.description,
+      fee: tx.fee,
+      feePayer: tx.feePayer,
+      source: tx.source,
+      tokenTransfers: (tx.tokenTransfers as unknown[]) ?? [],
+      nativeTransfers: (tx.nativeTransfers as unknown[]) ?? [],
+      accountData: (tx.accountData as unknown[]) ?? [],
+    }));
+    setCache(cacheKey, results);
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -680,6 +864,13 @@ serve(async (req) => {
         });
       }
       const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "10"), 20);
+      // Try Helius first (richer data), fall back to Solana RPC
+      const heliusTxs = await fetchHeliusTransactions(address, limit);
+      if (heliusTxs.length > 0) {
+        return new Response(JSON.stringify(heliusTxs), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const data = await fetchWalletActivity(address, limit);
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -696,6 +887,33 @@ serve(async (req) => {
     if (action === "trending-signals") {
       const data = await fetchTrendingSignals();
       return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "live-pairs") {
+      const data = await fetchLivePairs();
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "token-overview") {
+      const address = url.searchParams.get("address");
+      if (!address) {
+        return new Response(JSON.stringify({ error: "address required" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const birdeye = await fetchBirdeyeOverview(address);
+      if (!birdeye) {
+        // Fall back to DexScreener enrichment
+        const enriched = await enrichTokens([address]);
+        return new Response(JSON.stringify(enriched[0] ?? null), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify(birdeye), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -728,7 +946,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Unknown action" }),
+      JSON.stringify({ error: "Unknown action. Available: sol-price, token-info, batch-prices, wallet-activity, new-launches, trending-signals, live-pairs, token-overview, token-search, token-enrich" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

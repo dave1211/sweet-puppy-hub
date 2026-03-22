@@ -22,6 +22,7 @@ import TokenDetailPage from "./pages/TokenDetailPage";
 import WalletDetailPage from "./pages/WalletDetailPage";
 import LaunchpadPage from "./pages/LaunchpadPage";
 import AboutPage from "./pages/AboutPage";
+import MemeGeneratorPage from "./pages/MemeGeneratorPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -50,6 +51,7 @@ const App = () => (
               <Route path="settings" element={<SettingsPage />} />
               <Route path="launchpad" element={<LaunchpadPage />} />
               <Route path="about" element={<AboutPage />} />
+              <Route path="memes" element={<MemeGeneratorPage />} />
               <Route path="token/:id" element={<TokenDetailPage />} />
               <Route path="wallet/:id" element={<WalletDetailPage />} />
             </Route>
