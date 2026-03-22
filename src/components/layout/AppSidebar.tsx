@@ -1,10 +1,11 @@
 import {
   LayoutDashboard, BarChart3, Rocket, Crosshair, Wallet,
-  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings, ChevronLeft, ChevronRight, Flame, Info, Sparkles
+  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings, ChevronLeft, ChevronRight, Flame, Info, Sparkles, LogOut
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const NAV = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
