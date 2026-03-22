@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: "$Tanner", path: "/token" },
   { label: "Pricing", path: "/pricing" },
   { label: "Rewards", path: "/rewards" },
+  { label: "Sniper", path: "/sniper" },
   { label: "Merch", path: "/merch" },
   { label: "XRPL", path: "/xrpl" },
   { label: "Admin", path: "/merch/admin" },

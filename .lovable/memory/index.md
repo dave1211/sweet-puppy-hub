@@ -1,22 +1,36 @@
-Tanner Terminal — Solana memecoin launchpad & rug protection terminal, with XRPL as secondary chain + bridge.
+# Memory: index.md
+Updated: now
+
+Tanner Terminal — Solana-first memecoin launchpad & rug protection terminal with XRPL secondary chain support.
 
 ## Design System
-- Dark terminal: deep navy bg (225 25% 5%), green primary (142 70% 45%)
-- Premium tokens: --glow-green, --glow-red, --panel-shadow, --panel-inset
-- CSS classes: terminal-panel, terminal-panel-header, terminal-panel-title, depth-bar-bid/ask, glow-green/red
-- Custom scrollbar, tick-up/tick-down animations
+- Dark terminal theme: navy bg (220 20% 7%), green primary (142 70% 45%)
+- Terminal colors: green, red, amber, blue, cyan (all HSL in index.css)
 - Fonts: JetBrains Mono (mono), Inter (sans)
+- pulse-glow animation for live indicators
 
-## Architecture
-- **Primary**: Solana memecoin launchpad (pump.fun, rug detection, smart money, copy trading, sniper)
-- **Secondary**: XRPL trading at /xrpl with bridge panel
-- **State**: Zustand — walletStore, marketStore, tradingStore, portfolioStore, uiStore, alertStore, ammStore
-- **Contexts**: TierContext (free/pro/elite), WalletContext (Phantom/Solflare), SelectedTokenContext
-- **Layout**: Index (Solana pages via TerminalHeader) + TerminalLayout (XRPL via TerminalTopBar+Sidebar)
-- **Routing**: / = Solana Dashboard, /xrpl = XRPL Trading
+## Architecture  
+- 3 contexts: TierContext (free/pro/elite gating), WalletContext (Phantom/Solflare), SelectedTokenContext
+- Supabase for persistence (watchlist, alerts, tracked_wallets, rewards, merch_products)
+- Edge functions: token-data (DexScreener), jupiter-swap, telegram-alert, tanner-token-stats
+- Solana primary route `/`, XRPL secondary at `/xrpl`
+- Sniper Core at `/sniper` — full-feature module
+
+## Sniper Core Module
+- Location: `src/features/sniper/`
+- Types: `types.ts` (SniperToken, ScoreBreakdown, RiskBreakdown, SniperState machine)
+- Services: `scoringEngine.ts` (weighted 6-category scoring), `riskEngine.ts` (6-category risk analysis), `detectionService.ts` (enrichment pipeline)
+- Stores: `sniperStore.ts` (feed + filters), `executionStore.ts` (buy/sell config)
+- Hooks: `useSniperFeed.ts` (merges newLaunches + trending → processed tokens)
+- Components: SniperHeader, SniperFilters, SniperFeed, SniperDetail, SniperExecution, ScoreBreakdown, RiskPanel
+- 3-panel layout: feed left, detail center, execution right
+- Token states: IGNORE → WATCH → HOT → SNIPE_READY → BLOCKED
+
+## Bridge
+- `src/components/bridge/` — XRP↔SOL cross-chain bridge with 3-step flow
+- BridgeAssets.ts, BridgeAssetSelector.tsx, BridgeConfirmStep.tsx, XRPBridgePanel.tsx
 
 ## Key Decisions
-- Solana-first, XRPL secondary with bridging
-- Keep all existing Solana tools (sniper, rug guard, copy trading, smart money, etc.)
-- XRPL code kept but isolated under /xrpl route
-- xrpl.js v4 for WebSocket (XRPL section only)
+- DO NOT remove XRPL code — keep as secondary chain
+- Solana is the PRIMARY chain, all new features default to Solana
+- Bridge connects XRPL to Solana ecosystem

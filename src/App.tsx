@@ -18,6 +18,7 @@ import MerchAdmin from "./pages/MerchAdmin";
 import TerminalLayout from "./pages/TerminalLayout";
 import TradingPage from "./pages/TradingPage";
 import PortfolioPage from "./pages/PortfolioPage";
+import SniperPage from "./features/sniper/SniperPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
                 <Route path="merch" element={<MerchStore />} />
                 <Route path="merch/:id" element={<MerchProduct />} />
                 <Route path="merch/admin" element={<MerchAdmin />} />
+                <Route path="sniper" element={<SniperPage />} />
               </Route>
               {/* XRPL Trading — secondary */}
               <Route path="/xrpl" element={<TerminalLayout />}>
