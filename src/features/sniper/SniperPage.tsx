@@ -22,9 +22,14 @@ import { toast } from "sonner";
 const SniperPage = () => {
   const { tokens, selectedToken } = useSniperFeed();
   const { isConnected } = useWallet();
+  const deviceId = useDeviceId();
   const { config, openConfirm, isFastMode } = useExecutionStore();
+  const { addRecord } = useAutoSniperStore();
   const snipeReady = tokens.filter((t) => t.state === "SNIPE_READY").length;
   const [mobileTab, setMobileTab] = useState<SniperTab>("feed");
+
+  // Activate auto-snipe engine
+  useAutoSnipeEngine();
 
   const handleBuy = useCallback(() => {
     if (!selectedToken) { toast.error("Select a token first"); return; }
