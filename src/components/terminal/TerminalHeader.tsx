@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: "Pricing", path: "/pricing" },
   { label: "Rewards", path: "/rewards" },
   { label: "Merch", path: "/merch" },
+  { label: "XRPL", path: "/xrpl" },
   { label: "Admin", path: "/merch/admin" },
 ];
 
