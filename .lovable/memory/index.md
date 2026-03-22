@@ -7,16 +7,14 @@ Tanner Terminal clone project - dark terminal trading UI with JetBrains Mono, In
 - pulse-glow animation for live indicators
 
 ## Architecture  
-- 3 contexts: TierContext (free/pro/elite gating), WalletContext (Phantom/Solflare), SelectedTokenContext
-- Supabase for persistence (watchlist, alerts, tracked_wallets, snipe_history tables)
-- Edge functions for token data (DexScreener, Jupiter APIs)
-- Mobile: hamburger sidebar with overlay, responsive grids
-- Live price polling via useLivePriceTicks hook (replaces synthetic chart data)
-- WalletConnectButton in topbar, notification bell popover with real alerts
-- forwardRef on StatusChip, PanelShell, MiniChart to avoid React warnings
+- Auth: Supabase Auth (email/password, auto-confirm enabled)
+- AuthContext wraps app, ProtectedRoute guards all routes except /auth
+- All tables have user_id column with RLS policies using auth.uid()
+- 3 contexts: TierContext, WalletContext, AuthContext
+- Edge functions secured with JWT (getClaims)
+- Telegram-alert has rate limiting (10 req/min per user)
 
-## Key Hooks
-- useLivePriceTicks: polls SOL price, accumulates ticks for live charts
-- useSnipeHistory: reads snipe_history table, exposes wins/losses/active
-- useNewLaunches, useTrendingSignals: edge function data
-- useUnifiedSignals: merged signal scoring
+## Security
+- All RLS policies use auth.uid() - no more device_id-based policies
+- Edge functions validate JWT before processing
+- No anonymous access to user data tables
