@@ -780,17 +780,17 @@ async function fetchBirdeyeOverview(address: string): Promise<Record<string, unk
 }
 
 // ── Helius Enhanced Wallet Transactions (requires HELIUS_API_KEY) ──
-async function fetchHeliusTransactions(address: string, limit = 15): Promise<unknown[]> {
+async function fetchHeliusTransactions(address: string, limit = 15): Promise<WalletTransaction[]> {
   const apiKey = Deno.env.get("HELIUS_API_KEY");
-  if (!apiKey) return [];
+  if (!apiKey) { console.log("[Helius] No API key configured"); return []; }
 
   const cacheKey = `helius-${address}`;
-  const cached = getCached<unknown[]>(cacheKey);
+  const cached = getCached<WalletTransaction[]>(cacheKey);
   if (cached) return cached;
 
   try {
     const url = `https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${apiKey}&limit=${limit}`;
-    console.log(`[Helius] Fetching: ${url.replace(apiKey, "***")}`);
+    console.log(`[Helius] Fetching transactions for ${address.slice(0,8)}...`);
     const res = await fetch(url);
     if (!res.ok) {
       const errBody = await res.text();
@@ -798,22 +798,59 @@ async function fetchHeliusTransactions(address: string, limit = 15): Promise<unk
       return [];
     }
     const data = await res.json();
-    console.log(`[Helius] Got ${Array.isArray(data) ? data.length : 0} transactions for ${address.slice(0,8)}`);
-    const results = (Array.isArray(data) ? data : []).map((tx: Record<string, unknown>) => ({
-      signature: tx.signature,
-      timestamp: tx.timestamp,
-      type: tx.type,
-      description: tx.description,
-      fee: tx.fee,
-      feePayer: tx.feePayer,
-      source: tx.source,
-      tokenTransfers: (tx.tokenTransfers as unknown[]) ?? [],
-      nativeTransfers: (tx.nativeTransfers as unknown[]) ?? [],
-      accountData: (tx.accountData as unknown[]) ?? [],
-    }));
+    console.log(`[Helius] Got ${Array.isArray(data) ? data.length : 0} transactions`);
+    
+    // Normalize Helius enhanced format into WalletTransaction format
+    const results: WalletTransaction[] = (Array.isArray(data) ? data : []).map((tx: Record<string, unknown>) => {
+      const tokenTransfers = (tx.tokenTransfers as Array<Record<string, unknown>>) ?? [];
+      const nativeTransfers = (tx.nativeTransfers as Array<Record<string, unknown>>) ?? [];
+      const txType = (tx.type as string) ?? "UNKNOWN";
+      
+      // Determine type from Helius transaction type
+      let type: WalletTransaction["type"] = "unknown";
+      if (txType === "SWAP" || txType === "TOKEN_MINT") type = "buy";
+      else if (txType === "TRANSFER") type = "transfer";
+      else if (txType.includes("SELL") || txType.includes("BURN")) type = "sell";
+      else if (txType.includes("BUY") || txType.includes("SWAP")) type = "buy";
+      
+      // Get first token transfer info
+      let tokenAddress: string | null = null;
+      let amount: number | null = null;
+      let tokenSymbol: string | null = null;
+      
+      if (tokenTransfers.length > 0) {
+        const tt = tokenTransfers[0];
+        tokenAddress = (tt.mint as string) ?? null;
+        amount = Number(tt.tokenAmount ?? 0) || null;
+        tokenSymbol = (tt.tokenStandard as string) ?? null;
+      } else if (nativeTransfers.length > 0) {
+        const nt = nativeTransfers[0];
+        tokenAddress = "So11111111111111111111111111111112";
+        tokenSymbol = "SOL";
+        amount = Number(nt.amount ?? 0) / 1e9 || null;
+        // Determine direction based on who sent/received
+        if ((nt.fromUserAccount as string) === address) type = "sell";
+        else if ((nt.toUserAccount as string) === address) type = "buy";
+        else type = "transfer";
+      }
+      
+      return {
+        signature: (tx.signature as string) ?? "",
+        blockTime: (tx.timestamp as number) ?? null,
+        slot: (tx.slot as number) ?? 0,
+        err: tx.transactionError ?? null,
+        memo: (tx.description as string) ?? null,
+        tokenAddress,
+        type,
+        amount,
+        tokenSymbol,
+      };
+    });
+    
     setCache(cacheKey, results);
     return results;
-  } catch {
+  } catch (e) {
+    console.error(`[Helius] Exception: ${e}`);
     return [];
   }
 }
