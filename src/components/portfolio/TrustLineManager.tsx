@@ -1,27 +1,71 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useWalletStore } from "@/stores/walletStore";
-import { Link2, AlertTriangle, Shield, ShieldAlert, Plus, Trash2, Info } from "lucide-react";
+import { xrplService } from "@/services/xrplService";
+import { Link2, AlertTriangle, Shield, ShieldAlert, Plus, Trash2, Info, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import type { TrustLine } from "@/types/xrpl";
 
-function generateMockTrustLines(): TrustLine[] {
-  return [
-    { currency: "USD", issuer: "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq", balance: "1250.50", limit: "10000", limitPeer: "0", noRipple: true, freeze: false, authorized: true, issuerName: "GateHub", riskLevel: "safe" },
-    { currency: "SOLO", issuer: "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz", balance: "48000", limit: "1000000", limitPeer: "0", noRipple: true, freeze: false, authorized: true, issuerName: "Sologenic", riskLevel: "safe" },
-    { currency: "CSC", issuer: "rCSCManTZ8ME9EoLrSHHYKW8PPwWMgkwr", balance: "125000", limit: "5000000", limitPeer: "0", noRipple: false, freeze: false, authorized: true, issuerName: "CasinoCoin", riskLevel: "caution" },
-    { currency: "FAKE", issuer: "rFAKEissuer1234567890abcdefghij", balance: "0", limit: "100", limitPeer: "0", noRipple: false, freeze: false, authorized: false, issuerName: undefined, riskLevel: "danger" },
-  ];
+// Known verified issuers for risk classification
+const VERIFIED_ISSUERS: Record<string, { name: string; risk: "safe" | "caution" }> = {
+  "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq": { name: "GateHub", risk: "safe" },
+  "rsoLo2S1kiGeCcn6hCUXVrCpGMWLrRrLZz": { name: "Sologenic", risk: "safe" },
+  "rcoreNywaoz2ZCQ8Lg2EbSLnGuRBmun6D": { name: "Coreum", risk: "safe" },
+  "rCSCManTZ8ME9EoLrSHHYKW8PPwWMgkwr": { name: "CasinoCoin", risk: "caution" },
+  "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B": { name: "Bitstamp", risk: "safe" },
+};
+
+function classifyRisk(issuer: string): { name?: string; risk: TrustLine["riskLevel"] } {
+  const known = VERIFIED_ISSUERS[issuer];
+  if (known) return { name: known.name, risk: known.risk };
+  return { risk: "unknown" };
 }
 
 export function TrustLineManager() {
-  const { isConnected } = useWalletStore();
+  const { isConnected, address } = useWalletStore();
   const [showAdd, setShowAdd] = useState(false);
   const [newCurrency, setNewCurrency] = useState("");
   const [newIssuer, setNewIssuer] = useState("");
-  const trustLines = useMemo(() => generateMockTrustLines(), []);
+  const [trustLines, setTrustLines] = useState<TrustLine[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch real trust lines from XRPL
+  useEffect(() => {
+    if (!isConnected || !address) {
+      setTrustLines([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+
+    xrplService.getBalances(address).then(({ tokens }) => {
+      if (cancelled) return;
+      const lines: TrustLine[] = tokens.map((t) => {
+        const { name, risk } = classifyRisk(t.issuer);
+        return {
+          currency: t.currency,
+          issuer: t.issuer,
+          balance: t.value,
+          limit: t.limit ?? "0",
+          limitPeer: "0",
+          noRipple: false,
+          freeze: false,
+          authorized: true,
+          issuerName: name,
+          riskLevel: risk,
+        };
+      });
+      setTrustLines(lines);
+      setIsLoading(false);
+    }).catch(() => {
+      if (!cancelled) setIsLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [isConnected, address]);
 
   const riskConfig = {
     safe: { icon: Shield, color: "text-primary/60", bg: "bg-primary/8", label: "Verified" },
@@ -32,14 +76,15 @@ export function TrustLineManager() {
 
   const handleAdd = () => {
     if (!newCurrency || !newIssuer) { toast.error("Enter currency code and issuer address"); return; }
-    toast.success(`Trust line for ${newCurrency} added (simulated)`);
+    // In production, this would submit a TrustSet transaction via xrplService
+    toast.info(`Trust line for ${newCurrency} would require wallet signature (TrustSet tx)`);
     setShowAdd(false);
     setNewCurrency("");
     setNewIssuer("");
   };
 
   const handleRemove = (currency: string) => {
-    toast.info(`Trust line for ${currency} removed (simulated)`);
+    toast.info(`Removing trust line for ${currency} would require wallet signature (TrustSet limit=0)`);
   };
 
   if (!isConnected) {
@@ -59,7 +104,9 @@ export function TrustLineManager() {
           <span className="terminal-panel-title">Trust Lines</span>
         </div>
         <div className="flex items-center gap-1">
-          <span className="terminal-panel-subtitle">{trustLines.length} lines</span>
+          <span className="terminal-panel-subtitle">
+            {isLoading ? "Loading…" : `${trustLines.length} lines`}
+          </span>
           <button
             onClick={() => setShowAdd(!showAdd)}
             className="p-0.5 hover:bg-muted/30 rounded transition-colors ml-1"
@@ -69,7 +116,6 @@ export function TrustLineManager() {
         </div>
       </div>
 
-      {/* Add form */}
       {showAdd && (
         <div className="px-3 py-2 border-b border-border/30 space-y-1.5 bg-muted/5">
           <div className="p-1.5 rounded bg-terminal-amber/5 border border-terminal-amber/20 flex items-start gap-1.5">
@@ -96,39 +142,49 @@ export function TrustLineManager() {
         </div>
       )}
 
-      {/* Trust lines list */}
       <div className="divide-y divide-border/20 max-h-64 overflow-y-auto">
-        {trustLines.map((tl) => {
-          const risk = riskConfig[tl.riskLevel];
-          const RiskIcon = risk.icon;
-          return (
-            <div key={`${tl.currency}-${tl.issuer}`} className="px-3 py-2 hover:bg-muted/10 transition-colors">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono font-bold text-foreground/80">{tl.currency}</span>
-                  <div className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded text-[7px] font-mono", risk.bg, risk.color)}>
-                    <RiskIcon className="h-2 w-2" />
-                    {risk.label}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-6 gap-2">
+            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+            <span className="text-[9px] font-mono text-muted-foreground">Fetching trust lines…</span>
+          </div>
+        ) : trustLines.length === 0 ? (
+          <div className="py-6 text-center">
+            <p className="text-[9px] font-mono text-muted-foreground/30">No trust lines found</p>
+          </div>
+        ) : (
+          trustLines.map((tl) => {
+            const risk = riskConfig[tl.riskLevel];
+            const RiskIcon = risk.icon;
+            return (
+              <div key={`${tl.currency}-${tl.issuer}`} className="px-3 py-2 hover:bg-muted/10 transition-colors">
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold text-foreground/80">{tl.currency}</span>
+                    <div className={cn("flex items-center gap-0.5 px-1 py-0.5 rounded text-[7px] font-mono", risk.bg, risk.color)}>
+                      <RiskIcon className="h-2 w-2" />
+                      {risk.label}
+                    </div>
                   </div>
+                  <button
+                    onClick={() => handleRemove(tl.currency)}
+                    className="p-0.5 hover:bg-destructive/10 rounded transition-colors"
+                  >
+                    <Trash2 className="h-2.5 w-2.5 text-muted-foreground/20 hover:text-destructive/60" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleRemove(tl.currency)}
-                  className="p-0.5 hover:bg-destructive/10 rounded transition-colors"
-                >
-                  <Trash2 className="h-2.5 w-2.5 text-muted-foreground/20 hover:text-destructive/60" />
-                </button>
+                <div className="flex items-center justify-between text-[8px] font-mono">
+                  <span className="text-muted-foreground/40">
+                    {tl.issuerName ?? tl.issuer.slice(0, 12) + "…"}
+                  </span>
+                  <span className="text-foreground/50 tabular-nums">
+                    {Number(tl.balance).toFixed(2)} / {Number(tl.limit).toLocaleString()}
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-[8px] font-mono">
-                <span className="text-muted-foreground/40">
-                  {tl.issuerName ?? tl.issuer.slice(0, 12) + "…"}
-                </span>
-                <span className="text-foreground/50 tabular-nums">
-                  {Number(tl.balance).toFixed(2)} / {Number(tl.limit).toLocaleString()}
-                </span>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </div>
   );
