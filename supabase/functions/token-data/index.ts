@@ -783,7 +783,6 @@ async function fetchBirdeyeOverview(address: string): Promise<Record<string, unk
 async function fetchHeliusTransactions(address: string, limit = 15): Promise<WalletTransaction[]> {
   const apiKey = Deno.env.get("HELIUS_API_KEY");
   if (!apiKey) { console.log("[Helius] No API key configured"); return []; }
-  console.log(`[Helius] Key starts with: ${apiKey.slice(0,8)}...`);
 
   const cacheKey = `helius-${address}`;
   const cached = getCached<WalletTransaction[]>(cacheKey);
