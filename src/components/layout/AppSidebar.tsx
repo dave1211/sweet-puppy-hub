@@ -63,6 +63,15 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           );
         })}
       </div>
+      {user && (
+        <button
+          onClick={signOut}
+          className="flex items-center gap-3 px-4 py-2 border-t border-border text-muted-foreground hover:text-terminal-red transition-colors text-xs font-mono"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          {!collapsed && <span className="text-[11px]">SIGN OUT</span>}
+        </button>
+      )}
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors hidden md:flex items-center justify-center"
