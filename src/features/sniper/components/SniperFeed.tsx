@@ -3,6 +3,7 @@ import { useSniperStore } from "../stores/sniperStore";
 import { STATE_COLORS, SCORE_COLORS, RISK_COLORS } from "../types";
 import type { SniperToken } from "../types";
 import { Users, TrendingUp, Droplets, Brain } from "lucide-react";
+import { PlatformBadge } from "@/components/terminal/PlatformLinks";
 
 function formatAge(pairCreatedAt: number): string {
   const min = (Date.now() - pairCreatedAt) / 60_000;
