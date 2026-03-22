@@ -97,7 +97,7 @@ export default function TokenDetailPage() {
             </p>
           </div>
         </div>
-        <MiniChart baseValue={displayPrice} change={displayChange} height={140} />
+        <MiniChart data={liveTicks.length > 1 ? liveTicks : undefined} baseValue={displayPrice} change={displayChange} height={140} />
       </PanelShell>
 
       {/* Stats grid */}
