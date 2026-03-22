@@ -51,6 +51,9 @@ export function SniperDetail({ token: st }: { token: SniperToken | null }) {
         </div>
       </div>
 
+      {/* Platform Links */}
+      <PlatformLinks address={token.address} dexId={token.dexId} url={token.url} />
+
       {/* Address */}
       <div className="text-[9px] font-mono text-muted-foreground bg-muted/30 rounded px-2 py-1 truncate">
         {token.address}
