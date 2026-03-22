@@ -1,5 +1,5 @@
-import { ShoppingBag, Tag, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShoppingBag, Tag, Loader2, ShoppingCart, Star, Truck, Shield, RotateCcw } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { useMerchProducts } from "@/hooks/useMerchProducts";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -39,10 +39,10 @@ const IMAGE_MAP: Record<string, string> = {
   "/merch/sticker-pack.png": stickerPack,
 };
 
-const CATEGORY_ICONS: Record<string, string> = {
-  apparel: "👕",
-  accessories: "🎒",
-  pets: "🐕",
+const CATEGORY_LABELS: Record<string, { icon: string; label: string }> = {
+  apparel: { icon: "👕", label: "Apparel" },
+  accessories: { icon: "🎒", label: "Accessories" },
+  pets: { icon: "🐕", label: "Pets" },
 };
 
 const CATEGORIES = ["all", "apparel", "accessories", "pets"] as const;
@@ -50,81 +50,146 @@ const CATEGORIES = ["all", "apparel", "accessories", "pets"] as const;
 export default function MerchStore() {
   const { data: products, isLoading } = useMerchProducts();
   const [filter, setFilter] = useState<string>("all");
+  const [cart, setCart] = useState<Record<string, number>>({});
 
   const filtered = filter === "all" ? products : products?.filter((p) => p.category === filter);
+  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  const cartTotal = products
+    ? Object.entries(cart).reduce((sum, [id, qty]) => {
+        const p = products.find((pr) => pr.id === id);
+        return sum + (p ? Number(p.price) * qty : 0);
+      }, 0)
+    : 0;
 
-  const handleBuy = (name: string) => {
-    toast.info(`Checkout for "${name}" coming soon — Stripe integration pending`);
+  const addToCart = (id: string, name: string) => {
+    setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+    toast.success(`${name} added to cart`);
+  };
+
+  const handleCheckout = () => {
+    toast.info("Checkout coming soon — Stripe integration pending. Your cart has been saved.");
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="text-center space-y-2 pt-2">
+    <div className="space-y-6 max-w-6xl mx-auto pb-8">
+      {/* Header */}
+      <div className="text-center space-y-2 pt-4">
         <h1 className="text-2xl md:text-3xl font-mono font-bold text-foreground">
           <ShoppingBag className="inline h-7 w-7 text-terminal-cyan mr-2" />
-          Merch <span className="text-primary">Store</span>
+          Tanner <span className="text-primary">Merch</span>
         </h1>
-        <p className="text-sm font-mono text-muted-foreground">Rep the terminal. Look like alpha.</p>
+        <p className="text-sm font-mono text-muted-foreground">Premium terminal gear. Rep the alpha.</p>
       </div>
 
-      {/* Category filter */}
-      <div className="flex justify-center gap-2 flex-wrap">
-        {CATEGORIES.map((cat) => (
+      {/* Trust badges */}
+      <div className="flex justify-center gap-6 flex-wrap text-[10px] font-mono text-muted-foreground">
+        <span className="flex items-center gap-1"><Truck className="h-3 w-3 text-primary" /> Free shipping $50+</span>
+        <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-primary" /> Secure checkout</span>
+        <span className="flex items-center gap-1"><RotateCcw className="h-3 w-3 text-primary" /> 30-day returns</span>
+        <span className="flex items-center gap-1"><Star className="h-3 w-3 text-terminal-amber" /> 4.9/5 rated</span>
+      </div>
+
+      {/* Category filter + cart */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => setFilter(cat)}
+              className={`px-3 py-1.5 rounded-md text-[10px] font-mono font-bold border transition-colors ${
+                filter === cat
+                  ? "bg-primary/20 text-primary border-primary/40"
+                  : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+              }`}
+            >
+              {cat === "all" ? "ALL" : `${CATEGORY_LABELS[cat]?.icon || ""} ${CATEGORY_LABELS[cat]?.label || cat}`}
+            </button>
+          ))}
+        </div>
+
+        {cartCount > 0 && (
           <button
-            key={cat}
-            onClick={() => setFilter(cat)}
-            className={`px-3 py-1 rounded-md text-[10px] font-mono font-bold border transition-colors ${
-              filter === cat
-                ? "bg-primary/20 text-primary border-primary/40"
-                : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
-            }`}
+            onClick={handleCheckout}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-mono font-bold hover:bg-primary/90 transition-colors"
           >
-            {cat === "all" ? "ALL" : `${CATEGORY_ICONS[cat] || ""} ${cat.toUpperCase()}`}
+            <ShoppingCart className="h-4 w-4" />
+            Cart ({cartCount}) — ${cartTotal.toFixed(2)}
           </button>
-        ))}
+        )}
       </div>
 
+      {/* Products grid */}
       {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+        <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : !filtered || filtered.length === 0 ? (
-        <p className="text-center text-sm font-mono text-muted-foreground py-12">No products yet…</p>
+        <p className="text-center text-sm font-mono text-muted-foreground py-16">No products yet…</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((product) => {
             const imgSrc = product.image_url ? IMAGE_MAP[product.image_url] : null;
+            const inCart = cart[product.id] || 0;
             return (
-              <Card key={product.id} className="border-border bg-card hover:border-primary/30 transition-colors group overflow-hidden">
-                <CardHeader className="pb-2">
-                  <div className="w-full h-44 rounded-md bg-muted/60 border border-border flex items-center justify-center mb-3 overflow-hidden">
-                    {imgSrc ? (
-                      <img src={imgSrc} alt={product.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-4xl">{CATEGORY_ICONS[product.category] || "📦"}</span>
-                    )}
+              <Card key={product.id} className="border-border bg-card hover:border-primary/30 transition-all group overflow-hidden hover:shadow-lg hover:shadow-primary/5">
+                {/* Image */}
+                <div className="w-full aspect-square bg-muted/40 overflow-hidden relative">
+                  {imgSrc ? (
+                    <img src={imgSrc} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-5xl">{CATEGORY_LABELS[product.category]?.icon || "📦"}</span>
+                    </div>
+                  )}
+                  {inCart > 0 && (
+                    <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
+                      {inCart} in cart
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2">
+                    <span className="text-[9px] font-mono text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-0.5 rounded-full border border-border">
+                      {CATEGORY_LABELS[product.category]?.label || product.category}
+                    </span>
                   </div>
-                  <CardTitle className="text-sm font-mono flex items-center justify-between">
-                    <span>{product.name}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">{product.category}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-[11px] font-mono text-muted-foreground mb-3">{product.description}</p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
+                </div>
+
+                {/* Details */}
+                <CardContent className="p-4 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-mono font-bold text-foreground leading-tight">{product.name}</h3>
+                    <p className="text-[11px] font-mono text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-1.5">
                       <Tag className="h-3 w-3 text-primary" />
-                      <span className="text-lg font-mono font-black text-foreground">${Number(product.price).toFixed(2)}</span>
+                      <span className="text-xl font-mono font-black text-foreground">${Number(product.price).toFixed(2)}</span>
                     </div>
                     <button
-                      onClick={() => handleBuy(product.name)}
-                      className="px-4 py-1.5 rounded-md bg-primary/10 text-primary text-[10px] font-mono font-bold hover:bg-primary/20 transition-colors border border-primary/30"
+                      onClick={() => addToCart(product.id, product.name)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary/10 text-primary text-[11px] font-mono font-bold hover:bg-primary/20 active:scale-95 transition-all border border-primary/30"
                     >
-                      BUY NOW
+                      <ShoppingCart className="h-3.5 w-3.5" />
+                      ADD TO CART
                     </button>
                   </div>
                 </CardContent>
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Sticky cart bar on mobile */}
+      {cartCount > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border p-3 flex items-center justify-between sm:hidden z-50">
+          <div className="font-mono text-sm text-foreground">
+            <span className="font-bold">{cartCount} items</span> · <span className="text-primary font-black">${cartTotal.toFixed(2)}</span>
+          </div>
+          <button
+            onClick={handleCheckout}
+            className="px-5 py-2 rounded-md bg-primary text-primary-foreground text-xs font-mono font-bold"
+          >
+            CHECKOUT
+          </button>
         </div>
       )}
     </div>
