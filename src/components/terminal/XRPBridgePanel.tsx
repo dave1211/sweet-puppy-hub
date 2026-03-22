@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeftRight, Globe, Zap, CreditCard, TrendingUp } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
+import { useWalletStore } from "@/stores/walletStore";
+import { xrplService } from "@/services/xrplService";
 import { toast } from "sonner";
 
 type BridgeTab = "bridge" | "pay" | "invest";
@@ -20,7 +22,8 @@ const INVEST_ASSETS = [
 ];
 
 export function XRPBridgePanel() {
-  const { isConnected } = useWallet();
+  const { isConnected, balanceSOL } = useWallet();
+  const xrplWallet = useWalletStore();
   const [tab, setTab] = useState<BridgeTab>("bridge");
   const [fromAsset, setFromAsset] = useState("sol");
   const [toAsset, setToAsset] = useState("xrp");
@@ -29,6 +32,7 @@ export function XRPBridgePanel() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const solPrice = 168.42;
+  const xrpBalance = Number(xrplWallet.xrpBalance) / 1_000_000;
 
   const getConvertedAmount = () => {
     const amt = parseFloat(amount);
@@ -60,7 +64,14 @@ export function XRPBridgePanel() {
       <div className="flex items-center gap-2 mb-3">
         <Globe className="h-4 w-4 text-terminal-blue" />
         <h3 className="text-xs font-mono font-bold text-foreground tracking-wide">XRP BRIDGE & PAY</h3>
-        <span className="ml-auto text-[10px] font-mono text-terminal-blue bg-terminal-blue/10 px-1.5 py-0.5 rounded">CROSS-CHAIN</span>
+        <div className="ml-auto flex items-center gap-2">
+          {xrplWallet.isConnected && (
+            <span className="text-[9px] font-mono text-primary">{xrpBalance.toFixed(2)} XRP</span>
+          )}
+          <span className="text-[10px] font-mono text-terminal-blue bg-terminal-blue/10 px-1.5 py-0.5 rounded">
+            {xrplWallet.isConnected ? "XRPL LIVE" : "CROSS-CHAIN"}
+          </span>
+        </div>
       </div>
 
       {/* Tab Bar */}
