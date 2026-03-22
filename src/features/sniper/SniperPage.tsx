@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react";
 import { useSniperFeed } from "@/features/sniper/hooks/useSniperFeed";
 import { useSniperHotkeys } from "@/features/sniper/hooks/useSniperHotkeys";
+import { useAutoSnipeEngine } from "@/features/sniper/hooks/useAutoSnipeEngine";
 import { SniperHeader } from "@/features/sniper/components/SniperHeader";
 import { SniperFilters } from "@/features/sniper/components/SniperFilters";
 import { SniperFeed } from "@/features/sniper/components/SniperFeed";
@@ -13,20 +14,60 @@ import { SnipeRecorder } from "@/features/sniper/components/SnipeRecorder";
 import { HotkeyHint } from "@/features/sniper/components/HotkeyHint";
 import { useWallet } from "@/contexts/WalletContext";
 import { useExecutionStore } from "@/features/sniper/stores/executionStore";
+import { useAutoSniperStore } from "@/features/sniper/stores/autoSniperStore";
+import { supabase } from "@/integrations/supabase/client";
+import { useDeviceId } from "@/hooks/useDeviceId";
 import { toast } from "sonner";
 
 const SniperPage = () => {
   const { tokens, selectedToken } = useSniperFeed();
   const { isConnected } = useWallet();
+  const deviceId = useDeviceId();
   const { config, openConfirm, isFastMode } = useExecutionStore();
+  const { addRecord } = useAutoSniperStore();
   const snipeReady = tokens.filter((t) => t.state === "SNIPE_READY").length;
   const [mobileTab, setMobileTab] = useState<SniperTab>("feed");
+
+  // Activate auto-snipe engine
+  useAutoSnipeEngine();
 
   const handleBuy = useCallback(() => {
     if (!selectedToken) { toast.error("Select a token first"); return; }
     if (!isConnected) { toast.error("Connect wallet first"); return; }
     if (config.amountSOL <= 0) { toast.error("Set buy amount"); return; }
     if (isFastMode) {
+      // Record manual snipe
+      const record = {
+        id: crypto.randomUUID(),
+        tokenAddress: selectedToken.token.address,
+        tokenSymbol: selectedToken.token.symbol,
+        tokenName: selectedToken.token.name,
+        entryPrice: selectedToken.token.price,
+        entryTime: Date.now(),
+        amountSOL: config.amountSOL,
+        score: selectedToken.score.total,
+        risk: selectedToken.risk.total,
+        state: selectedToken.state,
+        exitPrice: null,
+        exitTime: null,
+        pnlPercent: null,
+        status: "active" as const,
+      };
+      addRecord(record);
+      supabase.from("snipe_history").insert({
+        id: record.id,
+        device_id: deviceId,
+        token_address: record.tokenAddress,
+        token_symbol: record.tokenSymbol,
+        token_name: record.tokenName,
+        entry_price: record.entryPrice,
+        entry_time: new Date(record.entryTime).toISOString(),
+        amount_sol: record.amountSOL,
+        score: record.score,
+        risk: record.risk,
+        state: record.state,
+        status: record.status,
+      });
       toast.success(`🎯 Fast sniped ${selectedToken.token.symbol} — ${config.amountSOL} SOL`);
     } else {
       openConfirm();

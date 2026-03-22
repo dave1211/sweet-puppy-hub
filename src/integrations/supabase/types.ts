@@ -116,6 +116,66 @@ export type Database = {
         }
         Relationships: []
       }
+      snipe_history: {
+        Row: {
+          amount_sol: number
+          created_at: string
+          device_id: string
+          entry_price: number
+          entry_time: string
+          exit_price: number | null
+          exit_time: string | null
+          id: string
+          pnl_percent: number | null
+          risk: number
+          score: number
+          state: string
+          status: string
+          token_address: string
+          token_name: string
+          token_symbol: string
+          updated_at: string
+        }
+        Insert: {
+          amount_sol?: number
+          created_at?: string
+          device_id: string
+          entry_price?: number
+          entry_time?: string
+          exit_price?: number | null
+          exit_time?: string | null
+          id?: string
+          pnl_percent?: number | null
+          risk?: number
+          score?: number
+          state?: string
+          status?: string
+          token_address: string
+          token_name: string
+          token_symbol: string
+          updated_at?: string
+        }
+        Update: {
+          amount_sol?: number
+          created_at?: string
+          device_id?: string
+          entry_price?: number
+          entry_time?: string
+          exit_price?: number | null
+          exit_time?: string | null
+          id?: string
+          pnl_percent?: number | null
+          risk?: number
+          score?: number
+          state?: string
+          status?: string
+          token_address?: string
+          token_name?: string
+          token_symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tracked_wallets: {
         Row: {
           address: string
