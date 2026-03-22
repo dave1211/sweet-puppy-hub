@@ -1,0 +1,25 @@
+import { useState } from "react";
+import { Bell, Plus, X, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAlerts } from "@/hooks/useAlerts";
+import { toast } from "sonner";
+
+const Alerts = () => {
+  const { alerts, isLoading, addAlert, toggleAlert, removeAlert } = useAlerts();
+  const [address, setAddress] = useState(""); const [kind, setKind] = useState("price"); const [direction, setDirection] = useState("above"); const [threshold, setThreshold] = useState("");
+  const handleAdd = () => { if (!address.trim() || !threshold.trim()) { toast.error("Address and threshold required"); return; } const val = parseFloat(threshold); if (isNaN(val) || val <= 0) { toast.error("Threshold must be positive"); return; } addAlert.mutate({ address: address.trim(), kind, threshold: val, direction }, { onSuccess: () => { setAddress(""); setThreshold(""); toast.success("Alert created"); }, onError: () => toast.error("Failed") }); };
+  const kindColor = (k: string) => { switch (k) { case "price": return "text-terminal-green"; case "volume": return "text-terminal-cyan"; case "pair": return "text-terminal-amber"; default: return "text-foreground"; } };
+  return (
+    <div className="space-y-6">
+      <div><h2 className="text-lg font-mono font-bold flex items-center gap-2"><Bell className="h-5 w-5 text-terminal-amber" />ALERTS CENTER</h2><p className="text-sm text-muted-foreground mt-1">Create and manage token alerts.</p></div>
+      <Card className="border-border bg-card"><CardHeader className="pb-3"><CardTitle className="text-sm font-mono">CREATE ALERT</CardTitle></CardHeader><CardContent className="space-y-3"><Input placeholder="Token address..." value={address} onChange={(e) => setAddress(e.target.value)} className="h-9 font-mono text-xs bg-background" /><div className="grid grid-cols-2 gap-2"><Select value={kind} onValueChange={setKind}><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="price">Price</SelectItem><SelectItem value="volume">Volume</SelectItem><SelectItem value="pair">Pair</SelectItem></SelectContent></Select><Select value={direction} onValueChange={setDirection}><SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="above">Above</SelectItem><SelectItem value="below">Below</SelectItem></SelectContent></Select></div><Input placeholder="Threshold value..." type="number" value={threshold} onChange={(e) => setThreshold(e.target.value)} className="h-9 text-xs bg-background" /><Button size="sm" className="h-9 text-xs font-mono" onClick={handleAdd} disabled={addAlert.isPending}>{addAlert.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}CREATE ALERT</Button></CardContent></Card>
+      <Card className="border-border bg-card"><CardHeader className="pb-3"><CardTitle className="text-sm font-mono flex items-center justify-between"><span>ACTIVE ALERTS</span><span className="text-xs text-muted-foreground font-normal">{alerts.filter((a) => a.enabled).length} active / {alerts.length} total</span></CardTitle></CardHeader><CardContent>{isLoading ? <div className="flex items-center justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div> : alerts.length === 0 ? <p className="text-sm text-muted-foreground text-center py-8 font-mono">No alerts configured.</p> : <div className="space-y-2">{alerts.map((alert) => (<div key={alert.id} className={`flex items-center justify-between rounded-md border border-border px-4 py-3 group hover:bg-muted transition-colors ${alert.enabled ? "bg-muted/50" : "bg-muted/20 opacity-60"}`}><div className="min-w-0 flex-1"><div className="flex items-center gap-2 flex-wrap"><Badge variant="outline" className={`text-[10px] font-mono ${kindColor(alert.kind)} border-current`}>{alert.kind.toUpperCase()}</Badge><span className="text-xs text-muted-foreground">{alert.direction}</span><span className="text-xs font-mono font-medium">{alert.threshold}</span></div><p className="text-[11px] font-mono text-muted-foreground truncate mt-1">{alert.address}</p></div><div className="flex items-center gap-2 shrink-0 ml-2"><Switch checked={alert.enabled} onCheckedChange={(enabled) => toggleAlert.mutate({ id: alert.id, enabled })} className="scale-75" /><Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeAlert.mutate(alert.id)}><X className="h-3 w-3 text-destructive" /></Button></div></div>))}</div>}</CardContent></Card>
+    </div>
+  );
+};
+export default Alerts;

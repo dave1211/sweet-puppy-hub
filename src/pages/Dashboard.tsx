@@ -1,0 +1,52 @@
+import { DashboardStats } from "@/components/terminal/DashboardStats";
+import { WatchlistPanel } from "@/components/terminal/WatchlistPanel";
+import { AlertsPanel } from "@/components/terminal/AlertsPanel";
+import { TokenDetailPanel } from "@/components/terminal/TokenDetailPanel";
+import { ActivityFeed } from "@/components/terminal/ActivityFeed";
+import { NewLaunchesPanel } from "@/components/terminal/NewLaunchesPanel";
+import { SignalPanel } from "@/components/terminal/SignalPanel";
+import { TradingPanel } from "@/components/terminal/TradingPanel";
+import { AutoSniperPanel } from "@/components/terminal/AutoSniperPanel";
+import { SniperModePanel } from "@/components/terminal/SniperModePanel";
+import { WalletPanel } from "@/components/terminal/WalletPanel";
+import { SmartMoneyPanel } from "@/components/terminal/SmartMoneyPanel";
+import { TopSignalsPanel } from "@/components/terminal/TopSignalsPanel";
+import { CopyTradingPanel } from "@/components/terminal/CopyTradingPanel";
+import { AdaptiveWeightsPanel } from "@/components/terminal/AdaptiveWeightsPanel";
+import { GrowthPanel } from "@/components/terminal/GrowthPanel";
+import { DailyPerformancePanel } from "@/components/terminal/DailyPerformancePanel";
+import { GatedPanel } from "@/components/terminal/GatedPanel";
+import { ExecutionControlsPanel } from "@/components/terminal/ExecutionControlsPanel";
+import { RugGuardPanel } from "@/components/terminal/RugGuardPanel";
+import { ProofPanel } from "@/components/terminal/ProofPanel";
+import { SelectedTokenProvider } from "@/contexts/SelectedTokenContext";
+import { useWatchlist } from "@/hooks/useWatchlist";
+import { useAlerts } from "@/hooks/useAlerts";
+import { useTokenPrices } from "@/hooks/useTokenPrices";
+import { useAlertPoller } from "@/hooks/useAlertPoller";
+import { useSmartMoneyAlerts } from "@/hooks/useSmartMoneyAlerts";
+
+const Dashboard = () => {
+  const { items } = useWatchlist();
+  const { alerts } = useAlerts();
+  const activeAlerts = alerts.filter((a) => a.enabled).length;
+  const allAddresses = [...new Set([...items.map((i) => i.address), ...alerts.filter((a) => a.enabled).map((a) => a.address)])];
+  const { data: tokenPrices } = useTokenPrices(allAddresses);
+  useAlertPoller(tokenPrices ?? {});
+  useSmartMoneyAlerts();
+
+  return (
+    <SelectedTokenProvider>
+      <div className="space-y-4">
+        <DashboardStats watchlistCount={items.length} alertsCount={activeAlerts} />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-3 space-y-4"><WatchlistPanel /><AlertsPanel /><DailyPerformancePanel /><ProofPanel /><GrowthPanel /></div>
+          <div className="lg:col-span-5 space-y-4"><TokenDetailPanel /><RugGuardPanel /><TopSignalsPanel /><GatedPanel gate="canUseAdvancedSignals" featureLabel="Advanced Signals"><SignalPanel /></GatedPanel><AdaptiveWeightsPanel /><ActivityFeed /></div>
+          <div className="lg:col-span-4 space-y-4"><GatedPanel gate="canUseAutoSniper" featureLabel="Auto Sniper"><AutoSniperPanel /></GatedPanel><GatedPanel gate="canUseSniper" featureLabel="Sniper Mode"><SniperModePanel /></GatedPanel><GatedPanel gate="canUseCopyTrading" featureLabel="Copy Trading"><CopyTradingPanel /></GatedPanel><NewLaunchesPanel /><GatedPanel gate="canUseSmartMoney" featureLabel="Wallet Tracker"><WalletPanel /></GatedPanel><GatedPanel gate="canUseSmartMoney" featureLabel="Smart Money"><SmartMoneyPanel /></GatedPanel><ExecutionControlsPanel /><TradingPanel /></div>
+        </div>
+      </div>
+    </SelectedTokenProvider>
+  );
+};
+
+export default Dashboard;
