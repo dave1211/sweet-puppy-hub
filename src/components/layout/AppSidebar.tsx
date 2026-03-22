@@ -20,6 +20,7 @@ const NAV = [
   { label: "Portfolio", path: "/portfolio", icon: PieChart },
   { label: "Strategies", path: "/strategies", icon: Sliders },
   { label: "Launchpad", path: "/launchpad", icon: Flame },
+  { label: "Meme Gen", path: "/memes", icon: Sparkles },
   { label: "About", path: "/about", icon: Info },
   { label: "Settings", path: "/settings", icon: Settings },
 ];
