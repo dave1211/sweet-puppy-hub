@@ -116,8 +116,8 @@ export default function MerchStore() {
     <div className="space-y-6 max-w-6xl mx-auto pb-8">
       {/* Header */}
       <div className="text-center space-y-2 pt-4">
-        <h1 className="text-2xl md:text-3xl font-mono font-bold text-foreground">
-          <ShoppingBag className="inline h-7 w-7 text-terminal-cyan mr-2" />
+        <h1 className="text-2xl md:text-3xl font-mono font-bold text-foreground inline-flex items-center gap-2">
+          <img src={tannerLogo} alt="Tanner logo" className="h-7 w-7 rounded-sm object-cover" loading="lazy" />
           Tanner <span className="text-primary">Merch</span>
         </h1>
         <p className="text-sm font-mono text-muted-foreground">Premium terminal gear. Rep the alpha.</p>
