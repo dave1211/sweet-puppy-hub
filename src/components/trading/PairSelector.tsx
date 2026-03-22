@@ -14,21 +14,26 @@ export function PairSelector() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-border text-sm font-mono font-bold text-foreground hover:bg-muted transition-colors">
+        <button className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-muted/40 border border-border/60 text-xs font-mono font-bold text-foreground hover:bg-muted/60 hover:border-border transition-all">
+          <span className="text-primary/80 text-[10px]">●</span>
           {activePair.label}
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
+      <DropdownMenuContent align="start" className="w-44 bg-card border-border">
         {availablePairs.map((pair) => (
           <DropdownMenuItem
             key={pair.label}
             onClick={() => setActivePair(pair)}
             className={cn(
-              "text-xs font-mono",
+              "text-[11px] font-mono cursor-pointer",
               pair.label === activePair.label && "text-primary font-bold"
             )}
           >
+            <span className={cn(
+              "mr-2 text-[8px]",
+              pair.label === activePair.label ? "text-primary" : "text-muted-foreground/30"
+            )}>●</span>
             {pair.label}
           </DropdownMenuItem>
         ))}
