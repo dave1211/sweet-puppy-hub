@@ -14,7 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      alerts: {
+        Row: {
+          address: string
+          created_at: string
+          device_id: string
+          direction: string
+          enabled: boolean
+          id: string
+          kind: string
+          threshold: number
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          device_id: string
+          direction: string
+          enabled?: boolean
+          id?: string
+          kind: string
+          threshold: number
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          device_id?: string
+          direction?: string
+          enabled?: boolean
+          id?: string
+          kind?: string
+          threshold?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tracked_wallets: {
+        Row: {
+          address: string
+          created_at: string
+          device_id: string
+          id: string
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          device_id: string
+          id?: string
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          label?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      watchlist: {
+        Row: {
+          address: string
+          created_at: string
+          device_id: string
+          id: string
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          device_id: string
+          id?: string
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          label?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
