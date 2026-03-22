@@ -62,7 +62,7 @@ const TIER_LABELS: Record<Tier, string> = {
 const TierContext = createContext<TierContextValue | null>(null);
 
 export function TierProvider({ children }: { children: ReactNode }) {
-  const [tier, setTier] = useState<Tier>("free");
+  const [tier, setTier] = useState<Tier>("elite");
 
   const requiredTier = useCallback(
     (gate: keyof TierGates) => GATE_REQUIRED_TIER[gate],
