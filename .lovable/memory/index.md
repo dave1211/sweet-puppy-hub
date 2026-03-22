@@ -1,24 +1,31 @@
-Tanner Terminal clone project - dark terminal trading UI with JetBrains Mono, Inter fonts, green primary accent on dark navy.
+# Memory: index.md
+Updated: now
+
+Tanner Terminal — XRPL-native crypto trading terminal. Phase 1 complete.
 
 ## Design System
 - Dark terminal theme: navy bg (220 20% 7%), green primary (142 70% 45%)
 - Terminal colors: green, red, amber, blue, cyan (all HSL in index.css)
 - Fonts: JetBrains Mono (mono), Inter (sans)
-- pulse-glow animation for live indicators
+- Bloomberg Terminal × modern crypto app aesthetic
 
-## Architecture  
-- 3 contexts: TierContext (free/pro/elite gating), WalletContext (Phantom/Solflare), SelectedTokenContext
-- Lovable Cloud for persistence (watchlist, alerts, tracked_wallets, rewards, merch_products tables)
-- 4 Edge functions: token-data, jupiter-swap, tanner-token-stats, telegram-alert
-- Telegram connector connected for alert push
-- Device-based access (no auth) - permissive RLS policies intentional
-- 8 pages: Dashboard, Watchlist, Alerts, Token, Pricing, Rewards, MerchStore, NotFound
+## Architecture (Phase 1 — XRPL Native)
+- **State**: Zustand stores — walletStore, marketStore, tradingStore, portfolioStore, uiStore
+- **Services**: xrplService (WebSocket singleton), walletService (Xaman/Crossmark/Ledger)
+- **Types**: src/types/xrpl.ts — all domain types
+- **Layout**: TerminalLayout (topbar + sidebar + main), TerminalTopBar, TerminalSidebar
+- **Trading**: ChartPanel (Recharts), OrderBook, TradeForm, RecentTrades, OpenOrders, TradeConfirmModal, PairSelector, XRPLWalletButton
+- **Portfolio**: PortfolioPanel, TransactionHistory
+- **Pages**: TradingPage (default), PortfolioPage
+- **Routing**: / = TradingPage, /portfolio = PortfolioPage
 
-## Completed
-- Full design system, all contexts, hooks, lib files, components
-- Database tables with RLS (rewards, merch_products added)
-- Rewards system with referral tracking
-- Merch store with product listings (Stripe checkout deferred)
-- Telegram alert edge function + TelegramAlertButton component
-- Enhanced rug scanner panel (EnhancedRugPanel)
-- All edge functions deployed
+## Key Decisions
+- xrpl.js v4 for WebSocket + data
+- Wallet providers: Xaman, Crossmark, Ledger (demo fallback when SDK not detected)
+- Session-persisted wallet state via Zustand persist
+- WebSocket-first architecture, auto-reconnect
+- Old Solana code still exists in src/components/terminal/, src/contexts/, src/hooks/ — can be cleaned up
+
+## Supabase (Lovable Cloud)
+- Tables: alerts, merch_products, rewards, tracked_wallets, watchlist
+- Edge functions: jupiter-swap, tanner-token-stats, telegram-alert, token-data
