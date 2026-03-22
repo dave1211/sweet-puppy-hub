@@ -91,8 +91,9 @@ export function ActivityFeed() {
       if (seenSignalsRef.current.has(key)) continue;
       seenSignalsRef.current.add(key);
       const item = items.find((i) => i.address === addr);
-      const label = item?.label || `${addr.slice(0, 6)}…`;
-      setEvents((e) => [{ id: `signal-${key}-${Date.now()}`, type: "signal", message: `${sig.label} on ${label}`, timestamp: new Date(), positive: sig.signal === "momentum" || sig.signal === "early" }, ...e].slice(0, 40));
+      const lbl = item?.label || `${addr.slice(0, 6)}…`;
+      const ev: FeedEvent = { id: `signal-${key}-${Date.now()}`, type: "signal", message: `${sig.label} on ${lbl}`, timestamp: new Date(), positive: sig.signal === "momentum" || sig.signal === "early" };
+      setEvents((e) => [ev, ...e].slice(0, 40));
     }
   }, [signals, items]);
 
