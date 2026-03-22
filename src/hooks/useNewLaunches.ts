@@ -41,8 +41,8 @@ export function useTrendingSignals() {
   return useQuery<NewLaunchToken[]>({
     queryKey: ["trending-signals"],
     queryFn: () => fetchFromEdge("trending-signals"),
-    staleTime: 55_000,
-    refetchInterval: 60_000,
+    staleTime: 15_000,
+    refetchInterval: 20_000,
     retry: 0,
     refetchOnWindowFocus: false,
   });
