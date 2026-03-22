@@ -21,6 +21,7 @@ const RENT_EXEMPT_MIN = 0.00203928;
 
 export function BurnIncinerator() {
   const { isConnected, walletAddress, getWalletObject } = useWallet();
+  const { user } = useAuth();
   const { data: walletData, isLoading, refetch } = useWalletTokens();
   const { data: burnHistory, refetch: refetchHistory } = useBurnHistory(walletAddress);
   const [selectedMint, setSelectedMint] = useState<string | null>(null);
