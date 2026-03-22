@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, BarChart3, Rocket, Crosshair, Wallet,
-  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings, ChevronLeft, ChevronRight
+  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings, ChevronLeft, ChevronRight, Flame
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ const NAV = [
   { label: "Alerts", path: "/alerts", icon: Bell },
   { label: "Portfolio", path: "/portfolio", icon: PieChart },
   { label: "Strategies", path: "/strategies", icon: Sliders },
+  { label: "Launchpad", path: "/launchpad", icon: Flame },
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 

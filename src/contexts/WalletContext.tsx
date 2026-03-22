@@ -143,16 +143,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const wallet = getWalletProvider(p);
     if (!wallet) {
       setIsLoading(false);
-      const urls: Record<string, string> = {
-        phantom: "https://phantom.app",
-        solflare: "https://solflare.com",
-      };
-      toast.error(`${p} not detected`, {
-        description: `Install ${p} wallet extension`,
-        action: {
-          label: "Install",
-          onClick: () => window.open(urls[p], "_blank"),
-        },
+      toast.error(`${p} wallet not detected`, {
+        description: "You're in preview mode — wallet extensions aren't available here. Install the extension in your browser to connect, or explore the app in demo mode.",
+        duration: 6000,
       });
       return;
     }

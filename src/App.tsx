@@ -20,6 +20,7 @@ import StrategiesPage from "./pages/StrategiesPage";
 import SettingsPage from "./pages/SettingsPage";
 import TokenDetailPage from "./pages/TokenDetailPage";
 import WalletDetailPage from "./pages/WalletDetailPage";
+import LaunchpadPage from "./pages/LaunchpadPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="portfolio" element={<PortfolioPageNew />} />
               <Route path="strategies" element={<StrategiesPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="launchpad" element={<LaunchpadPage />} />
               <Route path="token/:id" element={<TokenDetailPage />} />
               <Route path="wallet/:id" element={<WalletDetailPage />} />
             </Route>
