@@ -115,6 +115,7 @@ export function BurnIncinerator() {
       });
 
       await insertBurnRecord({
+        user_id: user?.id || "",
         wallet_address: walletAddress,
         token_mint: selectedToken.mint,
         token_symbol: selectedToken.symbol,
