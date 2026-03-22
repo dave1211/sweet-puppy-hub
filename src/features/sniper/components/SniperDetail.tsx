@@ -3,6 +3,7 @@ import { ExternalLink, Copy, Globe, Users, TrendingUp, Droplets, Brain, Clock } 
 import { toast } from "sonner";
 import type { SniperToken } from "../types";
 import { STATE_COLORS } from "../types";
+import { PlatformLinks, PlatformBadge } from "@/components/terminal/PlatformLinks";
 import { ScoreBreakdown } from "./ScoreBreakdown";
 import { RiskPanel } from "./RiskPanel";
 
