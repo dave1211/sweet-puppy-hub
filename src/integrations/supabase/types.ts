@@ -25,6 +25,7 @@ export type Database = {
           kind: string
           threshold: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           address: string
@@ -36,6 +37,7 @@ export type Database = {
           kind: string
           threshold: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           address?: string
@@ -47,6 +49,7 @@ export type Database = {
           kind?: string
           threshold?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -62,6 +65,7 @@ export type Database = {
           token_mint: string
           token_name: string
           token_symbol: string
+          user_id: string | null
           wallet_address: string
         }
         Insert: {
@@ -75,6 +79,7 @@ export type Database = {
           token_mint: string
           token_name: string
           token_symbol: string
+          user_id?: string | null
           wallet_address: string
         }
         Update: {
@@ -88,6 +93,7 @@ export type Database = {
           token_mint?: string
           token_name?: string
           token_symbol?: string
+          user_id?: string | null
           wallet_address?: string
         }
         Relationships: []
@@ -135,6 +141,7 @@ export type Database = {
           referred_by: string | null
           total_referrals: number
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -145,6 +152,7 @@ export type Database = {
           referred_by?: string | null
           total_referrals?: number
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -155,6 +163,7 @@ export type Database = {
           referred_by?: string | null
           total_referrals?: number
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -177,6 +186,7 @@ export type Database = {
           token_name: string
           token_symbol: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           amount_sol?: number
@@ -196,6 +206,7 @@ export type Database = {
           token_name: string
           token_symbol: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           amount_sol?: number
@@ -215,6 +226,7 @@ export type Database = {
           token_name?: string
           token_symbol?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -226,6 +238,7 @@ export type Database = {
           id: string
           label: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           address: string
@@ -234,6 +247,7 @@ export type Database = {
           id?: string
           label?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           address?: string
@@ -242,6 +256,7 @@ export type Database = {
           id?: string
           label?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -253,6 +268,7 @@ export type Database = {
           id: string
           label: string | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           address: string
@@ -261,6 +277,7 @@ export type Database = {
           id?: string
           label?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           address?: string
@@ -269,6 +286,7 @@ export type Database = {
           id?: string
           label?: string | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
