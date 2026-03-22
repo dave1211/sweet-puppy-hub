@@ -6,8 +6,10 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  isAdmin: boolean;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithWallet: (walletAddress: string, signature: string, message: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -17,18 +19,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const checkAdmin = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from("user_roles" as any)
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdmin(!!data);
+    } catch {
+      setIsAdmin(false);
+    }
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
+      if (session?.user?.id) {
+        setTimeout(() => checkAdmin(session.user.id), 0);
+      } else {
+        setIsAdmin(false);
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
+      if (session?.user?.id) {
+        checkAdmin(session.user.id);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -44,12 +69,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? new Error(error.message) : null };
   };
 
+  const signInWithWallet = async (walletAddress: string, signature: string, message: string) => {
+    try {
+      const res = await supabase.functions.invoke("wallet-auth", {
+        body: { walletAddress, signature, message },
+      });
+
+      if (res.error) {
+        return { error: new Error(res.error.message || "Wallet auth failed") };
+      }
+
+      const { session: walletSession } = res.data;
+      if (!walletSession?.access_token) {
+        return { error: new Error("No session returned") };
+      }
+
+      const { error: setErr } = await supabase.auth.setSession({
+        access_token: walletSession.access_token,
+        refresh_token: walletSession.refresh_token,
+      });
+
+      if (setErr) return { error: new Error(setErr.message) };
+      return { error: null };
+    } catch (err: any) {
+      return { error: new Error(err.message || "Wallet auth failed") };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
+    setIsAdmin(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, isAdmin, signUp, signIn, signInWithWallet, signOut }}>
       {children}
     </AuthContext.Provider>
   );

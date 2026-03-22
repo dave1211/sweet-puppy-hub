@@ -25,7 +25,7 @@ export type Database = {
           kind: string
           threshold: number
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           address: string
@@ -37,7 +37,7 @@ export type Database = {
           kind: string
           threshold: number
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           address?: string
@@ -49,7 +49,7 @@ export type Database = {
           kind?: string
           threshold?: number
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -65,7 +65,7 @@ export type Database = {
           token_mint: string
           token_name: string
           token_symbol: string
-          user_id: string | null
+          user_id: string
           wallet_address: string
         }
         Insert: {
@@ -79,7 +79,7 @@ export type Database = {
           token_mint: string
           token_name: string
           token_symbol: string
-          user_id?: string | null
+          user_id?: string
           wallet_address: string
         }
         Update: {
@@ -93,7 +93,7 @@ export type Database = {
           token_mint?: string
           token_name?: string
           token_symbol?: string
-          user_id?: string | null
+          user_id?: string
           wallet_address?: string
         }
         Relationships: []
@@ -141,7 +141,7 @@ export type Database = {
           referred_by: string | null
           total_referrals: number
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           created_at?: string
@@ -152,7 +152,7 @@ export type Database = {
           referred_by?: string | null
           total_referrals?: number
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           created_at?: string
@@ -163,7 +163,7 @@ export type Database = {
           referred_by?: string | null
           total_referrals?: number
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -186,7 +186,7 @@ export type Database = {
           token_name: string
           token_symbol: string
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           amount_sol?: number
@@ -206,7 +206,7 @@ export type Database = {
           token_name: string
           token_symbol: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           amount_sol?: number
@@ -226,7 +226,7 @@ export type Database = {
           token_name?: string
           token_symbol?: string
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -238,7 +238,7 @@ export type Database = {
           id: string
           label: string | null
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           address: string
@@ -247,7 +247,7 @@ export type Database = {
           id?: string
           label?: string | null
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           address?: string
@@ -256,7 +256,28 @@ export type Database = {
           id?: string
           label?: string | null
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+          wallet_address: string | null
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+          wallet_address?: string | null
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+          wallet_address?: string | null
         }
         Relationships: []
       }
@@ -268,7 +289,7 @@ export type Database = {
           id: string
           label: string | null
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           address: string
@@ -277,7 +298,7 @@ export type Database = {
           id?: string
           label?: string | null
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Update: {
           address?: string
@@ -286,7 +307,7 @@ export type Database = {
           id?: string
           label?: string | null
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -295,10 +316,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -425,6 +452,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
