@@ -1,12 +1,18 @@
 import { Send } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTelegramAlert } from "@/hooks/useTelegramAlert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
+const TG_CHAT_ID_KEY = "tanner_tg_chat_id";
+
 export function TelegramAlertButton({ signal }: { signal?: string }) {
-  const [chatId, setChatId] = useState("");
+  const [chatId, setChatId] = useState(() => localStorage.getItem(TG_CHAT_ID_KEY) || "");
   const [open, setOpen] = useState(false);
   const sendAlert = useTelegramAlert();
+
+  useEffect(() => {
+    if (chatId.trim()) localStorage.setItem(TG_CHAT_ID_KEY, chatId.trim());
+  }, [chatId]);
 
   const handleSend = () => {
     if (!chatId.trim()) return;
@@ -36,6 +42,7 @@ export function TelegramAlertButton({ signal }: { signal?: string }) {
               placeholder="@mychannel or 123456789"
               className="w-full mt-1 px-3 py-2 rounded-md bg-muted border border-border text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            {chatId.trim() && <p className="text-[9px] font-mono text-muted-foreground mt-1">✓ Auto-saved</p>}
           </div>
           <div className="bg-muted/50 rounded-md p-2 border border-border">
             <p className="text-[10px] font-mono text-muted-foreground">Preview:</p>
