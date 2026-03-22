@@ -52,7 +52,7 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
       // Phantom and Solflare accept raw Uint8Array buffers for versioned transactions
       const { signature } = await signAndSendTransaction(txBytes);
 
-      const { signature } = await signAndSendTransaction(tx);
+      
 
       setTxPhase("");
       closeConfirm();
