@@ -12,6 +12,7 @@ import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
 import { useNewLaunches } from "@/hooks/useNewLaunches";
 import { assessRug } from "@/hooks/useRugDetection";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
 import { toast } from "sonner";
 
 const TABS = ["Overview", "Price Action", "Risk Analysis", "Smart Money", "Notes"];
