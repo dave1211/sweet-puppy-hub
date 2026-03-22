@@ -24,6 +24,7 @@ export default function TokenDetailPage() {
   const { data: launches } = useNewLaunches();
   const { addItem } = useWatchlist();
   const { data: priceData } = useTokenPrices(id ? [id] : []);
+  const liveTicks = useLivePriceTicks(15_000);
 
   const signal = tokens.find(t => t.address === id);
   const launch = (launches ?? []).find(t => t.address === id);
