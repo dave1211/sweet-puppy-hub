@@ -1,19 +1,10 @@
 import {
   LayoutDashboard, BarChart3, Rocket, Crosshair, Wallet,
-  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings
+  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  useSidebar,
-} from "@/components/ui/sidebar";
+import { useState } from "react";
 
 const NAV = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -32,43 +23,42 @@ const NAV = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const collapsed = state === "collapsed";
   const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border">
-      <SidebarContent className="pt-2">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV.map((item) => {
-                const active = location.pathname === item.path;
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton asChild>
-                      <NavLink
-                        to={item.path}
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-md text-xs font-mono transition-all duration-150",
-                          active
-                            ? "bg-primary/10 text-primary border-l-2 border-primary"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                        )}
-                      >
-                        <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
-                        {!collapsed && (
-                          <span className="truncate tracking-wide">{item.label.toUpperCase()}</span>
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+    <aside className={cn(
+      "border-r border-border bg-sidebar shrink-0 flex flex-col transition-all duration-200 overflow-hidden",
+      collapsed ? "w-14" : "w-48"
+    )}>
+      <div className="flex-1 py-2 overflow-y-auto space-y-0.5 px-2">
+        {NAV.map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "flex items-center gap-3 px-2.5 py-2 rounded-md text-xs font-mono transition-all duration-150",
+                active
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}
+            >
+              <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+              {!collapsed && (
+                <span className="truncate tracking-wide text-[11px]">{item.label.toUpperCase()}</span>
+              )}
+            </NavLink>
+          );
+        })}
+      </div>
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center"
+      >
+        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+      </button>
+    </aside>
   );
 }

@@ -1,13 +1,8 @@
 import { Search, Bell, Settings, Zap, ChevronDown, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState, useEffect } from "react";
-
-const CHAINS = ["All Chains", "Solana", "Ethereum", "Base", "BSC"];
 
 export function AppTopbar() {
   const [search, setSearch] = useState("");
-  const [chain, setChain] = useState("All Chains");
   const [time, setTime] = useState("");
 
   useEffect(() => {
@@ -20,8 +15,6 @@ export function AppTopbar() {
   return (
     <header className="border-b border-border bg-card/80 backdrop-blur-sm px-3 py-0 relative z-20 shrink-0">
       <div className="flex items-center h-12 gap-3">
-        <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-
         {/* Logo */}
         <div className="flex items-center gap-2 shrink-0">
           <div className="relative">
@@ -50,7 +43,7 @@ export function AppTopbar() {
         {/* Chain selector */}
         <div className="relative hidden md:block">
           <button className="flex items-center gap-1 px-2.5 py-1.5 rounded bg-muted/50 border border-border text-xs font-mono text-muted-foreground hover:text-foreground transition-colors">
-            <span>{chain}</span>
+            <span>All Chains</span>
             <ChevronDown className="h-3 w-3" />
           </button>
         </div>
@@ -59,21 +52,16 @@ export function AppTopbar() {
 
         {/* Right actions */}
         <div className="flex items-center gap-2">
-          {/* Status */}
           <div className="hidden lg:flex items-center gap-1.5">
-            <div className="relative">
-              <div className="h-2 w-2 rounded-full bg-terminal-green animate-pulse-glow" />
-            </div>
+            <div className="h-2 w-2 rounded-full bg-terminal-green animate-pulse-glow" />
             <span className="text-[9px] font-mono text-muted-foreground tracking-wider">LIVE</span>
           </div>
 
-          {/* Clock */}
           <div className="hidden lg:flex items-center gap-1 text-[10px] font-mono text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span>{time}</span>
           </div>
 
-          {/* Bell */}
           <button className="relative p-1.5 rounded hover:bg-muted/50 transition-colors">
             <Bell className="h-4 w-4 text-muted-foreground" />
             <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive flex items-center justify-center">
@@ -81,7 +69,6 @@ export function AppTopbar() {
             </span>
           </button>
 
-          {/* Settings */}
           <button className="p-1.5 rounded hover:bg-muted/50 transition-colors">
             <Settings className="h-4 w-4 text-muted-foreground" />
           </button>
