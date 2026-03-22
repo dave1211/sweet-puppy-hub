@@ -3,6 +3,7 @@ import { useSniperStore } from "../stores/sniperStore";
 import { STATE_COLORS, SCORE_COLORS, RISK_COLORS } from "../types";
 import type { SniperToken } from "../types";
 import { Users, TrendingUp, Droplets, Brain } from "lucide-react";
+import { PlatformBadge } from "@/components/terminal/PlatformLinks";
 
 function formatAge(pairCreatedAt: number): string {
   const min = (Date.now() - pairCreatedAt) / 60_000;
@@ -31,6 +32,7 @@ function TokenRow({ st, isSelected, onClick }: { st: SniperToken; isSelected: bo
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-mono font-bold text-foreground">{token.symbol}</span>
+          <PlatformBadge dexId={token.dexId} address={token.address} />
           <span className={`text-[8px] font-mono px-1 py-0.5 rounded border ${STATE_COLORS[state]}`}>
             {state}
           </span>

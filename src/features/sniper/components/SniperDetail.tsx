@@ -3,6 +3,7 @@ import { ExternalLink, Copy, Globe, Users, TrendingUp, Droplets, Brain, Clock } 
 import { toast } from "sonner";
 import type { SniperToken } from "../types";
 import { STATE_COLORS } from "../types";
+import { PlatformLinks, PlatformBadge } from "@/components/terminal/PlatformLinks";
 import { ScoreBreakdown } from "./ScoreBreakdown";
 import { RiskPanel } from "./RiskPanel";
 
@@ -49,6 +50,9 @@ export function SniperDetail({ token: st }: { token: SniperToken | null }) {
           </a>
         </div>
       </div>
+
+      {/* Platform Links */}
+      <PlatformLinks address={token.address} dexId={token.dexId} url={token.url} />
 
       {/* Address */}
       <div className="text-[9px] font-mono text-muted-foreground bg-muted/30 rounded px-2 py-1 truncate">
