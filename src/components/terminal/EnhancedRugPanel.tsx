@@ -26,8 +26,8 @@ const SCANNER_CHECKS = [
 ];
 
 export function EnhancedRugPanel() {
-  const { selectedToken } = useSelectedToken();
-  const { data: tokenInfo } = useTokenInfo(selectedToken || "");
+  const { selectedAddress } = useSelectedToken();
+  const { data: tokenInfo } = useTokenInfo(selectedAddress);
 
   if (!selectedToken || !tokenInfo) {
     return (
