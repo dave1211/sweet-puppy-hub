@@ -106,7 +106,7 @@ class XRPLService {
       });
 
       const tokens: TokenBalance[] = (lines.result.lines ?? []).map(
-        (l: Record<string, string>) => ({
+        (l) => ({
           currency: l.currency,
           issuer: l.account,
           value: l.balance,
