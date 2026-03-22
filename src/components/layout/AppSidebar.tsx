@@ -22,13 +22,17 @@ const NAV = [
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  onNavigate?: () => void;
+}
+
+export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
 
   return (
     <aside className={cn(
-      "border-r border-border bg-sidebar shrink-0 flex flex-col transition-all duration-200 overflow-hidden",
+      "border-r border-border bg-sidebar shrink-0 flex flex-col h-full transition-all duration-200 overflow-hidden",
       collapsed ? "w-14" : "w-48"
     )}>
       <div className="flex-1 py-2 overflow-y-auto space-y-0.5 px-2">
@@ -38,6 +42,7 @@ export function AppSidebar() {
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-2.5 py-2 rounded-md text-xs font-mono transition-all duration-150",
                 active
@@ -55,7 +60,7 @@ export function AppSidebar() {
       </div>
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center"
+        className="p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors hidden md:flex items-center justify-center"
       >
         {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </button>

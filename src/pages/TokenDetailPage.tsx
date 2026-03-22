@@ -12,6 +12,7 @@ import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
 import { useNewLaunches } from "@/hooks/useNewLaunches";
 import { assessRug } from "@/hooks/useRugDetection";
 import { useWatchlist } from "@/hooks/useWatchlist";
+import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
 import { toast } from "sonner";
 
 const TABS = ["Overview", "Price Action", "Risk Analysis", "Smart Money", "Notes"];
@@ -23,6 +24,7 @@ export default function TokenDetailPage() {
   const { data: launches } = useNewLaunches();
   const { addItem } = useWatchlist();
   const { data: priceData } = useTokenPrices(id ? [id] : []);
+  const liveTicks = useLivePriceTicks(15_000);
 
   const signal = tokens.find(t => t.address === id);
   const launch = (launches ?? []).find(t => t.address === id);
@@ -95,7 +97,7 @@ export default function TokenDetailPage() {
             </p>
           </div>
         </div>
-        <MiniChart baseValue={displayPrice} change={displayChange} height={140} />
+        <MiniChart data={liveTicks.length > 1 ? liveTicks : undefined} baseValue={displayPrice} change={displayChange} height={140} />
       </PanelShell>
 
       {/* Stats grid */}
