@@ -1,8 +1,9 @@
-// Sniper Execution Panel — Buy/sell with risk controls
+// Sniper Execution Panel — Buy/sell with real Jupiter swap
 import { useState } from "react";
-import { Zap, Shield, AlertTriangle, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Zap, Shield, AlertTriangle, ChevronDown, ChevronUp, X, Loader2 } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
 import { useExecutionStore } from "../stores/executionStore";
+import { useJupiterSwap } from "@/hooks/useJupiterSwap";
 import { toast } from "sonner";
 import type { SniperToken } from "../types";
 import { STATE_COLORS, RISK_COLORS, SCORE_COLORS } from "../types";
@@ -11,32 +12,79 @@ const QUICK_AMOUNTS = [0.05, 0.1, 0.25, 0.5, 1.0];
 const SELL_PERCENTS = [25, 50, 75, 100];
 
 export function SniperExecution({ token: st }: { token: SniperToken | null }) {
-  const { isConnected } = useWallet();
+  const { isConnected, walletAddress, signAndSendTransaction, refreshBalance } = useWallet();
   const { config, setAmount, setSlippage, setPriorityFee, isConfirmOpen, openConfirm, closeConfirm, isFastMode } = useExecutionStore();
+  const { buildSwapTransaction, preview, getQuote, isQuoting, isBuilding, error: jupError, clearPreview } = useJupiterSwap();
   const [tab, setTab] = useState<"buy" | "sell">("buy");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [txPhase, setTxPhase] = useState<string>("");
 
-  const handleBuy = () => {
+  const handleBuy = async () => {
     if (!st) return;
-    if (!isConnected) { toast.error("Connect wallet first"); return; }
+    if (!isConnected || !walletAddress) { toast.error("Connect wallet first"); return; }
     if (config.amountSOL <= 0) { toast.error("Enter buy amount"); return; }
 
     if (isFastMode) {
-      executeBuy();
+      await executeBuy();
     } else {
-      openConfirm();
+      // Get quote first, then show confirm modal
+      setTxPhase("Fetching quote…");
+      const q = await getQuote(st.token.address, config.amountSOL, config.slippageBps);
+      setTxPhase("");
+      if (q) openConfirm();
     }
   };
 
-  const executeBuy = () => {
-    if (!st) return;
+  const executeBuy = async () => {
+    if (!st || !walletAddress) return;
     setIsExecuting(true);
-    setTimeout(() => {
-      setIsExecuting(false);
+    try {
+      // Step 1: Build swap transaction via Jupiter edge function
+      setTxPhase("Building transaction…");
+      const result = await buildSwapTransaction(st.token.address, config.amountSOL, walletAddress, config.slippageBps);
+      if (!result?.swapTransaction) throw new Error(jupError || "Failed to build swap transaction");
+
+      // Step 2: Deserialize and send via wallet
+      setTxPhase("Awaiting wallet signature…");
+      const txBytes = Uint8Array.from(atob(result.swapTransaction), (c) => c.charCodeAt(0));
+      
+      // Phantom/Solflare accept { serialize(): Buffer } or VersionedTransaction
+      // We pass the raw bytes as a transaction-like object
+      const { VersionedTransaction } = await import("@solana/web3.js" as string).catch(() => ({ VersionedTransaction: null }));
+      
+      let tx: unknown;
+      if (VersionedTransaction) {
+        tx = VersionedTransaction.deserialize(txBytes);
+      } else {
+        // Fallback: pass raw buffer — Phantom accepts this
+        tx = { serialize: () => txBytes } as unknown;
+      }
+
+      const { signature } = await signAndSendTransaction(tx);
+
+      setTxPhase("");
       closeConfirm();
-      toast.success(`🎯 Sniped ${st.token.symbol} — ${config.amountSOL} SOL`);
-    }, 2000);
+      clearPreview();
+      toast.success(`🎯 Sniped ${st.token.symbol} — ${config.amountSOL} SOL`, {
+        description: `TX: ${signature.slice(0, 8)}…${signature.slice(-8)}`,
+        action: {
+          label: "View",
+          onClick: () => window.open(`https://solscan.io/tx/${signature}`, "_blank"),
+        },
+      });
+      refreshBalance();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Swap failed";
+      if (msg.includes("rejected") || msg.includes("cancelled")) {
+        toast.error("Transaction rejected by wallet");
+      } else {
+        toast.error(`Swap failed: ${msg}`);
+      }
+    } finally {
+      setIsExecuting(false);
+      setTxPhase("");
+    }
   };
 
   const handleSell = (pct: number) => {
@@ -173,11 +221,19 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
           {/* Execute Button */}
           <button
             onClick={handleBuy}
-            disabled={!isConnected || config.amountSOL <= 0 || isExecuting}
+            disabled={!isConnected || config.amountSOL <= 0 || isExecuting || isQuoting}
             className="w-full flex items-center justify-center gap-1.5 rounded py-2.5 text-[11px] font-mono font-bold transition-colors bg-terminal-green/15 text-terminal-green border border-terminal-green/30 hover:bg-terminal-green/25 disabled:opacity-40"
           >
             {isExecuting ? (
-              <span className="animate-pulse">EXECUTING…</span>
+              <span className="flex items-center gap-1.5 animate-pulse">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {txPhase || "EXECUTING…"}
+              </span>
+            ) : isQuoting ? (
+              <span className="flex items-center gap-1.5 animate-pulse">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Fetching quote…
+              </span>
             ) : (
               <>
                 <Zap className="h-3.5 w-3.5" />
@@ -229,9 +285,16 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
               <div className="flex justify-between"><span className="text-muted-foreground">Token</span><span className="text-foreground font-bold">{st.token.symbol}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="text-foreground">{config.amountSOL} SOL</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Slippage</span><span className="text-foreground">{config.slippageBps / 100}%</span></div>
+              {preview && (
+                <>
+                  <div className="flex justify-between"><span className="text-muted-foreground">You Receive</span><span className="text-terminal-green font-bold">~{preview.outputAmount.toLocaleString()} {st.token.symbol}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Min Received</span><span className="text-foreground">{preview.minimumReceived.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Price Impact</span><span className={preview.priceImpact > 5 ? "text-terminal-red" : preview.priceImpact > 1 ? "text-terminal-amber" : "text-terminal-green"}>{preview.priceImpact.toFixed(2)}%</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Route</span><span className="text-foreground">{preview.route.join(" → ")}</span></div>
+                </>
+              )}
               <div className="flex justify-between"><span className="text-muted-foreground">Score</span><span className={SCORE_COLORS[st.score.band]}>{st.score.total} {st.score.band}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Risk</span><span className={RISK_COLORS[st.risk.band]}>{st.risk.total} {st.risk.band}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Liquidity</span><span className="text-foreground">${st.token.liquidity.toLocaleString()}</span></div>
             </div>
             {st.risk.band !== "LOW" && (
               <div className="bg-terminal-amber/10 border border-terminal-amber/20 rounded px-2 py-1.5 flex items-center gap-1.5">
@@ -239,16 +302,22 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
                 <span className="text-[9px] font-mono text-terminal-amber">Risk acknowledged: {st.risk.band}</span>
               </div>
             )}
+            {preview && preview.priceImpact > 5 && (
+              <div className="bg-terminal-red/10 border border-terminal-red/20 rounded px-2 py-1.5 flex items-center gap-1.5">
+                <AlertTriangle className="h-3 w-3 text-terminal-red" />
+                <span className="text-[9px] font-mono text-terminal-red">High price impact — consider reducing size</span>
+              </div>
+            )}
             <div className="flex gap-2">
-              <button onClick={closeConfirm} className="flex-1 py-2 rounded border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground">
+              <button onClick={() => { closeConfirm(); clearPreview(); }} className="flex-1 py-2 rounded border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground">
                 CANCEL
               </button>
               <button
                 onClick={executeBuy}
-                disabled={isExecuting}
+                disabled={isExecuting || isBuilding}
                 className="flex-1 py-2 rounded bg-terminal-green/15 border border-terminal-green/30 text-[10px] font-mono font-bold text-terminal-green hover:bg-terminal-green/25 disabled:opacity-40"
               >
-                {isExecuting ? "SNIPING…" : "CONFIRM"}
+                {isExecuting ? <span className="flex items-center justify-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />{txPhase || "SNIPING…"}</span> : "CONFIRM & SIGN"}
               </button>
             </div>
           </div>
