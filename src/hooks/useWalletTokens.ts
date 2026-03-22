@@ -24,14 +24,6 @@ export function useWalletTokens() {
   return useQuery<WalletBalancesResponse>({
     queryKey: ["wallet-balances", walletAddress],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("wallet-balances", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        body: undefined,
-      });
-
-      // supabase.functions.invoke doesn't support query params well for GET,
-      // so we'll call it directly
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
       const res = await fetch(
