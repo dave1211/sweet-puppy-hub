@@ -21,6 +21,7 @@ import SettingsPage from "./pages/SettingsPage";
 import TokenDetailPage from "./pages/TokenDetailPage";
 import WalletDetailPage from "./pages/WalletDetailPage";
 import LaunchpadPage from "./pages/LaunchpadPage";
+import AboutPage from "./pages/AboutPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
