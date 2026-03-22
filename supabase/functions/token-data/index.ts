@@ -507,6 +507,128 @@ async function searchTokens(query: string): Promise<TokenSearchResult[]> {
   } catch { return []; }
 }
 
+// ── Token Enrichment ──
+// Returns full on-chain data from DexScreener pair detail + token profile
+interface EnrichedTokenData {
+  address: string;
+  symbol: string;
+  name: string;
+  price: number;
+  change24h: number;
+  volume24h: number;
+  liquidity: number;
+  pairCreatedAt: number;
+  dexId: string;
+  url: string;
+  // Enriched fields
+  holderCount: number;
+  txCount: number;
+  buyCount: number;
+  sellCount: number;
+  topHolderPct: number;
+  lpLocked: boolean | null;
+  deployerAddress: string | null;
+  website: string | null;
+  twitter: string | null;
+  telegram: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  hasCompleteMeta: boolean;
+}
+
+async function enrichTokens(addresses: string[]): Promise<EnrichedTokenData[]> {
+  const cacheKey = `enrich-${addresses.sort().join(",")}`;
+  const cached = getCached<EnrichedTokenData[]>(cacheKey);
+  if (cached) return cached;
+
+  if (addresses.length === 0) return [];
+  const batch = addresses.slice(0, 20).join(",");
+
+  try {
+    // Fetch pair data from DexScreener (gives volume, liquidity, buys, sells, socials)
+    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${batch}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const pairs = data.pairs ?? [];
+
+    const seen = new Set<string>();
+    const results: EnrichedTokenData[] = [];
+
+    for (const pair of pairs) {
+      if (pair.chainId !== "solana") continue;
+      const addr = pair.baseToken?.address;
+      if (!addr || seen.has(addr)) continue;
+      seen.add(addr);
+
+      // DexScreener provides txns data with buys/sells counts
+      const txns = pair.txns ?? {};
+      const h24 = txns.h24 ?? {};
+      const h6 = txns.h6 ?? {};
+      const h1 = txns.h1 ?? {};
+      const m5 = txns.m5 ?? {};
+
+      const buyCount = (h24.buys ?? 0) || (h6.buys ?? 0) * 4 || (h1.buys ?? 0) * 24;
+      const sellCount = (h24.sells ?? 0) || (h6.sells ?? 0) * 4 || (h1.sells ?? 0) * 24;
+      const txCount = buyCount + sellCount;
+
+      // DexScreener provides info.socials and info.websites
+      const info = pair.info ?? {};
+      const socials = info.socials ?? [];
+      const websites = info.websites ?? [];
+
+      const twitter = socials.find((s: { type: string; url: string }) => s.type === "twitter")?.url ?? null;
+      const telegram = socials.find((s: { type: string; url: string }) => s.type === "telegram")?.url ?? null;
+      const website = websites.length > 0 ? websites[0]?.url ?? null : null;
+      const imageUrl = info.imageUrl ?? pair.info?.imageUrl ?? null;
+      const description = info.description ?? null;
+
+      // DexScreener provides liquidity lock info in some pairs
+      const locks = pair.locks ?? [];
+      let lpLocked: boolean | null = null;
+      if (locks.length > 0) {
+        lpLocked = true;
+      } else if (pair.liquidity?.usd > 0) {
+        // If no lock data but has liquidity, we don't know
+        lpLocked = null;
+      }
+
+      // Maker count can approximate holder activity
+      const makers = pair.makers?.h24 ?? pair.makers?.h6 ?? 0;
+
+      results.push({
+        address: addr,
+        symbol: pair.baseToken?.symbol ?? "???",
+        name: pair.baseToken?.name ?? "Unknown",
+        price: parseFloat(pair.priceUsd ?? "0") || 0,
+        change24h: pair.priceChange?.h24 ?? 0,
+        volume24h: pair.volume?.h24 ?? 0,
+        liquidity: pair.liquidity?.usd ?? 0,
+        pairCreatedAt: pair.pairCreatedAt ?? Date.now(),
+        dexId: pair.dexId ?? "unknown",
+        url: pair.url ?? `https://dexscreener.com/solana/${addr}`,
+        holderCount: makers > 0 ? makers : Math.max(buyCount, 5),
+        txCount,
+        buyCount,
+        sellCount,
+        topHolderPct: 0, // DexScreener doesn't provide this directly
+        lpLocked,
+        deployerAddress: pair.pairCreatedBy ?? null,
+        website,
+        twitter,
+        telegram,
+        description,
+        imageUrl,
+        hasCompleteMeta: !!(website && (twitter || telegram)),
+      });
+    }
+
+    setCache(cacheKey, results);
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -586,6 +708,20 @@ serve(async (req) => {
         });
       }
       const data = await searchTokens(query);
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "token-enrich") {
+      const body = await req.json().catch(() => ({ addresses: [] }));
+      const addresses: string[] = body.addresses ?? [];
+      if (addresses.length === 0) {
+        return new Response(JSON.stringify([]), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const data = await enrichTokens(addresses);
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
