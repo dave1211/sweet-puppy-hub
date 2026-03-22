@@ -22,6 +22,7 @@ import TokenDetailPage from "./pages/TokenDetailPage";
 import WalletDetailPage from "./pages/WalletDetailPage";
 import LaunchpadPage from "./pages/LaunchpadPage";
 import AboutPage from "./pages/AboutPage";
+import MemeGeneratorPage from "./pages/MemeGeneratorPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
