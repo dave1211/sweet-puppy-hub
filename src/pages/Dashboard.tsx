@@ -22,7 +22,7 @@ import { ProofPanel } from "@/components/terminal/ProofPanel";
 import { EnhancedRugPanel } from "@/components/terminal/EnhancedRugPanel";
 import { YourSolSystem } from "@/components/terminal/YourSolSystem";
 import { BurnIncinerator } from "@/components/terminal/BurnIncinerator";
-import { XRPBridgePanel } from "@/components/terminal/XRPBridgePanel";
+import { XRPBridgePanel } from "@/components/bridge/XRPBridgePanel";
 import { SelectedTokenProvider } from "@/contexts/SelectedTokenContext";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useAlerts } from "@/hooks/useAlerts";
