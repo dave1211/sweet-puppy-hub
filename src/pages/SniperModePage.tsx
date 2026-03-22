@@ -17,9 +17,10 @@ export default function SniperModePage() {
   const { data: launches } = useNewLaunches();
   const { history, wins, losses, active } = useSnipeHistory();
 
+  // Show all scored tokens as opportunities — sorted by score descending (real data from DexScreener/pump.fun)
   const opportunities = signals
-    .filter(t => t.score >= 60 && t.pairCreatedAt > Date.now() - 6 * 60 * 60 * 1000)
-    .slice(0, 6);
+    .filter(t => t.score >= 20 && t.pairCreatedAt > Date.now() - 48 * 60 * 60 * 1000)
+    .slice(0, 12);
 
   return (
     <div className="space-y-3 sm:space-y-4">
