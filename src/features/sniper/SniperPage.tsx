@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react";
 import { useSniperFeed } from "@/features/sniper/hooks/useSniperFeed";
 import { useSniperHotkeys } from "@/features/sniper/hooks/useSniperHotkeys";
+import { useAutoSnipeEngine } from "@/features/sniper/hooks/useAutoSnipeEngine";
 import { SniperHeader } from "@/features/sniper/components/SniperHeader";
 import { SniperFilters } from "@/features/sniper/components/SniperFilters";
 import { SniperFeed } from "@/features/sniper/components/SniperFeed";
@@ -13,6 +14,9 @@ import { SnipeRecorder } from "@/features/sniper/components/SnipeRecorder";
 import { HotkeyHint } from "@/features/sniper/components/HotkeyHint";
 import { useWallet } from "@/contexts/WalletContext";
 import { useExecutionStore } from "@/features/sniper/stores/executionStore";
+import { useAutoSniperStore } from "@/features/sniper/stores/autoSniperStore";
+import { supabase } from "@/integrations/supabase/client";
+import { useDeviceId } from "@/hooks/useDeviceId";
 import { toast } from "sonner";
 
 const SniperPage = () => {
