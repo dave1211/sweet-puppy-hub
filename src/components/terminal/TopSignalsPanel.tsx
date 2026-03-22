@@ -1,6 +1,7 @@
 import { Target, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUnifiedSignals, UnifiedLabel } from "@/hooks/useUnifiedSignals";
+import { PlatformLinks, PlatformBadge } from "./PlatformLinks";
 
 const labelStyles: Record<UnifiedLabel, string> = {
   "HIGH SIGNAL": "bg-terminal-green/15 text-terminal-green border-terminal-green/30",
@@ -18,10 +19,24 @@ export function TopSignalsPanel() {
         {isLoading ? <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         : top.length === 0 ? <p className="text-[10px] text-muted-foreground font-mono text-center py-4">Scanning for signals…</p>
         : <div className="space-y-1 max-h-[300px] overflow-y-auto">{top.map((token, idx) => (
-          <div key={token.address} className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-2.5 py-2 hover:bg-muted transition-colors">
-            <span className="text-[10px] font-mono text-muted-foreground w-4 text-right shrink-0">{idx + 1}</span>
-            <div className="min-w-0 flex-1"><div className="flex items-center gap-1.5"><span className="text-xs font-mono font-bold">{token.symbol}</span><span className={`text-[7px] font-mono px-1 py-0.5 rounded border ${labelStyles[token.label]}`}>{token.label}</span></div></div>
-            <div className="text-right shrink-0"><p className="text-[10px] font-mono font-bold">{token.score}</p><p className={`text-[9px] font-mono ${token.change24h >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>{token.change24h >= 0 ? "+" : ""}{token.change24h.toFixed(1)}%</p></div>
+          <div key={token.address} className="rounded-md border border-border bg-muted/50 px-2.5 py-2 hover:bg-muted transition-colors">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono text-muted-foreground w-4 text-right shrink-0">{idx + 1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-mono font-bold">{token.symbol}</span>
+                  <span className={`text-[7px] font-mono px-1 py-0.5 rounded border ${labelStyles[token.label]}`}>{token.label}</span>
+                  <PlatformBadge dexId={token.dexId} address={token.address} />
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[10px] font-mono font-bold">{token.score}</p>
+                <p className={`text-[9px] font-mono ${token.change24h >= 0 ? "text-terminal-green" : "text-terminal-red"}`}>{token.change24h >= 0 ? "+" : ""}{token.change24h.toFixed(1)}%</p>
+              </div>
+            </div>
+            <div className="ml-6 mt-1">
+              <PlatformLinks address={token.address} dexId={token.dexId} url={token.url} compact />
+            </div>
           </div>
         ))}</div>}
         <p className="text-[8px] text-muted-foreground/50 font-mono text-center mt-2">Heuristic ranking · not financial advice</p>
