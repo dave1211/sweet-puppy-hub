@@ -5,7 +5,7 @@ import { ScoreMeter } from "@/components/shared/ScoreMeter";
 import { MiniChart } from "@/components/shared/MiniChart";
 import { formatPrice, formatVolume, pairAge } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Star, Copy, Loader2 } from "lucide-react";
+import { ArrowLeft, Star, Copy, Loader2, ArrowUpDown, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { useTokenPrices } from "@/hooks/useTokenPrices";
 import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
@@ -13,9 +13,11 @@ import { useNewLaunches } from "@/hooks/useNewLaunches";
 import { assessRug } from "@/hooks/useRugDetection";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
+import { useJupiterSwap } from "@/hooks/useJupiterSwap";
+import { useWallet } from "@/contexts/WalletContext";
 import { toast } from "sonner";
 
-const TABS = ["Overview", "Price Action", "Risk Analysis", "Smart Money", "Notes"];
+const TABS = ["Overview", "Price Action", "Risk Analysis", "Smart Money", "Trade"];
 
 export default function TokenDetailPage() {
   const { id } = useParams();
@@ -25,6 +27,10 @@ export default function TokenDetailPage() {
   const { addItem } = useWatchlist();
   const { data: priceData } = useTokenPrices(id ? [id] : []);
   const liveTicks = useLivePriceTicks(15_000);
+  const { isConnected, walletAddress } = useWallet();
+  const { getQuote, buildSwapTransaction, preview, isQuoting, isBuilding, error: swapError, clearPreview } = useJupiterSwap();
+  const [swapAmount, setSwapAmount] = useState("0.1");
+  const [slippage, setSlippage] = useState("50");
 
   const signal = tokens.find(t => t.address === id);
   const launch = (launches ?? []).find(t => t.address === id);
@@ -50,6 +56,22 @@ export default function TokenDetailPage() {
   const displayPrice = price?.price ?? token.price;
   const displayChange = price?.change24h ?? token.change24h;
 
+  const handleQuote = async () => {
+    if (!id) return;
+    const amt = parseFloat(swapAmount);
+    if (isNaN(amt) || amt <= 0) { toast.error("Enter a valid SOL amount"); return; }
+    await getQuote(id, amt, parseInt(slippage));
+  };
+
+  const handleSwap = async () => {
+    if (!id || !walletAddress || !isConnected) { toast.error("Connect wallet first"); return; }
+    const amt = parseFloat(swapAmount);
+    const txData = await buildSwapTransaction(id, amt, walletAddress, parseInt(slippage));
+    if (txData) {
+      toast.success("Swap transaction built! Sign in your wallet to execute.", { duration: 5000 });
+    }
+  };
+
   return (
     <div className="space-y-3 sm:space-y-4">
       {/* Header */}
@@ -74,7 +96,12 @@ export default function TokenDetailPage() {
             </div>
           </div>
         </div>
-        <button onClick={() => addItem.mutate({ address: token.address, label: token.symbol })} className="p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-terminal-amber transition-colors shrink-0"><Star className="h-4 w-4" /></button>
+        <div className="flex items-center gap-1">
+          <a href={token.url} target="_blank" rel="noopener noreferrer" className="p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-primary transition-colors">
+            <ExternalLink className="h-4 w-4" />
+          </a>
+          <button onClick={() => addItem.mutate({ address: token.address, label: token.symbol })} className="p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-terminal-amber transition-colors shrink-0"><Star className="h-4 w-4" /></button>
+        </div>
       </div>
 
       {/* Badges */}
@@ -96,6 +123,9 @@ export default function TokenDetailPage() {
               <span className="text-muted-foreground text-[10px] ml-1">24h</span>
             </p>
           </div>
+          <button onClick={() => setActiveTab("Trade")} className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary/10 text-primary text-[10px] font-mono border border-primary/30 hover:bg-primary/20 transition-colors">
+            <ArrowUpDown className="h-3 w-3" /> SWAP
+          </button>
         </div>
         <MiniChart data={liveTicks.length > 1 ? liveTicks : undefined} baseValue={displayPrice} change={displayChange} height={140} />
       </PanelShell>
@@ -183,8 +213,72 @@ export default function TokenDetailPage() {
         ) : activeTab === "Smart Money" ? (
           <p className="text-xs text-muted-foreground py-4">No smart money data available for this token.</p>
         ) : null}
-        {activeTab === "Notes" && (
-          <p className="text-xs text-muted-foreground py-4">Notes feature coming soon. Track this token by adding it to your watchlist.</p>
+        {activeTab === "Trade" && (
+          <div className="space-y-4">
+            <div className="space-y-3">
+              <div>
+                <label className="text-[9px] font-mono text-muted-foreground uppercase block mb-1">Amount (SOL)</label>
+                <div className="flex gap-1.5">
+                  {["0.05", "0.1", "0.25", "0.5", "1.0"].map(amt => (
+                    <button key={amt} onClick={() => setSwapAmount(amt)} className={cn("flex-1 py-1.5 rounded text-[10px] font-mono transition-colors", swapAmount === amt ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted/30 text-muted-foreground border border-transparent hover:text-foreground")}>{amt}</button>
+                  ))}
+                </div>
+                <input type="number" value={swapAmount} onChange={e => setSwapAmount(e.target.value)} className="w-full mt-1.5 bg-muted/50 border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50" placeholder="Custom amount" step="0.01" min="0.001" />
+              </div>
+
+              <div>
+                <label className="text-[9px] font-mono text-muted-foreground uppercase block mb-1">Slippage (bps)</label>
+                <div className="flex gap-1.5">
+                  {["25", "50", "100", "200"].map(s => (
+                    <button key={s} onClick={() => setSlippage(s)} className={cn("flex-1 py-1.5 rounded text-[10px] font-mono transition-colors", slippage === s ? "bg-primary/15 text-primary border border-primary/30" : "bg-muted/30 text-muted-foreground border border-transparent hover:text-foreground")}>{(parseInt(s) / 100).toFixed(2)}%</button>
+                  ))}
+                </div>
+              </div>
+
+              <button onClick={handleQuote} disabled={isQuoting} className="w-full py-2.5 rounded bg-primary/10 text-primary text-xs font-mono font-medium border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                {isQuoting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Getting Quote…</> : <><ArrowUpDown className="h-3.5 w-3.5" /> Get Jupiter Quote</>}
+              </button>
+
+              {swapError && (
+                <div className="p-2.5 rounded bg-destructive/10 border border-destructive/20 text-[10px] font-mono text-destructive">{swapError}</div>
+              )}
+
+              {preview && (
+                <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border">
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-muted-foreground">You pay</span>
+                    <span className="text-foreground font-medium">{preview.inputAmountSOL} SOL</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-muted-foreground">You receive</span>
+                    <span className="text-terminal-green font-medium">{preview.outputAmount.toLocaleString()} {token.symbol}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-muted-foreground">Min. received</span>
+                    <span className="text-foreground">{preview.minimumReceived.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-muted-foreground">Price impact</span>
+                    <span className={cn(preview.priceImpact > 5 ? "text-destructive" : preview.priceImpact > 1 ? "text-terminal-amber" : "text-terminal-green")}>{preview.priceImpact.toFixed(3)}%</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-mono">
+                    <span className="text-muted-foreground">Route</span>
+                    <span className="text-foreground">{preview.route.join(" → ")}</span>
+                  </div>
+
+                  {!isConnected ? (
+                    <p className="text-[10px] font-mono text-terminal-amber text-center py-1">Connect wallet to execute swap</p>
+                  ) : (
+                    <button onClick={handleSwap} disabled={isBuilding} className="w-full py-2.5 rounded bg-terminal-green/10 text-terminal-green text-xs font-mono font-bold border border-terminal-green/30 hover:bg-terminal-green/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                      {isBuilding ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Building TX…</> : <>EXECUTE SWAP</>}
+                    </button>
+                  )}
+
+                  <button onClick={clearPreview} className="w-full py-1.5 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </PanelShell>
     </div>
