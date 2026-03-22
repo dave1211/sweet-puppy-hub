@@ -154,8 +154,8 @@ class XRPLService {
         }),
       ]);
 
-      const asks = this.parseOffers(askRes.result.offers ?? [], "ask");
-      const bids = this.parseOffers(bidRes.result.offers ?? [], "bid");
+      const asks = this.parseOffers(askRes.result.offers as any[] ?? [], "ask");
+      const bids = this.parseOffers(bidRes.result.offers as any[] ?? [], "bid");
 
       const bestBid = bids[0]?.price ?? 0;
       const bestAsk = asks[0]?.price ?? 0;
