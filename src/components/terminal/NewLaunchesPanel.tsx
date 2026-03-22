@@ -1,15 +1,24 @@
-import { Rocket, Loader2 } from "lucide-react";
+import { Rocket, Loader2, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNewLaunches } from "@/hooks/useNewLaunches";
 import { useSelectedToken } from "@/contexts/SelectedTokenContext";
 import { PlatformLinks, PlatformBadge } from "./PlatformLinks";
+
+function timeAgo(ts: number): string {
+  const seconds = Math.floor((Date.now() - ts) / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+}
 
 export function NewLaunchesPanel() {
   const { data: launches, isLoading } = useNewLaunches();
   const { selectToken } = useSelectedToken();
   return (
     <Card className="border-border bg-card">
-      <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-mono"><Rocket className="h-4 w-4 text-terminal-amber" />NEW LAUNCHES</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-mono"><Rocket className="h-4 w-4 text-terminal-amber" />NEW LAUNCHES<span className="text-[8px] font-mono px-1.5 py-0.5 rounded bg-terminal-green/15 text-terminal-green border border-terminal-green/30">LIVE</span></CardTitle></CardHeader>
       <CardContent>
         {isLoading ? <div className="flex items-center justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         : !launches || launches.length === 0 ? <p className="text-[10px] text-muted-foreground font-mono text-center py-4">No launches found…</p>
@@ -19,6 +28,10 @@ export function NewLaunchesPanel() {
               <div className="flex items-center gap-1.5 min-w-0">
                 <p className="text-xs font-mono font-bold">{token.symbol}</p>
                 <PlatformBadge dexId={token.dexId} address={token.address} />
+                <span className="flex items-center gap-0.5 text-[8px] font-mono text-terminal-cyan">
+                  <Clock className="h-2.5 w-2.5" />
+                  {timeAgo(token.pairCreatedAt)}
+                </span>
               </div>
               <div className="text-right shrink-0">
                 <p className="text-[10px] font-mono">${token.price < 0.01 ? token.price.toFixed(6) : token.price.toFixed(4)}</p>
