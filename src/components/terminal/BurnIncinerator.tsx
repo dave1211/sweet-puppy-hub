@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Flame, AlertTriangle, History, ExternalLink, Trash2, Coins } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useWalletTokens, TokenBalance } from "@/hooks/useWalletTokens";
 import { useBurnHistory, insertBurnRecord } from "@/hooks/useBurnHistory";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ const RENT_EXEMPT_MIN = 0.00203928;
 
 export function BurnIncinerator() {
   const { isConnected, walletAddress, getWalletObject } = useWallet();
+  const { user } = useAuth();
   const { data: walletData, isLoading, refetch } = useWalletTokens();
   const { data: burnHistory, refetch: refetchHistory } = useBurnHistory(walletAddress);
   const [selectedMint, setSelectedMint] = useState<string | null>(null);
@@ -113,6 +115,7 @@ export function BurnIncinerator() {
       });
 
       await insertBurnRecord({
+        user_id: user?.id || "",
         wallet_address: walletAddress,
         token_mint: selectedToken.mint,
         token_symbol: selectedToken.symbol,
@@ -180,6 +183,7 @@ export function BurnIncinerator() {
       // Record each burn in DB
       for (const token of batch) {
         await insertBurnRecord({
+          user_id: user?.id || "",
           wallet_address: walletAddress,
           token_mint: token.mint,
           token_symbol: token.symbol,

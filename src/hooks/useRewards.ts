@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeviceId } from "./useDeviceId";
+import { useAuth } from "@/contexts/AuthContext";
 import { getReferralCode } from "@/lib/referral";
 
 export interface RewardRecord {
   id: string;
   device_id: string;
+  user_id: string;
   referral_code: string;
   referred_by: string | null;
   points: number;
@@ -15,18 +16,18 @@ export interface RewardRecord {
 }
 
 export function useRewards() {
-  const deviceId = useDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id;
   const queryClient = useQueryClient();
   const refCode = getReferralCode();
 
   const query = useQuery({
-    queryKey: ["rewards", deviceId],
+    queryKey: ["rewards", userId],
     queryFn: async (): Promise<RewardRecord> => {
-      // Try to get existing record
       const { data, error } = await supabase
         .from("rewards")
         .select("*")
-        .eq("device_id", deviceId)
+        .eq("user_id", userId!)
         .maybeSingle();
 
       if (error) throw error;
@@ -39,23 +40,25 @@ export function useRewards() {
       const { data: newRecord, error: insertErr } = await supabase
         .from("rewards")
         .insert({
-          device_id: deviceId,
+          user_id: userId!,
+          device_id: userId!,
           referral_code: refCode,
           referred_by: referredBy,
-          points: referredBy ? 50 : 0, // bonus for joining via referral
-        })
+          points: referredBy ? 50 : 0,
+        } as any)
         .select()
         .single();
 
       if (insertErr) throw insertErr;
 
-      // If referred, credit the referrer (best-effort)
       if (referredBy) {
-        await supabase.from("rewards").update({ total_referrals: 1 }).eq("referral_code", referredBy).then(() => {});
+        // Best-effort: credit referrer
+        await supabase.from("rewards").update({ total_referrals: 1 } as any).eq("referral_code", referredBy).then(() => {});
       }
 
       return newRecord as RewardRecord;
     },
+    enabled: !!userId,
   });
 
   const claimPoints = useMutation({
@@ -73,11 +76,11 @@ export function useRewards() {
       const { error } = await supabase
         .from("rewards")
         .update({ points: (query.data.points || 0) + pts })
-        .eq("device_id", deviceId);
+        .eq("user_id", userId!);
 
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rewards", deviceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rewards", userId] }),
   });
 
   return {

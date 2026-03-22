@@ -3,9 +3,9 @@ import { useEffect, useRef } from "react";
 import { useAutoSniperStore, type SnipeRecord } from "../stores/autoSniperStore";
 import { useSniperStore } from "../stores/sniperStore";
 import { useWallet } from "@/contexts/WalletContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeviceId } from "@/hooks/useDeviceId";
 import type { SniperToken } from "../types";
 
 function createRecordFromToken(token: SniperToken, amountSOL: number): SnipeRecord {
@@ -27,10 +27,11 @@ function createRecordFromToken(token: SniperToken, amountSOL: number): SnipeReco
   };
 }
 
-async function persistRecord(record: SnipeRecord, deviceId: string) {
+async function persistRecord(record: SnipeRecord, userId: string) {
   await supabase.from("snipe_history").insert({
     id: record.id,
-    device_id: deviceId,
+    user_id: userId,
+    device_id: userId,
     token_address: record.tokenAddress,
     token_symbol: record.tokenSymbol,
     token_name: record.tokenName,
@@ -41,7 +42,7 @@ async function persistRecord(record: SnipeRecord, deviceId: string) {
     risk: record.risk,
     state: record.state,
     status: record.status,
-  });
+  } as any);
 }
 
 async function updateRecordInDb(id: string, partial: Partial<SnipeRecord>) {
@@ -56,7 +57,8 @@ async function updateRecordInDb(id: string, partial: Partial<SnipeRecord>) {
 }
 
 export function useAutoSnipeEngine() {
-  const deviceId = useDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id;
   const { isConnected } = useWallet();
   const { config, records, addRecord, updateRecord, isOnCooldown, setCooldown } = useAutoSniperStore();
   const tokens = useSniperStore((s) => s.tokens);
@@ -64,11 +66,12 @@ export function useAutoSnipeEngine() {
 
   // Load history from DB on mount
   useEffect(() => {
+    if (!userId) return;
     async function loadHistory() {
       const { data } = await supabase
         .from("snipe_history")
         .select("*")
-        .eq("device_id", deviceId)
+        .eq("user_id", userId!)
         .order("created_at", { ascending: false })
         .limit(50);
 
@@ -97,14 +100,14 @@ export function useAutoSnipeEngine() {
       }
     }
     loadHistory();
-  }, [deviceId]);
+  }, [userId]);
 
   // Auto-snipe engine loop
   useEffect(() => {
-    if (!config.enabled || !isConnected) return;
+    if (!config.enabled || !isConnected || !userId) return;
 
     const now = Date.now();
-    if (now - lastCheck.current < 3000) return; // throttle to 3s
+    if (now - lastCheck.current < 3000) return;
     lastCheck.current = now;
 
     const activeCount = records.filter((r) => r.status === "active").length;
@@ -119,28 +122,26 @@ export function useAutoSnipeEngine() {
       return true;
     });
 
-    // Take best candidate by score
     const best = candidates.sort((a, b) => b.score.total - a.score.total)[0];
     if (!best) return;
 
     const record = createRecordFromToken(best, config.amountSOL);
     addRecord(record);
     setCooldown(best.token.address);
-    persistRecord(record, deviceId);
+    persistRecord(record, userId);
 
     toast.success(`🤖 Auto-sniped ${best.token.symbol} — ${config.amountSOL} SOL (Score: ${best.score.total})`, {
       description: `Risk: ${best.risk.total} | State: ${best.state}`,
     });
-  }, [config, tokens, isConnected, records, addRecord, setCooldown, isOnCooldown, deviceId]);
+  }, [config, tokens, isConnected, records, addRecord, setCooldown, isOnCooldown, userId]);
 
-  // Simulate price movement for active records (mock — replace with real price feed)
+  // Simulate price movement for active records
   useEffect(() => {
     const activeRecords = records.filter((r) => r.status === "active");
     if (activeRecords.length === 0) return;
 
     const interval = setInterval(() => {
       activeRecords.forEach((record) => {
-        // Check if token still exists in feed
         const token = tokens.find((t) => t.token.address === record.tokenAddress);
         if (!token) return;
 
@@ -149,7 +150,6 @@ export function useAutoSnipeEngine() {
 
         const pnl = ((currentPrice - record.entryPrice) / record.entryPrice) * 100;
 
-        // Auto-exit conditions: +50% take profit or -30% stop loss
         if (pnl >= 50 || pnl <= -30) {
           const status = pnl >= 0 ? "profit" as const : "loss" as const;
           const update = {

@@ -1,10 +1,11 @@
 import {
   LayoutDashboard, BarChart3, Rocket, Crosshair, Wallet,
-  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings, ChevronLeft, ChevronRight, Flame, Info, Sparkles
+  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings, ChevronLeft, ChevronRight, Flame, Info, Sparkles, LogOut
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const NAV = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -32,6 +33,7 @@ interface AppSidebarProps {
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { signOut, user } = useAuth();
 
   return (
     <aside className={cn(
@@ -61,6 +63,15 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           );
         })}
       </div>
+      {user && (
+        <button
+          onClick={signOut}
+          className="flex items-center gap-3 px-4 py-2 border-t border-border text-muted-foreground hover:text-terminal-red transition-colors text-xs font-mono"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          {!collapsed && <span className="text-[11px]">SIGN OUT</span>}
+        </button>
+      )}
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors hidden md:flex items-center justify-center"

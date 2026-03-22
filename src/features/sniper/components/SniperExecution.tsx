@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { Zap, Shield, AlertTriangle, ChevronDown, ChevronUp, X, Loader2 } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useExecutionStore } from "../stores/executionStore";
 import { useJupiterSwap } from "@/hooks/useJupiterSwap";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeviceId } from "@/hooks/useDeviceId";
 import { toast } from "sonner";
 import type { SniperToken } from "../types";
 import { STATE_COLORS, RISK_COLORS, SCORE_COLORS } from "../types";
@@ -14,11 +14,12 @@ const QUICK_AMOUNTS = [0.05, 0.1, 0.25, 0.5, 1.0];
 const SELL_PERCENTS = [25, 50, 75, 100];
 
 async function logSwapTx(params: {
-  deviceId: string; tokenAddress: string; tokenSymbol: string; tokenName: string;
+  userId: string; tokenAddress: string; tokenSymbol: string; tokenName: string;
   amountSOL: number; side: "buy" | "sell"; signature: string; score: number; risk: number; state: string;
 }) {
   await supabase.from("snipe_history").insert({
-    device_id: params.deviceId,
+    user_id: params.userId,
+    device_id: params.userId,
     token_address: params.tokenAddress,
     token_symbol: params.tokenSymbol,
     token_name: params.tokenName,
@@ -29,11 +30,12 @@ async function logSwapTx(params: {
     status: params.side === "buy" ? "active" : "profit",
     entry_price: 0,
     entry_time: new Date().toISOString(),
-  });
+  } as any);
 }
 
 export function SniperExecution({ token: st }: { token: SniperToken | null }) {
-  const deviceId = useDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id || "";
   const { isConnected, walletAddress, signAndSendTransaction, refreshBalance } = useWallet();
   const { config, setAmount, setSlippage, setPriorityFee, isConfirmOpen, openConfirm, closeConfirm, isFastMode } = useExecutionStore();
   const { buildSwapTransaction, buildSellTransaction, preview, getQuote, isQuoting, isBuilding, error: jupError, clearPreview } = useJupiterSwap();
@@ -71,9 +73,8 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
       const txBytes = Uint8Array.from(atob(result.swapTransaction), (c) => c.charCodeAt(0));
       const { signature } = await signAndSendTransaction(txBytes);
 
-      // Log to DB
       logSwapTx({
-        deviceId, tokenAddress: st.token.address, tokenSymbol: st.token.symbol,
+        userId, tokenAddress: st.token.address, tokenSymbol: st.token.symbol,
         tokenName: st.token.name, amountSOL: config.amountSOL, side: "buy",
         signature, score: st.score.total, risk: st.risk.total, state: st.state,
       });
@@ -100,7 +101,6 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
     setIsSelling(true);
     setTxPhase(`Selling ${pct}%…`);
     try {
-      // Fetch token balance from RPC
       const balRes = await fetch("https://api.mainnet-beta.solana.com", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -129,7 +129,7 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
       const { signature } = await signAndSendTransaction(txBytes);
 
       logSwapTx({
-        deviceId, tokenAddress: st.token.address, tokenSymbol: st.token.symbol,
+        userId, tokenAddress: st.token.address, tokenSymbol: st.token.symbol,
         tokenName: st.token.name, amountSOL: 0, side: "sell",
         signature, score: st.score.total, risk: st.risk.total, state: st.state,
       });
@@ -158,7 +158,6 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
 
   return (
     <div className="p-3 space-y-2">
-      {/* Token Badge */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-mono font-bold text-foreground">{st.token.symbol}</span>
@@ -170,7 +169,6 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
         </div>
       </div>
 
-      {/* Tab Buttons */}
       <div className="flex gap-1">
         <button onClick={() => setTab("buy")} className={`flex-1 py-1.5 rounded text-[10px] font-mono font-bold transition-colors ${tab === "buy" ? "bg-terminal-green/15 text-terminal-green border border-terminal-green/30" : "bg-muted/30 text-muted-foreground border border-transparent"}`}>BUY</button>
         <button onClick={() => setTab("sell")} className={`flex-1 py-1.5 rounded text-[10px] font-mono font-bold transition-colors ${tab === "sell" ? "bg-terminal-red/15 text-terminal-red border border-terminal-red/30" : "bg-muted/30 text-muted-foreground border border-transparent"}`}>SELL</button>
@@ -225,7 +223,6 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
 
       {!isConnected && <p className="text-[9px] font-mono text-muted-foreground text-center">Connect wallet to trade</p>}
 
-      {/* Confirm Modal */}
       {isConfirmOpen && st && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="bg-card border border-border rounded-lg p-4 w-80 space-y-3 shadow-2xl">

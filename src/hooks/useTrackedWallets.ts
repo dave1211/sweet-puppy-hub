@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeviceId } from "./useDeviceId";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface TrackedWallet {
   id: string;
   device_id: string;
+  user_id: string;
   address: string;
   label: string | null;
   created_at: string;
@@ -12,20 +13,22 @@ export interface TrackedWallet {
 }
 
 export function useTrackedWallets() {
-  const deviceId = useDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id;
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["tracked-wallets", deviceId],
+    queryKey: ["tracked-wallets", userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tracked_wallets")
         .select("*")
-        .eq("device_id", deviceId)
+        .eq("user_id", userId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as TrackedWallet[];
     },
+    enabled: !!userId,
   });
 
   const addWallet = useMutation({
@@ -34,7 +37,7 @@ export function useTrackedWallets() {
       const { data: existing } = await supabase
         .from("tracked_wallets")
         .select("id")
-        .eq("device_id", deviceId)
+        .eq("user_id", userId!)
         .eq("address", addr)
         .maybeSingle();
 
@@ -47,21 +50,21 @@ export function useTrackedWallets() {
 
       const { data, error } = await supabase
         .from("tracked_wallets")
-        .insert({ device_id: deviceId, address: addr, label: wallet.label || null })
+        .insert({ user_id: userId!, device_id: userId!, address: addr, label: wallet.label || null } as any)
         .select()
         .single();
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tracked-wallets", deviceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tracked-wallets", userId] }),
   });
 
   const removeWallet = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("tracked_wallets").delete().eq("id", id).eq("device_id", deviceId);
+      const { error } = await supabase.from("tracked_wallets").delete().eq("id", id).eq("user_id", userId!);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tracked-wallets", deviceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tracked-wallets", userId] }),
   });
 
   return { wallets: query.data ?? [], isLoading: query.isLoading, addWallet, removeWallet };

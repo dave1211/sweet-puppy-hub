@@ -13,22 +13,22 @@ import { AutoSnipePanel } from "@/features/sniper/components/AutoSnipePanel";
 import { SnipeRecorder } from "@/features/sniper/components/SnipeRecorder";
 import { HotkeyHint } from "@/features/sniper/components/HotkeyHint";
 import { useWallet } from "@/contexts/WalletContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useExecutionStore } from "@/features/sniper/stores/executionStore";
 import { useAutoSniperStore } from "@/features/sniper/stores/autoSniperStore";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeviceId } from "@/hooks/useDeviceId";
 import { toast } from "sonner";
 
 const SniperPage = () => {
   const { tokens, selectedToken } = useSniperFeed();
   const { isConnected } = useWallet();
-  const deviceId = useDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id || "";
   const { config, openConfirm, isFastMode } = useExecutionStore();
   const { addRecord } = useAutoSniperStore();
   const snipeReady = tokens.filter((t) => t.state === "SNIPE_READY").length;
   const [mobileTab, setMobileTab] = useState<SniperTab>("feed");
 
-  // Activate auto-snipe engine
   useAutoSnipeEngine();
 
   const handleBuy = useCallback(() => {
@@ -36,7 +36,6 @@ const SniperPage = () => {
     if (!isConnected) { toast.error("Connect wallet first"); return; }
     if (config.amountSOL <= 0) { toast.error("Set buy amount"); return; }
     if (isFastMode) {
-      // Record manual snipe
       const record = {
         id: crypto.randomUUID(),
         tokenAddress: selectedToken.token.address,
@@ -56,7 +55,8 @@ const SniperPage = () => {
       addRecord(record);
       supabase.from("snipe_history").insert({
         id: record.id,
-        device_id: deviceId,
+        user_id: userId,
+        device_id: userId,
         token_address: record.tokenAddress,
         token_symbol: record.tokenSymbol,
         token_name: record.tokenName,
@@ -67,12 +67,12 @@ const SniperPage = () => {
         risk: record.risk,
         state: record.state,
         status: record.status,
-      });
+      } as any);
       toast.success(`🎯 Fast sniped ${selectedToken.token.symbol} — ${config.amountSOL} SOL`);
     } else {
       openConfirm();
     }
-  }, [selectedToken, isConnected, config.amountSOL, isFastMode, openConfirm]);
+  }, [selectedToken, isConnected, config.amountSOL, isFastMode, openConfirm, userId]);
 
   const handleSell = useCallback((pct: number) => {
     if (!selectedToken) { toast.error("Select a token first"); return; }
@@ -80,45 +80,24 @@ const SniperPage = () => {
     toast.success(`💰 Sold ${pct}% of ${selectedToken.token.symbol}`);
   }, [selectedToken, isConnected]);
 
-  // Wire hotkeys
   useSniperHotkeys(tokens, handleBuy, handleSell);
 
   return (
     <div className="h-full flex flex-col">
       <SniperHeader tokenCount={tokens.length} snipeReady={snipeReady} />
       <SniperFilters />
-
-      {/* Mobile Tabs */}
-      <SniperMobileTabs
-        active={mobileTab}
-        onChange={setMobileTab}
-        feedCount={tokens.length}
-        readyCount={snipeReady}
-      />
-
-      {/* Desktop: 3-panel side by side | Mobile: single panel based on tab */}
+      <SniperMobileTabs active={mobileTab} onChange={setMobileTab} feedCount={tokens.length} readyCount={snipeReady} />
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* LEFT: Token Feed */}
-        <div className={`w-72 shrink-0 border-r border-border flex flex-col overflow-hidden ${
-          mobileTab !== "feed" ? "hidden md:flex" : "flex md:flex"
-        } md:w-72 w-full`}>
+        <div className={`w-72 shrink-0 border-r border-border flex flex-col overflow-hidden ${mobileTab !== "feed" ? "hidden md:flex" : "flex md:flex"} md:w-72 w-full`}>
           <div className="px-2.5 py-1.5 border-b border-border/50 bg-card/30">
             <span className="text-[9px] font-mono text-muted-foreground">{tokens.length} TOKENS</span>
           </div>
           <SniperFeed tokens={tokens} />
         </div>
-
-        {/* CENTER: Token Detail */}
-        <div className={`flex-1 border-r border-border overflow-hidden ${
-          mobileTab !== "detail" ? "hidden md:block" : "block"
-        }`}>
+        <div className={`flex-1 border-r border-border overflow-hidden ${mobileTab !== "detail" ? "hidden md:block" : "block"}`}>
           <SniperDetail token={selectedToken} />
         </div>
-
-        {/* RIGHT: Execution + Auto Snipe + Recorder */}
-        <div className={`md:w-64 w-full shrink-0 overflow-y-auto bg-card/30 ${
-          mobileTab !== "execute" ? "hidden md:block" : "block"
-        }`}>
+        <div className={`md:w-64 w-full shrink-0 overflow-y-auto bg-card/30 ${mobileTab !== "execute" ? "hidden md:block" : "block"}`}>
           <div className="px-3 py-1.5 border-b border-border/50">
             <span className="text-[9px] font-mono text-muted-foreground">EXECUTE</span>
           </div>
@@ -129,8 +108,6 @@ const SniperPage = () => {
           </div>
         </div>
       </div>
-
-      {/* Hotkey Hint Bar (desktop only) */}
       <HotkeyHint />
     </div>
   );

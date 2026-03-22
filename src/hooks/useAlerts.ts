@@ -1,25 +1,27 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeviceId } from "./useDeviceId";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Tables, TablesInsert } from "@/integrations/supabase/types";
 
 export type AlertItem = Tables<"alerts">;
 
 export function useAlerts() {
-  const deviceId = useDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id;
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["alerts", deviceId],
+    queryKey: ["alerts", userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("alerts")
         .select("*")
-        .eq("device_id", deviceId)
+        .eq("user_id", userId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as AlertItem[];
     },
+    enabled: !!userId,
   });
 
   const addAlert = useMutation({
@@ -27,34 +29,35 @@ export function useAlerts() {
       const { data, error } = await supabase
         .from("alerts")
         .insert({
-          device_id: deviceId,
+          user_id: userId!,
+          device_id: userId!, // keep for backward compat
           address: alert.address,
           kind: alert.kind,
           threshold: alert.threshold,
           direction: alert.direction,
-        } as TablesInsert<"alerts">)
+        } as any)
         .select()
         .single();
       if (error) throw error;
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts", deviceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts", userId] }),
   });
 
   const toggleAlert = useMutation({
     mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
-      const { error } = await supabase.from("alerts").update({ enabled }).eq("id", id).eq("device_id", deviceId);
+      const { error } = await supabase.from("alerts").update({ enabled }).eq("id", id).eq("user_id", userId!);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts", deviceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts", userId] }),
   });
 
   const removeAlert = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("alerts").delete().eq("id", id).eq("device_id", deviceId);
+      const { error } = await supabase.from("alerts").delete().eq("id", id).eq("user_id", userId!);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts", deviceId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["alerts", userId] }),
   });
 
   return { alerts: query.data ?? [], isLoading: query.isLoading, addAlert, toggleAlert, removeAlert };
