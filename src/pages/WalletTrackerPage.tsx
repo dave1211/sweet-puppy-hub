@@ -8,14 +8,14 @@ import { toast } from "sonner";
 
 // Well-known Solana whale/smart-money wallets (real addresses)
 const KNOWN_WHALES = [
-  { address: "JDPivR6e2cWgSRWFj3tT2qXYBBNvPbFATiKXgB8gu9w", label: "Wintermute" },
-  { address: "5tzFkiKscXHK5ZXCGbXZxdw7gTjjD1mBwuoFbhUvuAi9", label: "Binance Hot Wallet" },
-  { address: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", label: "FTX/Alameda Remnant" },
-  { address: "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH", label: "Raydium Authority" },
-  { address: "ASTyfSima4LLAdDgoFGkgqoKowG1LZFDr9fAQrg7iaJZ", label: "Marinade Finance" },
-  { address: "3Kz8PWBFREmjCr2q8oEN4dMD88yWyhJMqzGSiMSsHWpR", label: "Smart Money Whale #1" },
-  { address: "DNfuF1L62WWkW3pNakVkyGGCzUik67KCSCrnsw95pQkH", label: "DeFi Power Trader" },
-  { address: "CuieVDEDtLo7FypA9SbLM9saXFdb1dsshEkyErMqkRQq", label: "MEV Bot Alpha" },
+  { address: "CKs1E69a2e9TmH4mKKLrXFF8kD3ZnwKjoEuXa6sz9WqX", label: "Jump Trading" },
+  { address: "2AQdpHJ2JpcEgPiATUXjQxA8QmafFegfQwSLWSprPicm", label: "Coinbase" },
+  { address: "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM", label: "Binance" },
+  { address: "H8sMJSCQxfKiFTCfDR3DUMLPwcRbM61LGFJ8N4dK3WjS", label: "Coinbase Custody" },
+  { address: "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T", label: "Alameda Research" },
+  { address: "7rhxnLV8C8To5MqGkJYhQ86TiGGqRLsMzgTD2JoqJyyJ", label: "Raydium Authority" },
+  { address: "5Q544fKrFoe6tsEbD7S8EmxGTJYAKtTVhAW5Q5pge4j1", label: "Raydium Pool" },
+  { address: "HWHvQhFmJB3NUcu1aihKmrKegfVxBEHzwVX6yZCKEsi1", label: "Phantom Whale" },
 ];
 
 export default function WalletTrackerPage() {
