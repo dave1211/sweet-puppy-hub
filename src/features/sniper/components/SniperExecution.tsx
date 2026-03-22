@@ -1,8 +1,9 @@
-// Sniper Execution Panel — Buy/sell with risk controls
+// Sniper Execution Panel — Buy/sell with real Jupiter swap
 import { useState } from "react";
-import { Zap, Shield, AlertTriangle, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Zap, Shield, AlertTriangle, ChevronDown, ChevronUp, X, Loader2 } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
 import { useExecutionStore } from "../stores/executionStore";
+import { useJupiterSwap } from "@/hooks/useJupiterSwap";
 import { toast } from "sonner";
 import type { SniperToken } from "../types";
 import { STATE_COLORS, RISK_COLORS, SCORE_COLORS } from "../types";
@@ -11,32 +12,79 @@ const QUICK_AMOUNTS = [0.05, 0.1, 0.25, 0.5, 1.0];
 const SELL_PERCENTS = [25, 50, 75, 100];
 
 export function SniperExecution({ token: st }: { token: SniperToken | null }) {
-  const { isConnected } = useWallet();
+  const { isConnected, walletAddress, signAndSendTransaction, refreshBalance } = useWallet();
   const { config, setAmount, setSlippage, setPriorityFee, isConfirmOpen, openConfirm, closeConfirm, isFastMode } = useExecutionStore();
+  const { buildSwapTransaction, preview, getQuote, isQuoting, isBuilding, error: jupError, clearPreview } = useJupiterSwap();
   const [tab, setTab] = useState<"buy" | "sell">("buy");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [txPhase, setTxPhase] = useState<string>("");
 
-  const handleBuy = () => {
+  const handleBuy = async () => {
     if (!st) return;
-    if (!isConnected) { toast.error("Connect wallet first"); return; }
+    if (!isConnected || !walletAddress) { toast.error("Connect wallet first"); return; }
     if (config.amountSOL <= 0) { toast.error("Enter buy amount"); return; }
 
     if (isFastMode) {
-      executeBuy();
+      await executeBuy();
     } else {
-      openConfirm();
+      // Get quote first, then show confirm modal
+      setTxPhase("Fetching quote…");
+      const q = await getQuote(st.token.address, config.amountSOL, config.slippageBps);
+      setTxPhase("");
+      if (q) openConfirm();
     }
   };
 
-  const executeBuy = () => {
-    if (!st) return;
+  const executeBuy = async () => {
+    if (!st || !walletAddress) return;
     setIsExecuting(true);
-    setTimeout(() => {
-      setIsExecuting(false);
+    try {
+      // Step 1: Build swap transaction via Jupiter edge function
+      setTxPhase("Building transaction…");
+      const result = await buildSwapTransaction(st.token.address, config.amountSOL, walletAddress, config.slippageBps);
+      if (!result?.swapTransaction) throw new Error(jupError || "Failed to build swap transaction");
+
+      // Step 2: Deserialize and send via wallet
+      setTxPhase("Awaiting wallet signature…");
+      const txBytes = Uint8Array.from(atob(result.swapTransaction), (c) => c.charCodeAt(0));
+      
+      // Phantom/Solflare accept { serialize(): Buffer } or VersionedTransaction
+      // We pass the raw bytes as a transaction-like object
+      const { VersionedTransaction } = await import("@solana/web3.js" as string).catch(() => ({ VersionedTransaction: null }));
+      
+      let tx: unknown;
+      if (VersionedTransaction) {
+        tx = VersionedTransaction.deserialize(txBytes);
+      } else {
+        // Fallback: pass raw buffer — Phantom accepts this
+        tx = { serialize: () => txBytes } as unknown;
+      }
+
+      const { signature } = await signAndSendTransaction(tx);
+
+      setTxPhase("");
       closeConfirm();
-      toast.success(`🎯 Sniped ${st.token.symbol} — ${config.amountSOL} SOL`);
-    }, 2000);
+      clearPreview();
+      toast.success(`🎯 Sniped ${st.token.symbol} — ${config.amountSOL} SOL`, {
+        description: `TX: ${signature.slice(0, 8)}…${signature.slice(-8)}`,
+        action: {
+          label: "View",
+          onClick: () => window.open(`https://solscan.io/tx/${signature}`, "_blank"),
+        },
+      });
+      refreshBalance();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Swap failed";
+      if (msg.includes("rejected") || msg.includes("cancelled")) {
+        toast.error("Transaction rejected by wallet");
+      } else {
+        toast.error(`Swap failed: ${msg}`);
+      }
+    } finally {
+      setIsExecuting(false);
+      setTxPhase("");
+    }
   };
 
   const handleSell = (pct: number) => {
