@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { forwardRef } from "react";
 
 type ChipVariant = "success" | "danger" | "warning" | "info" | "muted" | "primary";
 
@@ -18,11 +19,17 @@ interface StatusChipProps {
   dot?: boolean;
 }
 
-export function StatusChip({ variant, children, className, dot }: StatusChipProps) {
-  return (
-    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border", VARIANTS[variant], className)}>
-      {dot && <span className={cn("h-1.5 w-1.5 rounded-full", variant === "success" ? "bg-terminal-green" : variant === "danger" ? "bg-destructive" : variant === "warning" ? "bg-terminal-amber" : "bg-primary")} />}
-      {children}
-    </span>
-  );
-}
+export const StatusChip = forwardRef<HTMLSpanElement, StatusChipProps>(
+  ({ variant, children, className, dot }, ref) => {
+    return (
+      <span
+        ref={ref}
+        className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium border", VARIANTS[variant], className)}
+      >
+        {dot && <span className={cn("h-1.5 w-1.5 rounded-full", variant === "success" ? "bg-terminal-green" : variant === "danger" ? "bg-destructive" : variant === "warning" ? "bg-terminal-amber" : "bg-primary")} />}
+        {children}
+      </span>
+    );
+  }
+);
+StatusChip.displayName = "StatusChip";

@@ -1,8 +1,7 @@
-import { Brain, TrendingUp, Rocket, AlertTriangle, Wallet, BarChart3, Zap, Activity, ShieldAlert, Eye, Loader2 } from "lucide-react";
+import { Brain, TrendingUp, Rocket, AlertTriangle, Wallet, BarChart3, Zap, ShieldAlert, Eye, Loader2 } from "lucide-react";
 import { DashboardStatCard } from "@/components/shared/DashboardStatCard";
 import { PanelShell } from "@/components/shared/PanelShell";
 import { StatusChip } from "@/components/shared/StatusChip";
-import { ScoreMeter } from "@/components/shared/ScoreMeter";
 import { MiniChart } from "@/components/shared/MiniChart";
 import { formatPrice, formatVolume } from "@/data/mockData";
 import { cn } from "@/lib/utils";
@@ -13,6 +12,8 @@ import { useWatchlist } from "@/hooks/useWatchlist";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useTrackedWallets } from "@/hooks/useTrackedWallets";
 import { useSolPrice } from "@/hooks/useSolPrice";
+import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
+import { useSnipeHistory } from "@/hooks/useSnipeHistory";
 
 export default function DashboardHome() {
   const { data: launches } = useNewLaunches();
@@ -21,6 +22,8 @@ export default function DashboardHome() {
   const { alerts } = useAlerts();
   const { wallets } = useTrackedWallets();
   const { data: solPrice } = useSolPrice();
+  const liveTicks = useLivePriceTicks(15_000);
+  const { wins, history } = useSnipeHistory();
 
   const activeAlerts = alerts.filter(a => a.enabled).length;
   const topSignals = signals.filter(t => t.label === "HIGH SIGNAL").slice(0, 5);
@@ -29,7 +32,7 @@ export default function DashboardHome() {
   const rugWarnings = signals.filter(t => t.factors.some(f => f.includes("Low liquidity") || f.includes("Extreme volatility"))).slice(0, 3);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-base sm:text-lg font-mono font-bold text-foreground">COMMAND CENTER</h1>
@@ -43,14 +46,20 @@ export default function DashboardHome() {
         <DashboardStatCard icon={Zap} label="Signals" value={String(signals.length)} change={`${topSignals.length} high confidence`} changeType="positive" />
         <DashboardStatCard icon={Rocket} label="New Launches" value={String(launches?.length ?? 0)} change="from live feeds" changeType="positive" />
         <DashboardStatCard icon={AlertTriangle} label="Risk Warnings" value={String(rugWarnings.length)} change={rugWarnings.length > 0 ? "flagged tokens" : "all clear"} changeType={rugWarnings.length > 0 ? "negative" : "positive"} />
-        <DashboardStatCard icon={Wallet} label="Wallets Tracked" value={String(wallets.length)} change={wallets.length > 0 ? "monitoring" : "add wallets"} changeType="neutral" />
+        <DashboardStatCard icon={Wallet} label="Snipe Wins" value={String(wins.length)} change={`${history.length} total snipes`} changeType={wins.length > 0 ? "positive" : "neutral"} />
         <DashboardStatCard icon={BarChart3} label="Active Alerts" value={String(activeAlerts)} change={`${alerts.length} total`} changeType="neutral" />
       </div>
 
-      {/* SOL price chart */}
+      {/* Live SOL price chart with real ticks */}
       {solPrice && (
-        <PanelShell title="SOL / USD" subtitle="24h price action">
-          <MiniChart baseValue={solPrice.price} change={solPrice.change24h} height={120} label="PRICE" />
+        <PanelShell title="SOL / USD" subtitle={liveTicks.length > 1 ? `${liveTicks.length} live ticks` : "24h price action"}>
+          <MiniChart
+            data={liveTicks.length > 1 ? liveTicks : undefined}
+            baseValue={solPrice.price}
+            change={solPrice.change24h}
+            height={120}
+            label="LIVE PRICE"
+          />
         </PanelShell>
       )}
 
@@ -68,8 +77,8 @@ export default function DashboardHome() {
         </PanelShell>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4">
-        <div className="md:col-span-6 lg:col-span-4 space-y-3 sm:space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4">
+        <div className="lg:col-span-4 space-y-3 sm:space-y-4">
           <PanelShell title="Trending Tokens" subtitle="Top signals" actions={<Link to="/live-pairs" className="text-[10px] font-mono text-primary hover:underline">VIEW ALL</Link>}>
             {trending.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">Loading live data…</p>
@@ -116,26 +125,9 @@ export default function DashboardHome() {
               </div>
             )}
           </PanelShell>
-
-          <PanelShell title="Watchlist" actions={<Link to="/watchlist" className="text-[10px] font-mono text-primary hover:underline">FULL VIEW</Link>}>
-            {watchlistItems.length === 0 ? (
-              <p className="text-xs text-muted-foreground py-4 text-center">No tokens watched yet</p>
-            ) : (
-              <div className="space-y-2">
-                {watchlistItems.slice(0, 4).map(item => (
-                  <Link key={item.id} to={`/token/${item.address}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Eye className="h-3 w-3 text-primary shrink-0" />
-                      <span className="text-xs font-mono text-foreground truncate">{item.label || `${item.address.slice(0, 8)}…`}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </PanelShell>
         </div>
 
-        <div className="md:col-span-6 lg:col-span-5 space-y-3 sm:space-y-4">
+        <div className="lg:col-span-5 space-y-3 sm:space-y-4">
           <PanelShell title="Signal Feed" subtitle="Unified intelligence" actions={<Link to="/ai-signals" className="text-[10px] font-mono text-primary hover:underline">ALL SIGNALS</Link>}>
             {topSignals.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">Scanning for signals…</p>
@@ -189,7 +181,30 @@ export default function DashboardHome() {
           </PanelShell>
         </div>
 
-        <div className="md:col-span-12 lg:col-span-3 space-y-3 sm:space-y-4">
+        <div className="lg:col-span-3 space-y-3 sm:space-y-4">
+          <PanelShell title="Snipe History" subtitle={`${wins.length} wins`} actions={<Link to="/sniper-mode" className="text-[10px] font-mono text-primary hover:underline">SNIPER</Link>}>
+            {history.length === 0 ? (
+              <div className="py-4 text-center">
+                <p className="text-xs text-muted-foreground">No snipes recorded yet</p>
+                <Link to="/sniper-mode" className="text-[10px] font-mono text-primary hover:underline mt-1 block">Open Sniper →</Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {history.slice(0, 5).map(s => (
+                  <Link key={s.id} to={`/token/${s.token_address}`} className="flex items-center justify-between py-2 px-2 rounded hover:bg-muted/30 transition-colors">
+                    <div className="min-w-0">
+                      <p className="text-xs font-mono font-medium text-foreground truncate">{s.token_symbol}</p>
+                      <p className="text-[9px] text-muted-foreground">{s.status} · Score {s.score}</p>
+                    </div>
+                    <StatusChip variant={(s.pnl_percent ?? 0) > 0 ? "success" : (s.pnl_percent ?? 0) < 0 ? "danger" : "muted"}>
+                      {s.pnl_percent !== null ? `${s.pnl_percent > 0 ? "+" : ""}${s.pnl_percent.toFixed(1)}%` : s.state}
+                    </StatusChip>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </PanelShell>
+
           <PanelShell title="Active Alerts" subtitle={`${activeAlerts} enabled`} actions={<Link to="/alerts" className="text-[10px] font-mono text-primary hover:underline">VIEW ALL</Link>}>
             {alerts.length === 0 ? (
               <div className="py-4 text-center">
@@ -206,6 +221,23 @@ export default function DashboardHome() {
                     </div>
                     <p className="text-[11px] text-foreground leading-snug font-mono truncate">{a.address.slice(0, 12)}…</p>
                   </div>
+                ))}
+              </div>
+            )}
+          </PanelShell>
+
+          <PanelShell title="Watchlist" actions={<Link to="/watchlist" className="text-[10px] font-mono text-primary hover:underline">FULL VIEW</Link>}>
+            {watchlistItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">No tokens watched yet</p>
+            ) : (
+              <div className="space-y-2">
+                {watchlistItems.slice(0, 4).map(item => (
+                  <Link key={item.id} to={`/token/${item.address}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Eye className="h-3 w-3 text-primary shrink-0" />
+                      <span className="text-xs font-mono text-foreground truncate">{item.label || `${item.address.slice(0, 8)}…`}</span>
+                    </div>
+                  </Link>
                 ))}
               </div>
             )}
