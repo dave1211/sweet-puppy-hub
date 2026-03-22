@@ -1,129 +1,56 @@
-import { Tag, Loader2, ShoppingCart, Star, Truck, Shield, RotateCcw, Plus, Minus } from "lucide-react";
+import { Loader2, Plus, Minus, Tag, Star, Truck, Shield, RotateCcw, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { useMerchProducts } from "@/hooks/useMerchProducts";
-import { toast } from "sonner";
-import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { CartDrawer } from "@/components/merch/CartDrawer";
+import { useShopifyProducts } from "@/hooks/useShopifyProducts";
+import { useCartStore } from "@/stores/cartStore";
 import tannerLogo from "@/assets/tanner-logo.png";
 
-// Static image imports
-import tshirtTerminal from "@/assets/merch/tshirt-terminal.png";
-import hoodieBlack from "@/assets/merch/hoodie-black.png";
-import hoodieNavy from "@/assets/merch/hoodie-navy.png";
-import hoodieGreen from "@/assets/merch/hoodie-green.png";
-import capBlack from "@/assets/merch/cap-black.png";
-import glovesTech from "@/assets/merch/gloves-tech.png";
-import cupQuote1 from "@/assets/merch/cup-quote1.png";
-import cupQuote2 from "@/assets/merch/cup-quote2.png";
-import tracksuitPants from "@/assets/merch/tracksuit-pants.png";
-import dogLead from "@/assets/merch/dog-lead.png";
-import dogHarness from "@/assets/merch/dog-harness.png";
-import dogBowl from "@/assets/merch/dog-bowl.png";
-import dogSocks from "@/assets/merch/dog-socks.png";
-import dogCollar from "@/assets/merch/dog-collar.png";
-import stickerPack from "@/assets/merch/sticker-pack.png";
-
-const IMAGE_MAP: Record<string, string> = {
-  "/merch/tshirt-terminal.png": tshirtTerminal,
-  "/merch/hoodie-black.png": hoodieBlack,
-  "/merch/hoodie-navy.png": hoodieNavy,
-  "/merch/hoodie-green.png": hoodieGreen,
-  "/merch/cap-black.png": capBlack,
-  "/merch/gloves-tech.png": glovesTech,
-  "/merch/cup-quote1.png": cupQuote1,
-  "/merch/cup-quote2.png": cupQuote2,
-  "/merch/tracksuit-pants.png": tracksuitPants,
-  "/merch/dog-lead.png": dogLead,
-  "/merch/dog-harness.png": dogHarness,
-  "/merch/dog-bowl.png": dogBowl,
-  "/merch/dog-socks.png": dogSocks,
-  "/merch/dog-collar.png": dogCollar,
-  "/merch/sticker-pack.png": stickerPack,
-};
-
-const CATEGORY_LABELS: Record<string, { icon: string; label: string }> = {
-  apparel: { icon: "👕", label: "Apparel" },
-  accessories: { icon: "🎒", label: "Accessories" },
-  pets: { icon: "🐕", label: "Pets" },
-};
-
-const CATEGORIES = ["all", "apparel", "accessories", "pets"] as const;
-
-const SIZES = ["S", "M", "L", "XL", "XXL"] as const;
-
-// Products that support size selection
-const APPAREL_KEYWORDS = ["hoodie", "t-shirt", "tee", "tracksuit", "pants", "jogger"];
-const isApparel = (name: string) => APPAREL_KEYWORDS.some((k) => name.toLowerCase().includes(k));
-
-interface CartItem {
-  qty: number;
-  size?: string;
-}
+const DEFAULT_FILTER = "all";
 
 export default function MerchStore() {
-  const { data: products, isLoading } = useMerchProducts();
-  const [filter, setFilter] = useState<string>("all");
-  const [cart, setCart] = useState<Record<string, CartItem>>({});
-  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
+  const { data: products, isLoading } = useShopifyProducts();
+  const [filter, setFilter] = useState(DEFAULT_FILTER);
+  const [selectedVariantByProduct, setSelectedVariantByProduct] = useState<Record<string, string>>({});
 
-  const filtered = filter === "all" ? products : products?.filter((p) => p.category === filter);
+  const { items, addItem, updateQuantity, isLoading: cartLoading } = useCartStore();
 
-  const cartCount = Object.values(cart).reduce((a, b) => a + b.qty, 0);
-  const cartTotal = products
-    ? Object.entries(cart).reduce((sum, [id, item]) => {
-        const pId = id.split("__")[0];
-        const p = products.find((pr) => pr.id === pId);
-        return sum + (p ? Number(p.price) * item.qty : 0);
-      }, 0)
-    : 0;
+  const categories = useMemo(() => {
+    const unique = Array.from(new Set((products || []).map((entry) => (entry.node.productType || "Other").toLowerCase())));
+    return [DEFAULT_FILTER, ...unique];
+  }, [products]);
 
-  const cartKey = (id: string, size?: string) => (size ? `${id}__${size}` : id);
+  const filtered = useMemo(() => {
+    if (!products) return [];
+    if (filter === DEFAULT_FILTER) return products;
+    return products.filter((entry) => (entry.node.productType || "Other").toLowerCase() === filter);
+  }, [products, filter]);
 
-  const addToCart = (id: string, name: string, size?: string) => {
-    if (isApparel(name) && !size) {
-      toast.error("Please select a size first");
-      return;
-    }
-    const key = cartKey(id, size);
-    setCart((prev) => ({
-      ...prev,
-      [key]: { qty: (prev[key]?.qty || 0) + 1, size },
-    }));
-    toast.success(`${name}${size ? ` (${size})` : ""} added to cart`);
-  };
-
-  const updateQty = (key: string, delta: number) => {
-    setCart((prev) => {
-      const cur = prev[key]?.qty || 0;
-      const next = cur + delta;
-      if (next <= 0) {
-        const { [key]: _, ...rest } = prev;
-        return rest;
-      }
-      return { ...prev, [key]: { ...prev[key], qty: next } };
-    });
-  };
-
-  const getCartQty = (id: string, size?: string) => {
-    const key = cartKey(id, size);
-    return cart[key]?.qty || 0;
-  };
-
-  const handleCheckout = () => {
-    toast.info("Checkout coming soon — Stripe integration pending. Your cart has been saved.");
-  };
+  const getVariantQty = (variantId: string) => items.find((item) => item.variantId === variantId)?.quantity || 0;
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-8">
-      {/* Header */}
-      <div className="text-center space-y-2 pt-4">
-        <h1 className="text-2xl md:text-3xl font-mono font-bold text-foreground inline-flex items-center gap-2">
-          <img src={tannerLogo} alt="Tanner logo" className="h-7 w-7 rounded-sm object-cover" loading="lazy" />
-          Tanner <span className="text-primary">Merch</span>
-        </h1>
-        <p className="text-sm font-mono text-muted-foreground">Premium terminal gear. Rep the alpha.</p>
+    <div className="space-y-6 max-w-6xl mx-auto pb-20 sm:pb-8">
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+        <div className="space-y-2">
+          <h1 className="text-2xl md:text-3xl font-mono font-bold text-foreground inline-flex items-center gap-2">
+            <img src={tannerLogo} alt="Tanner logo" className="h-7 w-7 rounded-sm object-cover" loading="lazy" />
+            Tanner <span className="text-primary">Merch</span>
+          </h1>
+          <p className="text-sm font-mono text-muted-foreground">Live products from your connected Shopify catalog.</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild>
+            <Link to="/merch/admin">
+              <Settings className="h-4 w-4 mr-2" /> Admin
+            </Link>
+          </Button>
+          <CartDrawer />
+        </div>
       </div>
 
-      {/* Trust badges */}
       <div className="flex justify-center gap-6 flex-wrap text-[10px] font-mono text-muted-foreground">
         <span className="flex items-center gap-1"><Truck className="h-3 w-3 text-primary" /> Free shipping $50+</span>
         <span className="flex items-center gap-1"><Shield className="h-3 w-3 text-primary" /> Secure checkout</span>
@@ -131,163 +58,116 @@ export default function MerchStore() {
         <span className="flex items-center gap-1"><Star className="h-3 w-3 text-terminal-amber" /> 4.9/5 rated</span>
       </div>
 
-      {/* Category filter + cart */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex gap-2 flex-wrap">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              className={`px-3 py-1.5 rounded-md text-[10px] font-mono font-bold border transition-colors ${
-                filter === cat
-                  ? "bg-primary/20 text-primary border-primary/40"
-                  : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
-              }`}
-            >
-              {cat === "all" ? "ALL" : `${CATEGORY_LABELS[cat]?.icon || ""} ${CATEGORY_LABELS[cat]?.label || cat}`}
-            </button>
-          ))}
-        </div>
-
-        {cartCount > 0 && (
+      <div className="flex items-center gap-2 flex-wrap">
+        {categories.map((category) => (
           <button
-            onClick={handleCheckout}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-xs font-mono font-bold hover:bg-primary/90 transition-colors"
+            key={category}
+            onClick={() => setFilter(category)}
+            className={`px-3 py-1.5 rounded-md text-[10px] font-mono font-bold border transition-colors ${
+              filter === category
+                ? "bg-primary/20 text-primary border-primary/40"
+                : "bg-muted/50 text-muted-foreground border-border hover:border-primary/30"
+            }`}
           >
-            <ShoppingCart className="h-4 w-4" />
-            Cart ({cartCount}) — ${cartTotal.toFixed(2)}
+            {category === DEFAULT_FILTER ? "ALL" : category.toUpperCase()}
           </button>
-        )}
+        ))}
       </div>
 
-      {/* Products grid */}
       {isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-      ) : !filtered || filtered.length === 0 ? (
-        <p className="text-center text-sm font-mono text-muted-foreground py-16">No products yet…</p>
+      ) : filtered.length === 0 ? (
+        <p className="text-center text-sm font-mono text-muted-foreground py-16">No products found.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((product) => {
-            const imgSrc = product.image_url ? IMAGE_MAP[product.image_url] : null;
-            const needsSize = isApparel(product.name);
-            const selSize = selectedSizes[product.id];
-            const inCart = needsSize
-              ? SIZES.reduce((sum, s) => sum + getCartQty(product.id, s), 0)
-              : getCartQty(product.id);
+            const hero = product.node.images.edges[0]?.node;
+            const variants = product.node.variants.edges;
+            const selectedVariantId = selectedVariantByProduct[product.node.id] || variants[0]?.node.id;
+            const selectedVariant = variants.find((entry) => entry.node.id === selectedVariantId)?.node || variants[0]?.node;
+            const qty = selectedVariant ? getVariantQty(selectedVariant.id) : 0;
 
             return (
-              <Card key={product.id} className="border-border bg-card hover:border-primary/30 transition-all group overflow-hidden hover:shadow-lg hover:shadow-primary/5">
-                {/* Image */}
-                <div className="w-full aspect-square bg-muted/40 overflow-hidden relative">
-                  {imgSrc ? (
-                    <img src={imgSrc} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-5xl">{CATEGORY_LABELS[product.category]?.icon || "📦"}</span>
-                    </div>
-                  )}
-                  {inCart > 0 && (
-                    <div className="absolute top-2 right-2 bg-primary text-primary-foreground text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
-                      {inCart} in cart
-                    </div>
-                  )}
-                  <div className="absolute top-2 left-2">
-                    <span className="text-[9px] font-mono text-muted-foreground bg-background/80 backdrop-blur-sm px-2 py-0.5 rounded-full border border-border">
-                      {CATEGORY_LABELS[product.category]?.label || product.category}
-                    </span>
-                  </div>
-                </div>
+              <Card key={product.node.id} className="border-border bg-card hover:border-primary/30 transition-all group overflow-hidden hover:shadow-lg hover:shadow-primary/5">
+                <Link to={`/merch/${product.node.handle}`} className="block w-full aspect-square bg-muted/40 overflow-hidden relative">
+                  {hero ? (
+                    <img src={hero.url} alt={hero.altText || product.node.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                  ) : null}
+                </Link>
 
-                {/* Details */}
                 <CardContent className="p-4 space-y-3">
                   <div>
-                    <h3 className="text-sm font-mono font-bold text-foreground leading-tight">{product.name}</h3>
-                    <p className="text-[11px] font-mono text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
+                    <Link to={`/merch/${product.node.handle}`} className="text-sm font-mono font-bold text-foreground leading-tight hover:text-primary transition-colors line-clamp-2">
+                      {product.node.title}
+                    </Link>
+                    <p className="text-[11px] font-mono text-muted-foreground mt-1 line-clamp-2">
+                      {product.node.description || "Premium Tanner merch."}
+                    </p>
                   </div>
 
-                  {/* Size selector for apparel */}
-                  {needsSize && (
+                  {variants.length > 1 ? (
                     <div className="space-y-1.5">
-                      <span className="text-[10px] font-mono text-muted-foreground">Size:</span>
-                      <div className="flex gap-1.5">
-                        {SIZES.map((s) => (
+                      <span className="text-[10px] font-mono text-muted-foreground">Variant:</span>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {variants.map((entry) => (
                           <button
-                            key={s}
-                            onClick={() => setSelectedSizes((prev) => ({ ...prev, [product.id]: s }))}
-                            className={`w-9 h-8 rounded text-[10px] font-mono font-bold border transition-all ${
-                              selSize === s
+                            key={entry.node.id}
+                            onClick={() => setSelectedVariantByProduct((prev) => ({ ...prev, [product.node.id]: entry.node.id }))}
+                            className={`px-2.5 h-8 rounded text-[10px] font-mono font-bold border transition-all ${
+                              selectedVariantId === entry.node.id
                                 ? "bg-primary/20 text-primary border-primary/50 ring-1 ring-primary/30"
                                 : "bg-muted/30 text-muted-foreground border-border hover:border-primary/30 hover:text-foreground"
                             }`}
                           >
-                            {s}
+                            {entry.node.selectedOptions.map((option) => option.value).join("/") || entry.node.title}
                           </button>
                         ))}
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
-                  <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center justify-between pt-1 gap-2">
                     <div className="flex items-center gap-1.5">
                       <Tag className="h-3 w-3 text-primary" />
-                      <span className="text-xl font-mono font-black text-foreground">${Number(product.price).toFixed(2)}</span>
+                      <span className="text-lg font-mono font-black text-foreground">
+                        {selectedVariant?.price.currencyCode || product.node.priceRange.minVariantPrice.currencyCode} {Number(selectedVariant?.price.amount || product.node.priceRange.minVariantPrice.amount).toFixed(2)}
+                      </span>
                     </div>
 
-                    {/* Quantity controls or Add button */}
-                    {(() => {
-                      const key = cartKey(product.id, needsSize ? selSize : undefined);
-                      const qty = cart[key]?.qty || 0;
-
-                      if (qty > 0) {
-                        return (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => updateQty(key, -1)}
-                              className="w-8 h-8 rounded-md bg-muted/50 text-muted-foreground hover:bg-destructive/20 hover:text-destructive border border-border flex items-center justify-center transition-colors"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="w-8 text-center text-sm font-mono font-bold text-foreground">{qty}</span>
-                            <button
-                              onClick={() => updateQty(key, 1)}
-                              className="w-8 h-8 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 flex items-center justify-center transition-colors"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </div>
-                        );
-                      }
-
-                      return (
-                        <button
-                          onClick={() => addToCart(product.id, product.name, needsSize ? selSize : undefined)}
-                          className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary/10 text-primary text-[11px] font-mono font-bold hover:bg-primary/20 active:scale-95 transition-all border border-primary/30"
-                        >
-                          <ShoppingCart className="h-3.5 w-3.5" />
-                          ADD TO CART
+                    {qty > 0 && selectedVariant ? (
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => updateQuantity(selectedVariant.id, qty - 1)} className="w-8 h-8 rounded-md bg-muted/50 text-muted-foreground hover:bg-destructive/20 hover:text-destructive border border-border flex items-center justify-center transition-colors">
+                          <Minus className="h-3 w-3" />
                         </button>
-                      );
-                    })()}
+                        <span className="w-8 text-center text-sm font-mono font-bold text-foreground">{qty}</span>
+                        <button onClick={() => updateQuantity(selectedVariant.id, qty + 1)} className="w-8 h-8 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 flex items-center justify-center transition-colors">
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={async () => {
+                          if (!selectedVariant) return;
+                          await addItem({
+                            product: product.node,
+                            variantId: selectedVariant.id,
+                            variantTitle: selectedVariant.title,
+                            price: selectedVariant.price,
+                            quantity: 1,
+                            selectedOptions: selectedVariant.selectedOptions || [],
+                          });
+                        }}
+                        disabled={!selectedVariant || !selectedVariant.availableForSale || cartLoading}
+                        className="px-4 py-2 rounded-md bg-primary/10 text-primary text-[11px] font-mono font-bold hover:bg-primary/20 active:scale-95 transition-all border border-primary/30 disabled:opacity-40"
+                      >
+                        {selectedVariant?.availableForSale ? "ADD TO CART" : "OUT OF STOCK"}
+                      </button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             );
           })}
-        </div>
-      )}
-
-      {/* Sticky cart bar on mobile */}
-      {cartCount > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-md border-t border-border p-3 flex items-center justify-between sm:hidden z-50">
-          <div className="font-mono text-sm text-foreground">
-            <span className="font-bold">{cartCount} items</span> · <span className="text-primary font-black">${cartTotal.toFixed(2)}</span>
-          </div>
-          <button
-            onClick={handleCheckout}
-            className="px-5 py-2 rounded-md bg-primary text-primary-foreground text-xs font-mono font-bold"
-          >
-            CHECKOUT
-          </button>
         </div>
       )}
     </div>
