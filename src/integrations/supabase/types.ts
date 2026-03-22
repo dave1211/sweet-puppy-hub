@@ -50,6 +50,72 @@ export type Database = {
         }
         Relationships: []
       }
+      merch_products: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          in_stock: boolean
+          name: string
+          price: number
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          in_stock?: boolean
+          name: string
+          price: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          in_stock?: boolean
+          name?: string
+          price?: number
+        }
+        Relationships: []
+      }
+      rewards: {
+        Row: {
+          created_at: string
+          device_id: string
+          id: string
+          points: number
+          referral_code: string
+          referred_by: string | null
+          total_referrals: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          device_id: string
+          id?: string
+          points?: number
+          referral_code: string
+          referred_by?: string | null
+          total_referrals?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string
+          id?: string
+          points?: number
+          referral_code?: string
+          referred_by?: string | null
+          total_referrals?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tracked_wallets: {
         Row: {
           address: string
