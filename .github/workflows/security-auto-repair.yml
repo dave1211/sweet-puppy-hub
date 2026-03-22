@@ -1,0 +1,53 @@
+name: Tanner Sentinel — Auto-Repair
+
+on:
+  schedule:
+    - cron: '0 4 * * 1' # Weekly Monday 4 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-repair:
+    name: Safe Auto-Repair
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run auto-repair
+        id: repair
+        run: bash scripts/security/auto-repair.sh
+
+      - name: Create PR if changes exist
+        if: steps.repair.outputs.has_fixes == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'security(sentinel): auto-repair low-risk issues'
+          title: '🛡️ Sentinel Auto-Repair — Low-Risk Fixes'
+          body: |
+            ## Tanner Sentinel Auto-Repair
+
+            This PR contains **low-risk automated fixes** only.
+
+            ### What was fixed
+            - Lockfile consistency (if drifted)
+            - Formatting issues
+            - Safe config/doc fixes
+
+            ### What was NOT touched
+            - Execution engine, wallet, auth, trading logic
+            - Edge functions
+            - Any protected path
+
+            **Review before merging.** Auto-repair never pushes directly to main.
+          branch: sentinel/auto-repair
+          delete-branch: true
+          labels: security, auto-repair, sentinel

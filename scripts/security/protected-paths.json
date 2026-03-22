@@ -1,0 +1,86 @@
+{
+  "description": "Tanner Sentinel — Protected paths policy. These files must NEVER be auto-repaired and require strict review on any change.",
+  "protected_paths": [
+    "src/lib/executionEngine.ts",
+    "src/lib/rugGuard.ts",
+    "src/lib/sniperEngine.ts",
+    "src/lib/sniperSimulation.ts",
+    "src/contexts/WalletContext.tsx",
+    "src/contexts/AuthContext.tsx",
+    "src/hooks/useJupiterSwap.ts",
+    "src/hooks/useSniperMode.ts",
+    "src/hooks/useAutoSniper.ts",
+    "src/components/terminal/ExecutionControlsPanel.tsx",
+    "src/components/terminal/LiveModeConfirmModal.tsx",
+    "src/components/terminal/SwapConfirmModal.tsx",
+    "src/components/terminal/WalletConnectButton.tsx",
+    "src/components/terminal/WalletPanel.tsx",
+    "src/components/terminal/SniperModePanel.tsx",
+    "src/components/layout/ProtectedRoute.tsx",
+    "src/stores/walletStore.ts",
+    "src/integrations/supabase/client.ts",
+    "supabase/functions/wallet-auth/index.ts",
+    "supabase/functions/jupiter-swap/index.ts",
+    "supabase/functions/telegram-alert/index.ts",
+    "supabase/functions/token-data/index.ts",
+    "supabase/functions/token-launch/index.ts",
+    "supabase/functions/wallet-balances/index.ts",
+    "supabase/functions/meme-generator/index.ts",
+    "supabase/functions/tanner-token-stats/index.ts"
+  ],
+  "hard_block_patterns": [
+    {
+      "id": "live_mode_default",
+      "description": "LIVE trading default must never change to enabled",
+      "file": "src/lib/executionEngine.ts",
+      "pattern": "liveEnabled:\\s*true",
+      "context": "DEFAULT_SAFEGUARDS"
+    },
+    {
+      "id": "emergency_stop_removed",
+      "description": "Emergency stop function must exist",
+      "file": "src/lib/executionEngine.ts",
+      "function": "triggerEmergencyStop"
+    },
+    {
+      "id": "max_trade_size_removed",
+      "description": "Max trade size safeguard must exist",
+      "file": "src/lib/executionEngine.ts",
+      "pattern": "maxTradeSOL"
+    },
+    {
+      "id": "service_role_frontend",
+      "description": "Service role key must never appear in frontend",
+      "glob": "src/**/*.{ts,tsx}",
+      "pattern": "service_role|SUPABASE_SERVICE_ROLE_KEY"
+    },
+    {
+      "id": "vite_secret_misuse",
+      "description": "Private secrets must not be exposed via VITE_ prefix",
+      "glob": "src/**/*.{ts,tsx}",
+      "pattern": "VITE_.*SECRET|VITE_.*SERVICE_ROLE|VITE_.*PRIVATE_KEY"
+    },
+    {
+      "id": "wallet_private_key",
+      "description": "Wallet private key logic must never exist",
+      "glob": "**/*.{ts,tsx,js}",
+      "pattern": "privateKey|private_key|secretKey|secret_key|seed_phrase|seedPhrase|mnemonic"
+    }
+  ],
+  "auto_repair_allowed": [
+    "formatting",
+    "import_cleanup",
+    "lockfile_consistency",
+    "safe_config_docs",
+    "patch_dependency_updates"
+  ],
+  "auto_repair_forbidden": [
+    "src/lib/executionEngine.ts",
+    "src/lib/rugGuard.ts",
+    "src/contexts/WalletContext.tsx",
+    "src/contexts/AuthContext.tsx",
+    "supabase/functions/**",
+    "src/stores/walletStore.ts",
+    "src/hooks/useJupiterSwap.ts"
+  ]
+}

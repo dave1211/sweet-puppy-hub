@@ -1,0 +1,56 @@
+{
+  "scan_time": "2026-03-22T17:14:31Z",
+  "passed": true,
+  "total_findings": 6,
+  "blocked_count": 0,
+  "findings": [
+  {
+    "severity": "high",
+    "issue": "Edge function missing auth validation",
+    "file": "supabase/functions/jupiter-swap/index.ts",
+    "fixed_automatically": false,
+    "blocked": false,
+    "recommendation": "Add JWT/auth validation to jupiter-swap"
+  },
+  {
+    "severity": "high",
+    "issue": "Edge function missing auth validation",
+    "file": "supabase/functions/meme-generator/index.ts",
+    "fixed_automatically": false,
+    "blocked": false,
+    "recommendation": "Add JWT/auth validation to meme-generator"
+  },
+  {
+    "severity": "high",
+    "issue": "Edge function missing auth validation",
+    "file": "supabase/functions/tanner-token-stats/index.ts",
+    "fixed_automatically": false,
+    "blocked": false,
+    "recommendation": "Add JWT/auth validation to tanner-token-stats"
+  },
+  {
+    "severity": "high",
+    "issue": "Edge function missing auth validation",
+    "file": "supabase/functions/token-data/index.ts",
+    "fixed_automatically": false,
+    "blocked": false,
+    "recommendation": "Add JWT/auth validation to token-data"
+  },
+  {
+    "severity": "high",
+    "issue": "Edge function missing auth validation",
+    "file": "supabase/functions/token-launch/index.ts",
+    "fixed_automatically": false,
+    "blocked": false,
+    "recommendation": "Add JWT/auth validation to token-launch"
+  },
+  {
+    "severity": "high",
+    "issue": "Edge function missing auth validation",
+    "file": "supabase/functions/wallet-balances/index.ts",
+    "fixed_automatically": false,
+    "blocked": false,
+    "recommendation": "Add JWT/auth validation to wallet-balances"
+  }
+]
+}
