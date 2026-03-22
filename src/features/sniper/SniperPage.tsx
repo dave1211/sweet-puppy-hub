@@ -1,10 +1,10 @@
 // Sniper Page — Full-width 3-panel layout
-import { useSniperFeed } from "../hooks/useSniperFeed";
-import { SniperHeader } from "../components/SniperHeader";
-import { SniperFilters } from "../components/SniperFilters";
-import { SniperFeed } from "../components/SniperFeed";
-import { SniperDetail } from "../components/SniperDetail";
-import { SniperExecution } from "../components/SniperExecution";
+import { useSniperFeed } from "@/features/sniper/hooks/useSniperFeed";
+import { SniperHeader } from "@/features/sniper/components/SniperHeader";
+import { SniperFilters } from "@/features/sniper/components/SniperFilters";
+import { SniperFeed } from "@/features/sniper/components/SniperFeed";
+import { SniperDetail } from "@/features/sniper/components/SniperDetail";
+import { SniperExecution } from "@/features/sniper/components/SniperExecution";
 
 const SniperPage = () => {
   const { tokens, selectedToken } = useSniperFeed();
