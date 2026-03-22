@@ -183,6 +183,7 @@ export function BurnIncinerator() {
       // Record each burn in DB
       for (const token of batch) {
         await insertBurnRecord({
+          user_id: user?.id || "",
           wallet_address: walletAddress,
           token_mint: token.mint,
           token_symbol: token.symbol,
