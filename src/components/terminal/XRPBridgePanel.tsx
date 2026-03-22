@@ -72,6 +72,7 @@ export function XRPBridgePanel() {
             {xrplWallet.isConnected ? "XRPL LIVE" : "CROSS-CHAIN"}
           </span>
         </div>
+      </div>
 
       {/* Tab Bar */}
       <div className="flex gap-1 mb-3">
