@@ -1,14 +1,24 @@
-import { Activity, Zap } from "lucide-react";
+import { Activity, Zap, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMarketStore } from "@/stores/marketStore";
 import { useUIStore } from "@/stores/uiStore";
+import { useAlertStore } from "@/stores/alertStore";
 import { XRPLWalletButton } from "@/components/trading/XRPLWalletButton";
 import { PairSelector } from "@/components/trading/PairSelector";
+
+const TABS = [
+  { key: "trade", label: "Trade" },
+  { key: "portfolio", label: "Portfolio" },
+  { key: "orders", label: "Orders" },
+  { key: "alerts", label: "Alerts" },
+  { key: "nft", label: "NFTs" },
+] as const;
 
 export function TerminalTopBar() {
   const { activePair, lastPrice, change24h, high24h, low24h, volume24h, network } =
     useMarketStore();
   const { activeTab, setActiveTab } = useUIStore();
+  const unreadCount = useAlertStore((s) => s.unreadCount);
 
   const isPositive = change24h >= 0;
 
@@ -28,7 +38,6 @@ export function TerminalTopBar() {
 
         <div className="h-5 w-px bg-border/60 hidden md:block" />
 
-        {/* Pair selector */}
         <PairSelector />
 
         {/* Ticker stats */}
@@ -40,47 +49,42 @@ export function TerminalTopBar() {
           <TickerStat label="VOL" value={volume24h > 0 ? `${(volume24h / 1_000_000).toFixed(2)}M` : "—"} />
         </div>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
         {/* Tabs */}
         <div className="hidden sm:flex items-center gap-0.5 bg-muted/50 rounded p-0.5">
-          {(["trade", "portfolio", "orders"] as const).map((tab) => (
+          {TABS.map((tab) => (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "px-3 py-1 text-[9px] font-mono uppercase tracking-wider rounded transition-all duration-150",
-                activeTab === tab
+                "relative px-2.5 py-1 text-[9px] font-mono uppercase tracking-wider rounded transition-all duration-150",
+                activeTab === tab.key
                   ? "bg-card text-primary shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {tab}
+              {tab.label}
+              {tab.key === "alerts" && unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-destructive flex items-center justify-center">
+                  <span className="text-[5px] font-mono text-white font-bold">{unreadCount > 9 ? "9+" : unreadCount}</span>
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* Wallet */}
         <XRPLWalletButton />
 
-        {/* Network status */}
+        {/* Network */}
         <div className="hidden sm:flex items-center gap-1.5">
           <div className="relative">
-            <Activity
-              className={cn(
-                "h-3 w-3",
-                network.connected ? "text-primary" : "text-destructive"
-              )}
-            />
+            <Activity className={cn("h-3 w-3", network.connected ? "text-primary" : "text-destructive")} />
             {network.connected && (
               <div className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary animate-pulse-glow" />
             )}
           </div>
-          <span className={cn(
-            "text-[9px] font-mono tracking-wider",
-            network.connected ? "text-primary/80" : "text-destructive/80"
-          )}>
+          <span className={cn("text-[9px] font-mono tracking-wider", network.connected ? "text-primary/80" : "text-destructive/80")}>
             {network.connected ? "LIVE" : "OFF"}
           </span>
         </div>
