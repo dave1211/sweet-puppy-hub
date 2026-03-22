@@ -19,6 +19,7 @@ const NAV = [
   { label: "Alerts", path: "/alerts", icon: Bell },
   { label: "Portfolio", path: "/portfolio", icon: PieChart },
   { label: "Strategies", path: "/strategies", icon: Sliders },
+  { label: "Launchpad", path: "/launchpad", icon: Flame },
   { label: "Settings", path: "/settings", icon: Settings },
 ];
 
