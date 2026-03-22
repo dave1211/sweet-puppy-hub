@@ -45,23 +45,14 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
       const result = await buildSwapTransaction(st.token.address, config.amountSOL, walletAddress, config.slippageBps);
       if (!result?.swapTransaction) throw new Error(jupError || "Failed to build swap transaction");
 
-      // Step 2: Deserialize and send via wallet
+      // Step 2: Decode base64 transaction and send via wallet
       setTxPhase("Awaiting wallet signature…");
       const txBytes = Uint8Array.from(atob(result.swapTransaction), (c) => c.charCodeAt(0));
-      
-      // Phantom/Solflare accept { serialize(): Buffer } or VersionedTransaction
-      // We pass the raw bytes as a transaction-like object
-      const { VersionedTransaction } = await import("@solana/web3.js" as string).catch(() => ({ VersionedTransaction: null }));
-      
-      let tx: unknown;
-      if (VersionedTransaction) {
-        tx = VersionedTransaction.deserialize(txBytes);
-      } else {
-        // Fallback: pass raw buffer — Phantom accepts this
-        tx = { serialize: () => txBytes } as unknown;
-      }
 
-      const { signature } = await signAndSendTransaction(tx);
+      // Phantom and Solflare accept raw Uint8Array buffers for versioned transactions
+      const { signature } = await signAndSendTransaction(txBytes);
+
+      
 
       setTxPhase("");
       closeConfirm();
