@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeftRight, Globe, Zap, CreditCard, TrendingUp } from "lucide-react";
 import { useWallet } from "@/contexts/WalletContext";
+import { useWalletStore } from "@/stores/walletStore";
+import { xrplService } from "@/services/xrplService";
 import { toast } from "sonner";
 
 type BridgeTab = "bridge" | "pay" | "invest";

@@ -1,10 +1,11 @@
 /**
  * XRPL wallet connection service.
  * Supports Xaman (xumm) and Crossmark with fallback demo mode.
- * Ledger architecture placeholder included.
+ * Includes transaction signing helpers for trust lines and payments.
  */
 
 import type { WalletProviderType } from "@/types/xrpl";
+import { xrplService } from "@/services/xrplService";
 
 export interface WalletConnectResult {
   address: string;
@@ -15,10 +16,20 @@ export interface WalletConnectResult {
 async function connectXaman(): Promise<WalletConnectResult> {
   const win = window as any;
 
-  // Check for xumm SDK injected
   if (win?.xumm?.authorize) {
     try {
       const auth = await win.xumm.authorize();
+      return { address: auth.me.account, provider: "xaman" };
+    } catch {
+      throw new Error("Xaman connection rejected");
+    }
+  }
+
+  // Check for XummPkce SDK
+  if (win?.XummPkce) {
+    try {
+      const xumm = new win.XummPkce();
+      const auth = await xumm.authorize();
       return { address: auth.me.account, provider: "xaman" };
     } catch {
       throw new Error("Xaman connection rejected");
@@ -79,6 +90,39 @@ export async function connectWallet(
 }
 
 export function disconnectWallet(): void {
-  // Clear any cached sessions if needed
   console.info("[Wallet] Disconnected");
+}
+
+/**
+ * Sign and submit an XRPL transaction via the connected wallet.
+ * Returns the transaction hash on success.
+ */
+export async function signAndSubmitXRPL(
+  provider: WalletProviderType,
+  txJson: Record<string, unknown>
+): Promise<string> {
+  const win = window as any;
+
+  if (provider === "xaman") {
+    if (win?.xumm?.payload) {
+      const payload = await win.xumm.payload.create({ txjson: txJson });
+      const result = await win.xumm.payload.subscribe(payload);
+      if (result?.signed) return result.txid ?? "signed";
+      throw new Error("Transaction rejected in Xaman");
+    }
+    // Demo mode
+    console.warn("[Wallet] Xaman not available for signing — demo mode");
+    return "DEMO_TX_" + Math.random().toString(36).slice(2, 10);
+  }
+
+  if (provider === "crossmark") {
+    if (win?.crossmark?.sign) {
+      const res = await win.crossmark.sign(txJson);
+      return res?.response?.data?.txnHash ?? "signed";
+    }
+    console.warn("[Wallet] Crossmark not available for signing — demo mode");
+    return "DEMO_TX_" + Math.random().toString(36).slice(2, 10);
+  }
+
+  throw new Error(`Signing not supported for provider: ${provider}`);
 }
