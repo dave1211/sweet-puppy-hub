@@ -221,7 +221,7 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
           {/* Execute Button */}
           <button
             onClick={handleBuy}
-            disabled={!isConnected || config.amountSOL <= 0 || isExecuting}
+            disabled={!isConnected || config.amountSOL <= 0 || isExecuting || isQuoting}
             className="w-full flex items-center justify-center gap-1.5 rounded py-2.5 text-[11px] font-mono font-bold transition-colors bg-terminal-green/15 text-terminal-green border border-terminal-green/30 hover:bg-terminal-green/25 disabled:opacity-40"
           >
             {isExecuting ? (
