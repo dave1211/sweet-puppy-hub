@@ -33,6 +33,7 @@ interface AppSidebarProps {
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { signOut, user } = useAuth();
 
   return (
     <aside className={cn(
