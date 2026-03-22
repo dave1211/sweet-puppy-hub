@@ -1,22 +1,19 @@
 import { useParams, Link } from "react-router-dom";
 import { PanelShell } from "@/components/shared/PanelShell";
 import { StatusChip } from "@/components/shared/StatusChip";
-import { ScoreMeter } from "@/components/shared/ScoreMeter";
-import { mockWallets } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Wallet, Copy, TrendingUp, Activity } from "lucide-react";
-
-const RECENT_TRADES = [
-  { token: "ALPHA", action: "BUY", amount: "12.5 SOL", price: "$0.034", pnl: "+45.2%", time: "2h ago" },
-  { token: "GIGA", action: "BUY", amount: "5.0 SOL", price: "$0.067", pnl: "+23.1%", time: "6h ago" },
-  { token: "TURBO", action: "SELL", amount: "8.0 SOL", price: "$0.012", pnl: "+89.4%", time: "1d ago" },
-  { token: "WIF", action: "BUY", amount: "3.0 SOL", price: "$1.89", pnl: "+12.3%", time: "2d ago" },
-  { token: "PEPE", action: "BUY", amount: "20.0 SOL", price: "$0.0000098", pnl: "+8.7%", time: "3d ago" },
-];
+import { ArrowLeft, Wallet, Copy, Loader2 } from "lucide-react";
+import { useWalletActivity } from "@/hooks/useWalletActivity";
+import { useTrackedWallets } from "@/hooks/useTrackedWallets";
+import { timeAgo } from "@/data/mockData";
+import { toast } from "sonner";
 
 export default function WalletDetailPage() {
   const { id } = useParams();
-  const wallet = mockWallets.find(w => w.id === id) ?? mockWallets[0];
+  const { wallets } = useTrackedWallets();
+  const wallet = wallets.find(w => w.address === id || w.id === id);
+  const address = wallet?.address ?? id ?? "";
+  const { data: activity, isLoading } = useWalletActivity(address || null);
 
   return (
     <div className="space-y-4">
@@ -27,89 +24,60 @@ export default function WalletDetailPage() {
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-lg bg-primary/10"><Wallet className="h-5 w-5 text-primary" /></div>
           <div>
-            <h1 className="text-lg font-mono font-bold text-foreground">{wallet.label}</h1>
+            <h1 className="text-lg font-mono font-bold text-foreground">{wallet?.label || "Wallet"}</h1>
             <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
-              <span>{wallet.address}</span>
-              <button className="text-primary"><Copy className="h-3 w-3" /></button>
-              <span>·</span>
-              <span>{wallet.chain}</span>
+              <span>{address.slice(0, 12)}…{address.slice(-4)}</span>
+              <button onClick={() => { navigator.clipboard.writeText(address); toast.success("Copied!"); }} className="text-primary"><Copy className="h-3 w-3" /></button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          { label: "Type", value: wallet.type.toUpperCase() },
-          { label: "Win Rate", value: `${wallet.winRate}%`, color: wallet.winRate >= 70 ? "text-terminal-green" : "" },
-          { label: "Avg Entry", value: `${wallet.avgEntry}x` },
-          { label: "7d PnL", value: `${wallet.pnl7d >= 0 ? "+" : ""}${wallet.pnl7d.toFixed(1)}%`, color: wallet.pnl7d >= 0 ? "text-terminal-green" : "text-destructive" },
-          { label: "Trust Score", value: String(wallet.trustScore) },
-        ].map(s => (
-          <div key={s.label} className="terminal-panel p-3">
-            <p className="text-[9px] font-mono text-muted-foreground uppercase">{s.label}</p>
-            <p className={cn("text-sm font-mono font-bold text-foreground mt-1", s.color)}>{s.value}</p>
+      <PanelShell title="Recent Activity" subtitle="On-chain transactions" noPad>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            <span className="ml-2 text-xs font-mono text-muted-foreground">Fetching on-chain activity…</span>
           </div>
-        ))}
-      </div>
-
-      <ScoreMeter value={wallet.trustScore} label="TRUST SCORE" size="md" />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PanelShell title="Recent Trades" noPad>
+        ) : !activity || activity.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-8 text-center">No recent activity found for this wallet.</p>
+        ) : (
           <table className="w-full text-xs font-mono">
             <thead>
               <tr className="border-b border-border text-muted-foreground">
-                <th className="text-left p-3">ACTION</th>
+                <th className="text-left p-3">TYPE</th>
                 <th className="text-left p-3">TOKEN</th>
-                <th className="text-right p-3">AMOUNT</th>
-                <th className="text-right p-3">PNL</th>
+                <th className="text-right p-3 hidden md:table-cell">AMOUNT</th>
                 <th className="text-right p-3">TIME</th>
+                <th className="text-center p-3">STATUS</th>
               </tr>
             </thead>
             <tbody>
-              {RECENT_TRADES.map((t, i) => (
-                <tr key={i} className="border-b border-border/50">
-                  <td className="p-3"><StatusChip variant={t.action === "BUY" ? "success" : "danger"}>{t.action}</StatusChip></td>
-                  <td className="p-3 text-foreground">{t.token}</td>
-                  <td className="p-3 text-right text-muted-foreground">{t.amount}</td>
-                  <td className="p-3 text-right text-terminal-green">{t.pnl}</td>
-                  <td className="p-3 text-right text-muted-foreground">{t.time}</td>
+              {activity.map(tx => (
+                <tr key={tx.signature} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                  <td className="p-3">
+                    <StatusChip variant={tx.type === "buy" ? "success" : tx.type === "sell" ? "danger" : "muted"}>
+                      {tx.type.toUpperCase()}
+                    </StatusChip>
+                  </td>
+                  <td className="p-3 text-foreground">
+                    {tx.tokenSymbol ?? (tx.tokenAddress ? `${tx.tokenAddress.slice(0, 6)}…` : "SOL")}
+                  </td>
+                  <td className="p-3 text-right hidden md:table-cell text-muted-foreground">
+                    {tx.amount ? tx.amount.toFixed(4) : "—"}
+                  </td>
+                  <td className="p-3 text-right text-muted-foreground">
+                    {tx.blockTime ? timeAgo(tx.blockTime * 1000) : "—"}
+                  </td>
+                  <td className="p-3 text-center">
+                    <StatusChip variant={tx.err ? "danger" : "success"}>{tx.err ? "FAILED" : "OK"}</StatusChip>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </PanelShell>
-
-        <PanelShell title="Wallet Profile">
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded bg-muted/30">
-                <p className="text-[9px] uppercase text-muted-foreground mb-1">Style</p>
-                <p className="text-sm font-mono font-bold text-primary">{wallet.type}</p>
-              </div>
-              <div className="p-3 rounded bg-muted/30">
-                <p className="text-[9px] uppercase text-muted-foreground mb-1">Avg Hold Time</p>
-                <p className="text-sm font-mono font-bold text-foreground">4.2h</p>
-              </div>
-              <div className="p-3 rounded bg-muted/30">
-                <p className="text-[9px] uppercase text-muted-foreground mb-1">Frequency</p>
-                <p className="text-sm font-mono font-bold text-foreground">12/day</p>
-              </div>
-              <div className="p-3 rounded bg-muted/30">
-                <p className="text-[9px] uppercase text-muted-foreground mb-1">Preferred Chain</p>
-                <p className="text-sm font-mono font-bold text-foreground">{wallet.chain}</p>
-              </div>
-            </div>
-            <p className="text-[11px]">
-              <span className="text-foreground/60">Recent action: </span>{wallet.recentAction}
-            </p>
-            <p className="text-[11px]">
-              <span className="text-foreground/60">Behavior: </span>Aggressive entries on new launches with quick profit-taking. Tends to accumulate on dips.
-            </p>
-          </div>
-        </PanelShell>
-      </div>
+        )}
+      </PanelShell>
     </div>
   );
 }

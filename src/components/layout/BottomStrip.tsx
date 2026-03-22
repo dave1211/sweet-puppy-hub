@@ -1,25 +1,49 @@
-import { Activity, TrendingUp, AlertTriangle, Zap } from "lucide-react";
+import { Activity, TrendingUp, Zap, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const FEED = [
-  { icon: TrendingUp, text: "ALPHA +22.3% in 15m", color: "text-terminal-green" },
-  { icon: Zap, text: "Whale bought 120 SOL of GIGA", color: "text-primary" },
-  { icon: AlertTriangle, text: "MOON risk score → 92", color: "text-destructive" },
-  { icon: Activity, text: "New launch: NeonSwap (NEON)", color: "text-terminal-amber" },
-  { icon: TrendingUp, text: "TURBO vol spike 12x", color: "text-terminal-cyan" },
-];
+import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
+import { useSolPrice } from "@/hooks/useSolPrice";
+import { useMemo } from "react";
 
 export function BottomStrip() {
+  const { tokens } = useUnifiedSignals();
+  const { data: solPrice } = useSolPrice();
+
+  const feed = useMemo(() => {
+    const items: { icon: typeof TrendingUp; text: string; color: string }[] = [];
+
+    if (solPrice) {
+      items.push({
+        icon: TrendingUp,
+        text: `SOL $${solPrice.price.toFixed(2)} ${solPrice.change24h >= 0 ? "+" : ""}${solPrice.change24h.toFixed(1)}%`,
+        color: solPrice.change24h >= 0 ? "text-terminal-green" : "text-destructive",
+      });
+    }
+
+    for (const t of tokens.slice(0, 6)) {
+      items.push({
+        icon: t.label === "HIGH SIGNAL" ? Zap : Activity,
+        text: `${t.symbol} ${t.change24h >= 0 ? "+" : ""}${t.change24h.toFixed(1)}% · Score ${t.score}`,
+        color: t.change24h >= 0 ? "text-terminal-green" : "text-destructive",
+      });
+    }
+
+    if (items.length === 0) {
+      items.push({ icon: Loader2, text: "Loading live data…", color: "text-muted-foreground" });
+    }
+
+    return items;
+  }, [tokens, solPrice]);
+
   return (
     <footer className="border-t border-border/40 px-4 py-1 shrink-0 bg-card/30 overflow-hidden">
       <div className="flex items-center gap-6 text-[9px] font-mono tracking-wider animate-marquee">
-        {FEED.map((item, i) => (
+        {feed.map((item, i) => (
           <div key={i} className="flex items-center gap-1.5 shrink-0">
             <item.icon className={cn("h-2.5 w-2.5", item.color)} />
             <span className="text-muted-foreground">{item.text}</span>
           </div>
         ))}
-        {FEED.map((item, i) => (
+        {feed.map((item, i) => (
           <div key={`dup-${i}`} className="flex items-center gap-1.5 shrink-0">
             <item.icon className={cn("h-2.5 w-2.5", item.color)} />
             <span className="text-muted-foreground">{item.text}</span>

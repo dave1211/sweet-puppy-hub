@@ -2,28 +2,51 @@ import { useParams, Link } from "react-router-dom";
 import { PanelShell } from "@/components/shared/PanelShell";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ScoreMeter } from "@/components/shared/ScoreMeter";
-import { mockTokens, formatPrice, formatVolume, formatNumber } from "@/data/mockData";
+import { formatPrice, formatVolume, pairAge } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Star, Bell, Copy, ExternalLink, Shield, Zap, TrendingUp, Users, Code, Activity } from "lucide-react";
+import { ArrowLeft, Star, Bell, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useTokenPrices } from "@/hooks/useTokenPrices";
+import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
+import { useNewLaunches } from "@/hooks/useNewLaunches";
+import { assessRug } from "@/hooks/useRugDetection";
+import { useWatchlist } from "@/hooks/useWatchlist";
+import { toast } from "sonner";
 
-const TABS = ["Overview", "Price Action", "Holders", "Smart Money", "Whale Activity", "Contract Risk", "Notes"];
-
-const BADGES = [
-  { label: "Fresh Launch", condition: (t: any) => t.status === "new", variant: "info" as const },
-  { label: "Whale Inflow", condition: (t: any) => t.signalScore > 80, variant: "success" as const },
-  { label: "Liquidity Stable", condition: (t: any) => t.liquidity > 5_000_000, variant: "success" as const },
-  { label: "Contract Risk", condition: (t: any) => t.riskScore > 60, variant: "danger" as const },
-  { label: "High Volatility", condition: (t: any) => Math.abs(t.change24h) > 50, variant: "warning" as const },
-  { label: "Possible Rug", condition: (t: any) => t.status === "rug_risk", variant: "danger" as const },
-  { label: "Sniper Ready", condition: (t: any) => t.signalScore > 85, variant: "info" as const },
-];
+const TABS = ["Overview", "Risk Analysis", "Smart Money", "Notes"];
 
 export default function TokenDetailPage() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState("Overview");
-  const token = mockTokens.find(t => t.id === id) ?? mockTokens[0];
-  const activeBadges = BADGES.filter(b => b.condition(token));
+  const { tokens } = useUnifiedSignals();
+  const { data: launches } = useNewLaunches();
+  const { addItem } = useWatchlist();
+  const { data: priceData } = useTokenPrices(id ? [id] : []);
+
+  // Find token from unified signals or launches
+  const signal = tokens.find(t => t.address === id);
+  const launch = (launches ?? []).find(t => t.address === id);
+  const token = signal ?? launch;
+  const price = priceData?.[id ?? ""];
+
+  if (!token) {
+    return (
+      <div className="space-y-4">
+        <Link to="/live-pairs" className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-xs font-mono">
+          <ArrowLeft className="h-4 w-4" /> Back to Live Pairs
+        </Link>
+        <div className="text-center py-16">
+          <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-3" />
+          <p className="text-xs font-mono text-muted-foreground">Loading token data for {id?.slice(0, 8)}…</p>
+          <p className="text-[10px] text-muted-foreground mt-2">If this persists, the token may not be in current feeds.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const rug = assessRug({ liquidity: token.liquidity, volume24h: token.volume24h, change24h: token.change24h, pairCreatedAt: token.pairCreatedAt });
+  const displayPrice = price?.price ?? token.price;
+  const displayChange = price?.change24h ?? token.change24h;
 
   return (
     <div className="space-y-4">
@@ -40,78 +63,72 @@ export default function TokenDetailPage() {
                 <span className="text-sm font-mono text-muted-foreground">{token.symbol}</span>
               </div>
               <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
-                <span>{token.chain}</span>
+                <span>{token.dexId}</span>
                 <span>·</span>
-                <span>{token.contractAddress}</span>
-                <button className="text-primary hover:text-primary/80"><Copy className="h-3 w-3" /></button>
+                <span>{token.address.slice(0, 12)}…{token.address.slice(-4)}</span>
+                <button onClick={() => { navigator.clipboard.writeText(token.address); toast.success("Copied!"); }} className="text-primary hover:text-primary/80"><Copy className="h-3 w-3" /></button>
               </div>
             </div>
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-terminal-amber transition-colors"><Star className="h-4 w-4" /></button>
-          <button className="p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"><Bell className="h-4 w-4" /></button>
+          <button onClick={() => addItem.mutate({ address: token.address, label: token.symbol })} className="p-2 rounded hover:bg-muted/50 text-muted-foreground hover:text-terminal-amber transition-colors"><Star className="h-4 w-4" /></button>
         </div>
       </div>
 
       {/* Badges */}
       <div className="flex gap-1.5 flex-wrap">
-        {activeBadges.map(b => <StatusChip key={b.label} variant={b.variant} dot>{b.label}</StatusChip>)}
+        {signal && <StatusChip variant={signal.label === "HIGH SIGNAL" ? "success" : "info"} dot>{signal.label}</StatusChip>}
+        <StatusChip variant={rug.level === "low" ? "success" : rug.level === "watch" ? "warning" : "danger"}>{rug.label}</StatusChip>
+        {rug.flags.map(f => <StatusChip key={f.id} variant="warning">{f.label}</StatusChip>)}
+        {signal?.sniperType && <StatusChip variant="info">{signal.sniperType === "sniper" ? "Sniper Activity" : "Early Accumulation"}</StatusChip>}
+        {signal?.whaleCount && signal.whaleCount > 0 && <StatusChip variant="success">Whale ×{signal.whaleCount}</StatusChip>}
       </div>
 
       {/* Price + stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
         <div className="terminal-panel p-3 col-span-2">
           <p className="text-[9px] font-mono text-muted-foreground uppercase">Price</p>
-          <p className="text-2xl font-mono font-bold text-foreground">{formatPrice(token.price)}</p>
-          <p className={cn("text-sm font-mono", token.change24h >= 0 ? "text-terminal-green" : "text-destructive")}>
-            {token.change24h >= 0 ? "+" : ""}{token.change24h.toFixed(2)}% <span className="text-muted-foreground text-[10px]">24h</span>
+          <p className="text-2xl font-mono font-bold text-foreground">{formatPrice(displayPrice)}</p>
+          <p className={cn("text-sm font-mono", displayChange >= 0 ? "text-terminal-green" : "text-destructive")}>
+            {displayChange >= 0 ? "+" : ""}{displayChange.toFixed(2)}% <span className="text-muted-foreground text-[10px]">24h</span>
           </p>
         </div>
-        {[
-          { label: "Market Cap", value: formatVolume(token.mcap) },
-          { label: "FDV", value: formatVolume(token.fdv ?? token.mcap) },
-          { label: "Liquidity", value: formatVolume(token.liquidity) },
-          { label: "Volume 24h", value: formatVolume(token.volume) },
-          { label: "Pair Age", value: token.pairAge },
-          { label: "Holders", value: formatNumber(token.holders) },
-        ].map(s => (
-          <div key={s.label} className="terminal-panel p-3">
-            <p className="text-[9px] font-mono text-muted-foreground uppercase">{s.label}</p>
-            <p className="text-sm font-mono font-bold text-foreground mt-1">{s.value}</p>
-          </div>
-        ))}
+        <div className="terminal-panel p-3">
+          <p className="text-[9px] font-mono text-muted-foreground uppercase">Liquidity</p>
+          <p className="text-sm font-mono font-bold text-foreground mt-1">{formatVolume(token.liquidity)}</p>
+        </div>
+        <div className="terminal-panel p-3">
+          <p className="text-[9px] font-mono text-muted-foreground uppercase">Volume 24h</p>
+          <p className="text-sm font-mono font-bold text-foreground mt-1">{formatVolume(token.volume24h)}</p>
+        </div>
+        <div className="terminal-panel p-3">
+          <p className="text-[9px] font-mono text-muted-foreground uppercase">Pair Age</p>
+          <p className="text-sm font-mono font-bold text-foreground mt-1">{pairAge(token.pairCreatedAt)}</p>
+        </div>
+        <div className="terminal-panel p-3">
+          <p className="text-[9px] font-mono text-muted-foreground uppercase">DEX</p>
+          <p className="text-sm font-mono font-bold text-foreground mt-1">{token.dexId}</p>
+        </div>
       </div>
 
       {/* Scores */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="terminal-panel p-4">
-          <p className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Buy / Sell Ratio</p>
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <div className="h-3 rounded-full bg-muted overflow-hidden flex">
-                <div className="h-full bg-terminal-green" style={{ width: `${(token.buys / (token.buys + token.sells)) * 100}%` }} />
-                <div className="h-full bg-destructive flex-1" />
-              </div>
+      {signal && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="terminal-panel p-4">
+            <p className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Signal Score</p>
+            <ScoreMeter value={signal.score} label="" size="md" />
+            <div className="flex gap-1 flex-wrap mt-2">
+              {signal.factors.map(f => <span key={f} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/5 text-primary/80">{f}</span>)}
             </div>
-            <span className="text-xs font-mono text-foreground">{(token.buys / token.sells).toFixed(1)}:1</span>
           </div>
-          <div className="flex justify-between text-[10px] font-mono text-muted-foreground mt-1">
-            <span className="text-terminal-green">{formatNumber(token.buys)} buys</span>
-            <span className="text-destructive">{formatNumber(token.sells)} sells</span>
+          <div className="terminal-panel p-4">
+            <p className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Safety Assessment</p>
+            <ScoreMeter value={Math.max(0, 100 - rug.flags.length * 25)} label="" size="md" />
+            <p className="text-[10px] text-muted-foreground mt-2">{rug.flags.length === 0 ? "No risk flags detected" : `${rug.flags.length} risk flag(s) identified`}</p>
           </div>
         </div>
-        <div className="terminal-panel p-4">
-          <p className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Safety Score</p>
-          <ScoreMeter value={100 - token.riskScore} label="" size="md" />
-          <p className="text-[10px] text-muted-foreground mt-2">Contract safety evaluation</p>
-        </div>
-        <div className="terminal-panel p-4">
-          <p className="text-[9px] font-mono text-muted-foreground uppercase mb-2">AI Confidence</p>
-          <ScoreMeter value={token.signalScore} label="" size="md" />
-          <p className="text-[10px] text-muted-foreground mt-2">Sniper readiness: {token.signalScore >= 85 ? "READY" : "STANDBY"}</p>
-        </div>
-      </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border pb-0 overflow-x-auto">
@@ -122,28 +139,38 @@ export default function TokenDetailPage() {
         ))}
       </div>
 
-      {/* Tab content */}
       <PanelShell title={activeTab}>
         {activeTab === "Overview" && (
           <div className="space-y-3 text-sm text-muted-foreground">
-            <p>{token.name} ({token.symbol}) is a {token.chain}-based token with a market cap of {formatVolume(token.mcap)} and daily volume of {formatVolume(token.volume)}.</p>
-            <p>The token has {formatNumber(token.holders)} holders and a pair age of {token.pairAge}. Current risk assessment: {token.riskScore < 25 ? "Low risk" : token.riskScore < 50 ? "Moderate risk" : "High risk"}.</p>
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <div className="p-3 rounded bg-muted/30">
-                <p className="text-[9px] uppercase text-muted-foreground mb-1">5m Change</p>
-                <p className={cn("text-sm font-mono font-bold", token.change5m >= 0 ? "text-terminal-green" : "text-destructive")}>{token.change5m >= 0 ? "+" : ""}{token.change5m.toFixed(1)}%</p>
-              </div>
-              <div className="p-3 rounded bg-muted/30">
-                <p className="text-[9px] uppercase text-muted-foreground mb-1">1h Change</p>
-                <p className={cn("text-sm font-mono font-bold", token.change1h >= 0 ? "text-terminal-green" : "text-destructive")}>{token.change1h >= 0 ? "+" : ""}{token.change1h.toFixed(1)}%</p>
-              </div>
-            </div>
+            <p>{token.name} ({token.symbol}) is traded on {token.dexId} with {formatVolume(token.liquidity)} liquidity and {formatVolume(token.volume24h)} daily volume.</p>
+            <p>The pair was created {pairAge(token.pairCreatedAt)} ago. Risk assessment: {rug.label}.</p>
+            <a href={token.url} target="_blank" rel="noopener noreferrer" className="text-primary text-xs font-mono hover:underline block">View on DEX →</a>
           </div>
         )}
-        {activeTab !== "Overview" && (
-          <div className="py-8 text-center text-muted-foreground text-sm">
-            <p className="font-mono">{activeTab} data will be available when connected to live feeds.</p>
+        {activeTab === "Risk Analysis" && (
+          <div className="space-y-3">
+            {rug.flags.length === 0 ? (
+              <p className="text-xs text-terminal-green">No risk flags detected for this token.</p>
+            ) : (
+              rug.flags.map(f => (
+                <div key={f.id} className="flex items-center gap-2 p-2 rounded bg-destructive/5 border border-destructive/10">
+                  <span className="text-xs font-mono text-foreground">{f.label}</span>
+                </div>
+              ))
+            )}
           </div>
+        )}
+        {activeTab === "Smart Money" && signal ? (
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <p>Wallet count: {signal.walletCount} | Wallet touches: {signal.walletTouches}</p>
+            {signal.sniperType && <p>Sniper type: {signal.sniperType}</p>}
+            {signal.whaleCount > 0 && <p>Whale interest: {signal.whaleCount} whale(s) active</p>}
+          </div>
+        ) : activeTab === "Smart Money" ? (
+          <p className="text-xs text-muted-foreground py-4">No smart money data available for this token.</p>
+        ) : null}
+        {activeTab === "Notes" && (
+          <p className="text-xs text-muted-foreground py-4">Notes feature coming soon. Track this token by adding it to your watchlist.</p>
         )}
       </PanelShell>
     </div>
