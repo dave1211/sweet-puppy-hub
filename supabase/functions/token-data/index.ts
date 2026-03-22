@@ -713,6 +713,20 @@ serve(async (req) => {
       });
     }
 
+    if (action === "token-enrich") {
+      const body = await req.json().catch(() => ({ addresses: [] }));
+      const addresses: string[] = body.addresses ?? [];
+      if (addresses.length === 0) {
+        return new Response(JSON.stringify([]), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const data = await enrichTokens(addresses);
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(
       JSON.stringify({ error: "Unknown action" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
