@@ -225,7 +225,15 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
             className="w-full flex items-center justify-center gap-1.5 rounded py-2.5 text-[11px] font-mono font-bold transition-colors bg-terminal-green/15 text-terminal-green border border-terminal-green/30 hover:bg-terminal-green/25 disabled:opacity-40"
           >
             {isExecuting ? (
-              <span className="animate-pulse">EXECUTING…</span>
+              <span className="flex items-center gap-1.5 animate-pulse">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {txPhase || "EXECUTING…"}
+              </span>
+            ) : isQuoting ? (
+              <span className="flex items-center gap-1.5 animate-pulse">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Fetching quote…
+              </span>
             ) : (
               <>
                 <Zap className="h-3.5 w-3.5" />
