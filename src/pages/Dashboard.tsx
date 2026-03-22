@@ -19,6 +19,7 @@ import { GatedPanel } from "@/components/terminal/GatedPanel";
 import { ExecutionControlsPanel } from "@/components/terminal/ExecutionControlsPanel";
 import { RugGuardPanel } from "@/components/terminal/RugGuardPanel";
 import { ProofPanel } from "@/components/terminal/ProofPanel";
+import { EnhancedRugPanel } from "@/components/terminal/EnhancedRugPanel";
 import { SelectedTokenProvider } from "@/contexts/SelectedTokenContext";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useAlerts } from "@/hooks/useAlerts";
@@ -42,7 +43,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           <div className="lg:col-span-3 space-y-4"><WatchlistPanel /><AlertsPanel /><DailyPerformancePanel /><ProofPanel /><GrowthPanel /></div>
           <div className="lg:col-span-5 space-y-4"><TokenDetailPanel /><RugGuardPanel /><TopSignalsPanel /><GatedPanel gate="canUseAdvancedSignals" featureLabel="Advanced Signals"><SignalPanel /></GatedPanel><AdaptiveWeightsPanel /><ActivityFeed /></div>
-          <div className="lg:col-span-4 space-y-4"><GatedPanel gate="canUseAutoSniper" featureLabel="Auto Sniper"><AutoSniperPanel /></GatedPanel><GatedPanel gate="canUseSniper" featureLabel="Sniper Mode"><SniperModePanel /></GatedPanel><GatedPanel gate="canUseCopyTrading" featureLabel="Copy Trading"><CopyTradingPanel /></GatedPanel><NewLaunchesPanel /><GatedPanel gate="canUseSmartMoney" featureLabel="Wallet Tracker"><WalletPanel /></GatedPanel><GatedPanel gate="canUseSmartMoney" featureLabel="Smart Money"><SmartMoneyPanel /></GatedPanel><ExecutionControlsPanel /><TradingPanel /></div>
+          <div className="lg:col-span-4 space-y-4"><GatedPanel gate="canUseAutoSniper" featureLabel="Auto Sniper"><AutoSniperPanel /></GatedPanel><GatedPanel gate="canUseSniper" featureLabel="Sniper Mode"><SniperModePanel /></GatedPanel><GatedPanel gate="canUseCopyTrading" featureLabel="Copy Trading"><CopyTradingPanel /></GatedPanel><NewLaunchesPanel /><EnhancedRugPanel /><GatedPanel gate="canUseSmartMoney" featureLabel="Wallet Tracker"><WalletPanel /></GatedPanel><GatedPanel gate="canUseSmartMoney" featureLabel="Smart Money"><SmartMoneyPanel /></GatedPanel><ExecutionControlsPanel /><TradingPanel /></div>
         </div>
       </div>
     </SelectedTokenProvider>

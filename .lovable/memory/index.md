@@ -8,14 +8,17 @@ Tanner Terminal clone project - dark terminal trading UI with JetBrains Mono, In
 
 ## Architecture  
 - 3 contexts: TierContext (free/pro/elite gating), WalletContext (Phantom/Solflare), SelectedTokenContext
-- Lovable Cloud for persistence (watchlist, alerts, tracked_wallets tables)
-- 3 Edge functions: token-data, jupiter-swap, tanner-token-stats
+- Lovable Cloud for persistence (watchlist, alerts, tracked_wallets, rewards, merch_products tables)
+- 4 Edge functions: token-data, jupiter-swap, tanner-token-stats, telegram-alert
+- Telegram connector connected for alert push
 - Device-based access (no auth) - permissive RLS policies intentional
-- ~25 hooks, ~30 terminal components, 6 pages
-- Source project: 71b5d5e1-ca96-4bb0-af4b-e88f31c74d3d
+- 8 pages: Dashboard, Watchlist, Alerts, Token, Pricing, Rewards, MerchStore, NotFound
 
 ## Completed
-- Full design system (index.css + tailwind.config.ts)
-- All contexts, hooks, lib files, components, pages
-- Database tables with RLS
-- All 3 edge functions deployed
+- Full design system, all contexts, hooks, lib files, components
+- Database tables with RLS (rewards, merch_products added)
+- Rewards system with referral tracking
+- Merch store with product listings (Stripe checkout deferred)
+- Telegram alert edge function + TelegramAlertButton component
+- Enhanced rug scanner panel (EnhancedRugPanel)
+- All edge functions deployed

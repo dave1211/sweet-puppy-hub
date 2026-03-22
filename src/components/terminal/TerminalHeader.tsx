@@ -10,6 +10,8 @@ const NAV_ITEMS = [
   { label: "Alerts", path: "/alerts" },
   { label: "$Tanner", path: "/token" },
   { label: "Pricing", path: "/pricing" },
+  { label: "Rewards", path: "/rewards" },
+  { label: "Merch", path: "/merch" },
 ];
 
 export function TerminalHeader() {
