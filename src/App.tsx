@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TierProvider } from "@/contexts/TierContext";
 import { WalletProvider } from "@/contexts/WalletContext";
+import { useCartSync } from "@/hooks/useCartSync";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Watchlist from "./pages/Watchlist";
@@ -13,33 +14,45 @@ import Token from "./pages/Token";
 import Pricing from "./pages/Pricing";
 import Rewards from "./pages/Rewards";
 import MerchStore from "./pages/MerchStore";
+import MerchProduct from "./pages/MerchProduct";
+import MerchAdmin from "./pages/MerchAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const AppShell = () => {
+  useCartSync();
+
+  return (
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />}>
+            <Route index element={<Dashboard />} />
+            <Route path="watchlist" element={<Watchlist />} />
+            <Route path="alerts" element={<Alerts />} />
+            <Route path="token" element={<Token />} />
+            <Route path="pricing" element={<Pricing />} />
+            <Route path="rewards" element={<Rewards />} />
+            <Route path="merch" element={<MerchStore />} />
+            <Route path="merch/admin" element={<MerchAdmin />} />
+            <Route path="merch/:handle" element={<MerchProduct />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TierProvider>
-    <WalletProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />}>
-              <Route index element={<Dashboard />} />
-              <Route path="watchlist" element={<Watchlist />} />
-              <Route path="alerts" element={<Alerts />} />
-              <Route path="token" element={<Token />} />
-              <Route path="pricing" element={<Pricing />} />
-              <Route path="rewards" element={<Rewards />} />
-              <Route path="merch" element={<MerchStore />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </WalletProvider>
+      <WalletProvider>
+        <AppShell />
+      </WalletProvider>
     </TierProvider>
   </QueryClientProvider>
 );
