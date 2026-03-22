@@ -23,14 +23,15 @@ export interface TierGates {
   canUseLaunchPriority: boolean;
 }
 
-function getGates(tier: Tier): TierGates {
+function getGates(_tier: Tier): TierGates {
+  // All features unlocked — no tier gating
   return {
-    canUseSniper:         tier === "pro" || tier === "elite",
-    canUseSmartMoney:     tier === "pro" || tier === "elite",
-    canUseCopyTrading:    tier === "elite",
-    canUseAutoSniper:     tier === "elite",
-    canUseAdvancedSignals: tier === "pro" || tier === "elite",
-    canUseLaunchPriority: tier === "elite",
+    canUseSniper: true,
+    canUseSmartMoney: true,
+    canUseCopyTrading: true,
+    canUseAutoSniper: true,
+    canUseAdvancedSignals: true,
+    canUseLaunchPriority: true,
   };
 }
 
