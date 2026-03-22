@@ -85,8 +85,8 @@ export default {
           to: { height: "0" },
         },
         "pulse-glow": {
-          "0%, 100%": { opacity: "1", filter: "brightness(1)" },
-          "50%": { opacity: "0.7", filter: "brightness(1.3)" },
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.4" },
         },
         "fade-in": {
           from: { opacity: "0", transform: "translateY(4px)" },
@@ -106,5 +106,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 } satisfies Config;
