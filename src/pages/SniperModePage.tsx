@@ -15,6 +15,15 @@ import { getSettingValue } from "@/pages/SettingsPage";
 export default function SniperModePage() {
   const [simMode, setSimMode] = useState(() => getSettingValue("liveMode") !== "true");
   const { tokens: signals, isLoading } = useUnifiedSignals();
+
+
+  // Listen for settings changes
+  useEffect(() => {
+    const handler = () => setSimMode(getSettingValue("liveMode") !== "true");
+    window.addEventListener("settings-changed", handler);
+    return () => window.removeEventListener("settings-changed", handler);
+  }, []);
+
   const { data: launches } = useNewLaunches();
   const { history, wins, losses, active } = useSnipeHistory();
 
