@@ -13,6 +13,7 @@ export function useJupiterSwap() {
   const [preview, setPreview] = useState<SwapPreview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /** Quote SOL→Token (buy) */
   const getQuote = useCallback(async (tokenAddress: string, amountSOL: number, slippageBps = 50): Promise<SwapPreview | null> => {
     setIsQuoting(true); setError(null); setPreview(null);
     try {
@@ -33,6 +34,27 @@ export function useJupiterSwap() {
     finally { setIsQuoting(false); }
   }, []);
 
+  /** Quote Token→SOL (sell) */
+  const getSellQuote = useCallback(async (tokenAddress: string, tokenAmount: number, decimals: number, slippageBps = 50): Promise<SwapPreview | null> => {
+    setIsQuoting(true); setError(null); setPreview(null);
+    try {
+      const rawAmount = Math.round(tokenAmount * 10 ** decimals);
+      const { data, error: fnError } = await supabase.functions.invoke("jupiter-swap", { body: { action: "quote", inputMint: tokenAddress, outputMint: SOL_MINT, amount: rawAmount, slippageBps } });
+      if (fnError) throw new Error(fnError.message);
+      if (data?.error) throw new Error(data.error);
+      const quote = data as JupiterQuote;
+      const outLamports = parseInt(quote.outAmount, 10);
+      const outputSOL = outLamports / 1e9;
+      const minSOL = parseInt(quote.otherAmountThreshold, 10) / 1e9;
+      const routeLabels = quote.routePlan?.map((r) => r.swapInfo?.label || "Unknown") ?? [];
+      const result: SwapPreview = { quote, inputAmountSOL: outputSOL, outputAmount: outputSOL, outputDecimals: 9, priceImpact: parseFloat(quote.priceImpactPct || "0"), slippageBps, route: routeLabels, minimumReceived: minSOL };
+      setPreview(result);
+      return result;
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : "Sell quote failed"); return null; }
+    finally { setIsQuoting(false); }
+  }, []);
+
+  /** Build SOL→Token swap TX (buy) */
   const buildSwapTransaction = useCallback(async (tokenAddress: string, amountSOL: number, userPublicKey: string, slippageBps = 50): Promise<SwapTransaction | null> => {
     setIsBuilding(true); setError(null);
     try {
@@ -45,6 +67,19 @@ export function useJupiterSwap() {
     finally { setIsBuilding(false); }
   }, []);
 
+  /** Build Token→SOL swap TX (sell) */
+  const buildSellTransaction = useCallback(async (tokenAddress: string, tokenAmount: number, decimals: number, userPublicKey: string, slippageBps = 50): Promise<SwapTransaction | null> => {
+    setIsBuilding(true); setError(null);
+    try {
+      const rawAmount = Math.round(tokenAmount * 10 ** decimals);
+      const { data, error: fnError } = await supabase.functions.invoke("jupiter-swap", { body: { action: "swap", inputMint: tokenAddress, outputMint: SOL_MINT, amount: rawAmount, slippageBps, userPublicKey } });
+      if (fnError) throw new Error(fnError.message);
+      if (data?.error) throw new Error(data.error);
+      return data as SwapTransaction;
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : "Sell build failed"); return null; }
+    finally { setIsBuilding(false); }
+  }, []);
+
   const clearPreview = useCallback(() => { setPreview(null); setError(null); }, []);
-  return { getQuote, buildSwapTransaction, clearPreview, preview, isQuoting, isBuilding, error };
+  return { getQuote, getSellQuote, buildSwapTransaction, buildSellTransaction, clearPreview, preview, isQuoting, isBuilding, error };
 }

@@ -19,6 +19,7 @@ import TerminalLayout from "./pages/TerminalLayout";
 import TradingPage from "./pages/TradingPage";
 import PortfolioPage from "./pages/PortfolioPage";
 import SniperPage from "./features/sniper/SniperPage";
+import LaunchpadPage from "./pages/LaunchpadPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
                 <Route path="merch/:id" element={<MerchProduct />} />
                 <Route path="merch/admin" element={<MerchAdmin />} />
                 <Route path="sniper" element={<SniperPage />} />
+                <Route path="launchpad" element={<LaunchpadPage />} />
               </Route>
               {/* XRPL Trading — secondary */}
               <Route path="/xrpl" element={<TerminalLayout />}>
