@@ -29,7 +29,7 @@ export function EnhancedRugPanel() {
   const { selectedAddress } = useSelectedToken();
   const { data: tokenInfo } = useTokenInfo(selectedAddress);
 
-  if (!selectedToken || !tokenInfo) {
+  if (!selectedAddress || !tokenInfo) {
     return (
       <Card className="border-border bg-card">
         <CardHeader className="pb-2">
