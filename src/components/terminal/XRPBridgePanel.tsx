@@ -64,8 +64,14 @@ export function XRPBridgePanel() {
       <div className="flex items-center gap-2 mb-3">
         <Globe className="h-4 w-4 text-terminal-blue" />
         <h3 className="text-xs font-mono font-bold text-foreground tracking-wide">XRP BRIDGE & PAY</h3>
-        <span className="ml-auto text-[10px] font-mono text-terminal-blue bg-terminal-blue/10 px-1.5 py-0.5 rounded">CROSS-CHAIN</span>
-      </div>
+        <div className="ml-auto flex items-center gap-2">
+          {xrplWallet.isConnected && (
+            <span className="text-[9px] font-mono text-primary">{xrpBalance.toFixed(2)} XRP</span>
+          )}
+          <span className="text-[10px] font-mono text-terminal-blue bg-terminal-blue/10 px-1.5 py-0.5 rounded">
+            {xrplWallet.isConnected ? "XRPL LIVE" : "CROSS-CHAIN"}
+          </span>
+        </div>
 
       {/* Tab Bar */}
       <div className="flex gap-1 mb-3">
