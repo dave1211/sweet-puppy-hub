@@ -34,7 +34,7 @@ const WalletContext = createContext<WalletState | null>(null);
 
 function getWalletProvider(p: WalletProviderType): SolanaWallet | null {
   if (!p) return null;
-  const win = window as Record<string, unknown>;
+  const win = window as unknown as Record<string, unknown>;
   if (p === "phantom") return (win.solana as SolanaWallet) ?? null;
   if (p === "solflare") return (win.solflare as SolanaWallet) ?? null;
   return null;
