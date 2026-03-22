@@ -6,80 +6,87 @@
 
 @layer base {
   :root {
-    --background: 220 20% 7%;
+    --background: 225 25% 5%;
     --foreground: 210 20% 92%;
 
-    --card: 220 18% 10%;
+    --card: 225 22% 8%;
     --card-foreground: 210 20% 92%;
 
-    --popover: 220 18% 10%;
+    --popover: 225 22% 8%;
     --popover-foreground: 210 20% 92%;
 
     --primary: 142 70% 45%;
-    --primary-foreground: 220 20% 7%;
+    --primary-foreground: 225 25% 5%;
 
-    --secondary: 220 16% 16%;
+    --secondary: 225 18% 13%;
     --secondary-foreground: 210 20% 85%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 215 15% 50%;
+    --muted: 225 16% 11%;
+    --muted-foreground: 220 12% 45%;
 
     --accent: 142 70% 45%;
-    --accent-foreground: 220 20% 7%;
+    --accent-foreground: 225 25% 5%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
+    --border: 225 16% 14%;
+    --input: 225 16% 14%;
     --ring: 142 70% 45%;
 
-    --radius: 0.5rem;
+    --radius: 0.375rem;
 
     --terminal-green: 142 70% 45%;
     --terminal-red: 0 72% 51%;
     --terminal-amber: 38 92% 50%;
     --terminal-blue: 217 91% 60%;
     --terminal-cyan: 187 85% 53%;
-    --terminal-surface: 220 16% 12%;
+    --terminal-surface: 225 20% 9%;
 
-    --sidebar-background: 220 20% 7%;
+    /* Premium tokens */
+    --glow-green: 0 0 20px hsl(142 70% 45% / 0.15);
+    --glow-red: 0 0 20px hsl(0 72% 51% / 0.15);
+    --glow-blue: 0 0 20px hsl(217 91% 60% / 0.15);
+    --panel-shadow: 0 1px 3px hsl(225 25% 3% / 0.5), 0 4px 12px hsl(225 25% 3% / 0.3);
+    --panel-inset: inset 0 1px 0 hsl(225 16% 18% / 0.3);
+
+    --sidebar-background: 225 25% 5%;
     --sidebar-foreground: 210 20% 85%;
     --sidebar-primary: 142 70% 45%;
-    --sidebar-primary-foreground: 220 20% 7%;
-    --sidebar-accent: 220 16% 14%;
+    --sidebar-primary-foreground: 225 25% 5%;
+    --sidebar-accent: 225 18% 12%;
     --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 14% 18%;
+    --sidebar-border: 225 16% 14%;
     --sidebar-ring: 142 70% 45%;
   }
 
   .dark {
-    --background: 220 20% 7%;
+    --background: 225 25% 5%;
     --foreground: 210 20% 92%;
-    --card: 220 18% 10%;
+    --card: 225 22% 8%;
     --card-foreground: 210 20% 92%;
-    --popover: 220 18% 10%;
+    --popover: 225 22% 8%;
     --popover-foreground: 210 20% 92%;
     --primary: 142 70% 45%;
-    --primary-foreground: 220 20% 7%;
-    --secondary: 220 16% 16%;
+    --primary-foreground: 225 25% 5%;
+    --secondary: 225 18% 13%;
     --secondary-foreground: 210 20% 85%;
-    --muted: 220 14% 14%;
-    --muted-foreground: 215 15% 50%;
+    --muted: 225 16% 11%;
+    --muted-foreground: 220 12% 45%;
     --accent: 142 70% 45%;
-    --accent-foreground: 220 20% 7%;
+    --accent-foreground: 225 25% 5%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
+    --border: 225 16% 14%;
+    --input: 225 16% 14%;
     --ring: 142 70% 45%;
-    --sidebar-background: 220 20% 7%;
+    --sidebar-background: 225 25% 5%;
     --sidebar-foreground: 210 20% 85%;
     --sidebar-primary: 142 70% 45%;
-    --sidebar-primary-foreground: 220 20% 7%;
-    --sidebar-accent: 220 16% 14%;
+    --sidebar-primary-foreground: 225 25% 5%;
+    --sidebar-accent: 225 18% 12%;
     --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 220 14% 18%;
+    --sidebar-border: 225 16% 14%;
     --sidebar-ring: 142 70% 45%;
   }
 }
@@ -90,6 +97,93 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(225 16% 20%);
+    border-radius: 2px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(225 16% 28%);
+  }
+}
+
+@layer components {
+  /* Terminal panel — base class for all panels */
+  .terminal-panel {
+    @apply rounded border border-border bg-card;
+    box-shadow: var(--panel-shadow);
+  }
+
+  .terminal-panel-header {
+    @apply px-3 py-2 border-b border-border flex items-center justify-between;
+    box-shadow: var(--panel-inset);
+  }
+
+  .terminal-panel-title {
+    @apply text-[10px] font-mono font-semibold text-foreground uppercase tracking-[0.08em];
+  }
+
+  .terminal-panel-subtitle {
+    @apply text-[9px] font-mono text-muted-foreground;
+  }
+
+  /* Glow effects */
+  .glow-green {
+    box-shadow: var(--glow-green);
+  }
+  .glow-red {
+    box-shadow: var(--glow-red);
+  }
+
+  /* Scan line effect for top bar */
+  .terminal-scanline {
+    position: relative;
+  }
+  .terminal-scanline::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      hsl(225 25% 5% / 0.03) 2px,
+      hsl(225 25% 5% / 0.03) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* Price tick animations */
+  @keyframes tick-up {
+    0% { background-color: hsl(142 70% 45% / 0.2); }
+    100% { background-color: transparent; }
+  }
+  @keyframes tick-down {
+    0% { background-color: hsl(0 72% 51% / 0.2); }
+    100% { background-color: transparent; }
+  }
+  .tick-up {
+    animation: tick-up 0.6s ease-out;
+  }
+  .tick-down {
+    animation: tick-down 0.6s ease-out;
+  }
+
+  /* Depth bar for order book */
+  .depth-bar-bid {
+    background: linear-gradient(90deg, transparent, hsl(142 70% 45% / 0.08));
+  }
+  .depth-bar-ask {
+    background: linear-gradient(90deg, transparent, hsl(0 72% 51% / 0.08));
   }
 }

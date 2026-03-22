@@ -1,48 +1,45 @@
-import { useEffect } from "react";
 import {
   BarChart3,
   Wallet,
-  Activity,
   Star,
-  TrendingUp,
-  Settings,
   PanelLeftClose,
   PanelLeft,
-  Zap,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUIStore } from "@/stores/uiStore";
 import { useMarketStore } from "@/stores/marketStore";
-import { useWalletStore } from "@/stores/walletStore";
 import { WatchlistSidebar } from "./WatchlistSidebar";
 
 export function TerminalSidebar() {
   const { sidebarOpen, toggleSidebar } = useUIStore();
   const network = useMarketStore((s) => s.network);
-  const isConnected = useWalletStore((s) => s.isConnected);
 
   return (
     <aside
       className={cn(
-        "h-full border-r border-border bg-card flex flex-col transition-all duration-200 shrink-0",
-        sidebarOpen ? "w-64" : "w-12"
+        "h-full border-r border-border bg-card/50 flex flex-col transition-all duration-200 shrink-0",
+        sidebarOpen ? "w-56" : "w-11"
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border">
+      <div className="flex items-center justify-between px-2.5 py-2 border-b border-border/60">
         {sidebarOpen && (
-          <span className="text-xs font-mono font-bold text-foreground tracking-wide">
-            ASSETS
-          </span>
+          <div className="flex items-center gap-1.5">
+            <Layers className="h-3 w-3 text-primary/60" />
+            <span className="text-[9px] font-mono font-semibold text-muted-foreground uppercase tracking-[0.1em]">
+              Markets
+            </span>
+          </div>
         )}
         <button
           onClick={toggleSidebar}
-          className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+          className="p-1 rounded hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground"
         >
           {sidebarOpen ? (
-            <PanelLeftClose className="h-4 w-4" />
+            <PanelLeftClose className="h-3.5 w-3.5" />
           ) : (
-            <PanelLeft className="h-4 w-4" />
+            <PanelLeft className="h-3.5 w-3.5" />
           )}
         </button>
       </div>
@@ -53,40 +50,44 @@ export function TerminalSidebar() {
           <WatchlistSidebar />
         </div>
       ) : (
-        <div className="flex flex-col items-center gap-3 py-3">
-          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Assets">
-            <Star className="h-4 w-4" />
+        <div className="flex flex-col items-center gap-2 py-2">
+          <button
+            onClick={toggleSidebar}
+            className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-primary transition-colors"
+            title="Markets"
+          >
+            <Star className="h-3.5 w-3.5" />
           </button>
-          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Trading">
-            <BarChart3 className="h-4 w-4" />
+          <button className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors" title="Charts">
+            <BarChart3 className="h-3.5 w-3.5" />
           </button>
-          <button className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="Portfolio">
-            <Wallet className="h-4 w-4" />
+          <button className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors" title="Portfolio">
+            <Wallet className="h-3.5 w-3.5" />
           </button>
         </div>
       )}
 
       {/* Footer - network status */}
-      <div className="border-t border-border p-2">
+      <div className="border-t border-border/40 px-2 py-1.5 mt-auto">
         {sidebarOpen ? (
-          <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-[8px] font-mono text-muted-foreground/60">
             <div
               className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                network.connected ? "bg-primary animate-pulse" : "bg-destructive"
+                "h-1.5 w-1.5 rounded-full shrink-0",
+                network.connected ? "bg-primary animate-pulse-glow" : "bg-destructive"
               )}
             />
-            <span>{network.connected ? "XRPL CONNECTED" : "DISCONNECTED"}</span>
+            <span className="truncate">{network.connected ? "XRPL MAINNET" : "DISCONNECTED"}</span>
             {network.ledgerIndex > 0 && (
-              <span className="ml-auto">#{network.ledgerIndex}</span>
+              <span className="ml-auto text-muted-foreground/40 tabular-nums">#{network.ledgerIndex}</span>
             )}
           </div>
         ) : (
           <div className="flex justify-center">
             <div
               className={cn(
-                "h-2 w-2 rounded-full",
-                network.connected ? "bg-primary animate-pulse" : "bg-destructive"
+                "h-1.5 w-1.5 rounded-full",
+                network.connected ? "bg-primary animate-pulse-glow" : "bg-destructive"
               )}
             />
           </div>
