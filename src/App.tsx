@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { WalletProvider } from "@/contexts/WalletContext";
 import { AppShell } from "@/components/layout/AppShell";
 import DashboardHome from "./pages/DashboardHome";
 import LivePairsPage from "./pages/LivePairsPage";
@@ -26,30 +27,32 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<AppShell />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="live-pairs" element={<LivePairsPage />} />
-            <Route path="new-launches" element={<NewLaunchesPage />} />
-            <Route path="sniper-mode" element={<SniperModePage />} />
-            <Route path="wallet-tracker" element={<WalletTrackerPage />} />
-            <Route path="copy-trade" element={<CopyTradePage />} />
-            <Route path="ai-signals" element={<AISignalsPage />} />
-            <Route path="risk-scanner" element={<RiskScannerPage />} />
-            <Route path="watchlist" element={<WatchlistPage />} />
-            <Route path="alerts" element={<AlertsCenterPage />} />
-            <Route path="portfolio" element={<PortfolioPageNew />} />
-            <Route path="strategies" element={<StrategiesPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="token/:id" element={<TokenDetailPage />} />
-            <Route path="wallet/:id" element={<WalletDetailPage />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <WalletProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<AppShell />}>
+              <Route index element={<DashboardHome />} />
+              <Route path="live-pairs" element={<LivePairsPage />} />
+              <Route path="new-launches" element={<NewLaunchesPage />} />
+              <Route path="sniper-mode" element={<SniperModePage />} />
+              <Route path="wallet-tracker" element={<WalletTrackerPage />} />
+              <Route path="copy-trade" element={<CopyTradePage />} />
+              <Route path="ai-signals" element={<AISignalsPage />} />
+              <Route path="risk-scanner" element={<RiskScannerPage />} />
+              <Route path="watchlist" element={<WatchlistPage />} />
+              <Route path="alerts" element={<AlertsCenterPage />} />
+              <Route path="portfolio" element={<PortfolioPageNew />} />
+              <Route path="strategies" element={<StrategiesPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="token/:id" element={<TokenDetailPage />} />
+              <Route path="wallet/:id" element={<WalletDetailPage />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </WalletProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
