@@ -49,6 +49,7 @@ const App = () => (
               <Route path="strategies" element={<StrategiesPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="launchpad" element={<LaunchpadPage />} />
+              <Route path="about" element={<AboutPage />} />
               <Route path="token/:id" element={<TokenDetailPage />} />
               <Route path="wallet/:id" element={<WalletDetailPage />} />
             </Route>
