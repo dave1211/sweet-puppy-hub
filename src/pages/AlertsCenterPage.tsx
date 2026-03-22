@@ -1,90 +1,95 @@
 import { useState } from "react";
-import { PanelShell } from "@/components/shared/PanelShell";
 import { StatusChip } from "@/components/shared/StatusChip";
-import { mockAlerts } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { Bell, Plus, Check, Clock, X, Filter } from "lucide-react";
-
-const ALERT_TYPES = ["All", "Whale Buy", "Rug Warning", "Price Threshold", "Volume Spike", "New Launch", "AI Signal", "Risk Change", "Wallet Movement"];
+import { Bell, Plus, X, Loader2 } from "lucide-react";
+import { useAlerts } from "@/hooks/useAlerts";
+import { toast } from "sonner";
 
 export default function AlertsCenterPage() {
-  const [typeFilter, setTypeFilter] = useState("All");
-  const [showRead, setShowRead] = useState(true);
+  const { alerts, isLoading, addAlert, toggleAlert, removeAlert } = useAlerts();
+  const [showCreate, setShowCreate] = useState(false);
+  const [newAddress, setNewAddress] = useState("");
+  const [newKind, setNewKind] = useState("price");
+  const [newThreshold, setNewThreshold] = useState("");
+  const [newDirection, setNewDirection] = useState("above");
 
-  const filtered = mockAlerts.filter(a => {
-    if (typeFilter !== "All" && !a.type.includes(typeFilter.toLowerCase().replace(" ", "_"))) return false;
-    if (!showRead && a.read) return false;
-    return true;
-  });
-
-  const unread = mockAlerts.filter(a => !a.read).length;
+  const handleCreate = () => {
+    if (!newAddress.trim() || !newThreshold) return;
+    addAlert.mutate({ address: newAddress.trim(), kind: newKind, threshold: parseFloat(newThreshold), direction: newDirection }, {
+      onSuccess: () => { setNewAddress(""); setNewThreshold(""); setShowCreate(false); toast.success("Alert created"); },
+    });
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-mono font-bold text-foreground">ALERTS CENTER</h1>
-          <p className="text-xs font-mono text-muted-foreground">{unread} unread alerts</p>
+          <p className="text-xs font-mono text-muted-foreground">{alerts.filter(a => a.enabled).length} active alerts</p>
         </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-muted/50 text-muted-foreground text-xs font-mono border border-border hover:text-foreground transition-colors">
-            <Check className="h-3.5 w-3.5" /> MARK ALL READ
-          </button>
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary/10 text-primary text-xs font-mono border border-primary/30 hover:bg-primary/20 transition-colors">
-            <Plus className="h-3.5 w-3.5" /> NEW ALERT
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-wrap gap-1.5">
-        {ALERT_TYPES.map(t => (
-          <button key={t} onClick={() => setTypeFilter(t)} className={cn("px-2.5 py-1.5 rounded text-[10px] font-mono border transition-colors", typeFilter === t ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/30 text-muted-foreground border-border hover:text-foreground")}>
-            {t}
-          </button>
-        ))}
-        <button onClick={() => setShowRead(!showRead)} className={cn("px-2.5 py-1.5 rounded text-[10px] font-mono border transition-colors", !showRead ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/30 text-muted-foreground border-border")}>
-          {showRead ? "Show All" : "Unread Only"}
+        <button onClick={() => setShowCreate(!showCreate)} className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary/10 text-primary text-xs font-mono border border-primary/30 hover:bg-primary/20 transition-colors">
+          <Plus className="h-3.5 w-3.5" /> NEW ALERT
         </button>
       </div>
 
-      {/* Alerts */}
-      <div className="space-y-2">
-        {filtered.map(a => (
-          <div key={a.id} className={cn("terminal-panel p-4 flex items-start gap-3 transition-colors",
-            !a.read && "border-l-2",
-            a.severity === "critical" ? "border-l-destructive bg-destructive/5" :
-            a.severity === "high" ? "border-l-terminal-amber" : ""
-          )}>
-            <div className={cn("p-2 rounded-lg shrink-0",
-              a.severity === "critical" ? "bg-destructive/10" : a.severity === "high" ? "bg-terminal-amber/10" : "bg-muted"
-            )}>
-              <Bell className={cn("h-4 w-4",
-                a.severity === "critical" ? "text-destructive" : a.severity === "high" ? "text-terminal-amber" : "text-muted-foreground"
-              )} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <StatusChip variant={a.severity === "critical" ? "danger" : a.severity === "high" ? "warning" : a.severity === "medium" ? "info" : "muted"}>
-                  {a.severity.toUpperCase()}
-                </StatusChip>
-                <span className="text-xs font-mono font-bold text-primary">{a.token}</span>
-                {!a.read && <span className="h-2 w-2 rounded-full bg-primary animate-pulse-glow" />}
-              </div>
-              <p className="text-sm text-foreground">{a.message}</p>
-              <p className="text-[10px] font-mono text-muted-foreground mt-1">{a.timestamp}</p>
-            </div>
-            <div className="flex gap-1 shrink-0">
-              <button className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors">
-                <Clock className="h-3.5 w-3.5" />
-              </button>
-              <button className="p-1.5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors">
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
+      {showCreate && (
+        <div className="terminal-panel p-4 space-y-3">
+          <h3 className="text-xs font-mono font-semibold text-foreground">Create Alert</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <input value={newAddress} onChange={e => setNewAddress(e.target.value)} placeholder="Token address..." className="bg-muted/50 border border-border rounded px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50" />
+            <select value={newKind} onChange={e => setNewKind(e.target.value)} className="bg-muted/50 border border-border rounded px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
+              <option value="price">Price</option>
+              <option value="volume">Volume</option>
+              <option value="liquidity">Liquidity</option>
+            </select>
+            <select value={newDirection} onChange={e => setNewDirection(e.target.value)} className="bg-muted/50 border border-border rounded px-3 py-2 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
+              <option value="above">Above</option>
+              <option value="below">Below</option>
+            </select>
+            <input value={newThreshold} onChange={e => setNewThreshold(e.target.value)} placeholder="Threshold value..." type="number" className="bg-muted/50 border border-border rounded px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50" />
           </div>
-        ))}
-      </div>
+          <button onClick={handleCreate} disabled={addAlert.isPending} className="px-4 py-2 rounded bg-primary text-primary-foreground text-xs font-mono font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+            CREATE ALERT
+          </button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        </div>
+      ) : alerts.length === 0 ? (
+        <div className="text-center py-16">
+          <Bell className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-xs font-mono text-muted-foreground">No alerts configured. Create one to monitor token prices, volume, or liquidity.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {alerts.map(a => (
+            <div key={a.id} className={cn("terminal-panel p-4 flex items-start gap-3 transition-colors", !a.enabled && "opacity-50")}>
+              <div className={cn("p-2 rounded-lg shrink-0", a.enabled ? "bg-primary/10" : "bg-muted")}>
+                <Bell className={cn("h-4 w-4", a.enabled ? "text-primary" : "text-muted-foreground")} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <StatusChip variant={a.enabled ? "success" : "muted"} dot>{a.kind.toUpperCase()}</StatusChip>
+                  <span className="text-xs font-mono text-foreground">{a.direction} {a.threshold}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground font-mono">{a.address.slice(0, 16)}…{a.address.slice(-4)}</p>
+                <p className="text-[10px] font-mono text-muted-foreground mt-1">{new Date(a.created_at).toLocaleString()}</p>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={() => toggleAlert.mutate({ id: a.id, enabled: !a.enabled })} className={cn("px-2 py-1 rounded text-[10px] font-mono border transition-colors", a.enabled ? "bg-terminal-amber/10 text-terminal-amber border-terminal-amber/30" : "bg-terminal-green/10 text-terminal-green border-terminal-green/30")}>
+                  {a.enabled ? "PAUSE" : "ENABLE"}
+                </button>
+                <button onClick={() => removeAlert.mutate(a.id)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

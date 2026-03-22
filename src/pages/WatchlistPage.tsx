@@ -1,88 +1,100 @@
 import { useState } from "react";
 import { PanelShell } from "@/components/shared/PanelShell";
 import { StatusChip } from "@/components/shared/StatusChip";
-import { ScoreMeter } from "@/components/shared/ScoreMeter";
-import { mockTokens, formatPrice } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { Star, Plus, Tag, Bell, Trash2 } from "lucide-react";
+import { Star, Plus, Bell, Trash2, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
-
-const WATCHLISTS = [
-  { id: "default", name: "Default", tokens: mockTokens.slice(0, 5) },
-  { id: "launches", name: "New Launches", tokens: mockTokens.filter(t => t.status === "new") },
-  { id: "whales", name: "Whale Targets", tokens: mockTokens.filter(t => t.signalScore > 80) },
-];
+import { useWatchlist } from "@/hooks/useWatchlist";
+import { useTokenPrices } from "@/hooks/useTokenPrices";
+import { formatPrice } from "@/data/mockData";
+import { toast } from "sonner";
 
 export default function WatchlistPage() {
-  const [activeList, setActiveList] = useState("default");
-  const currentList = WATCHLISTS.find(w => w.id === activeList) ?? WATCHLISTS[0];
+  const { items, isLoading, addItem, removeItem } = useWatchlist();
+  const [newAddr, setNewAddr] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const addresses = items.map(i => i.address);
+  const { data: prices } = useTokenPrices(addresses);
+
+  const handleAdd = () => {
+    if (!newAddr.trim()) return;
+    addItem.mutate({ address: newAddr.trim(), label: newLabel.trim() || undefined }, {
+      onSuccess: () => { setNewAddr(""); setNewLabel(""); toast.success("Token added to watchlist"); },
+    });
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-lg font-mono font-bold text-foreground">WATCHLIST</h1>
-          <p className="text-xs font-mono text-muted-foreground">Organize and track your favorite tokens</p>
+          <p className="text-xs font-mono text-muted-foreground">{items.length} tokens tracked</p>
         </div>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-primary/10 text-primary text-xs font-mono border border-primary/30 hover:bg-primary/20 transition-colors">
-          <Plus className="h-3.5 w-3.5" /> NEW LIST
-        </button>
       </div>
 
-      {/* List tabs */}
-      <div className="flex gap-1.5">
-        {WATCHLISTS.map(w => (
-          <button key={w.id} onClick={() => setActiveList(w.id)} className={cn("px-3 py-1.5 rounded text-xs font-mono border transition-colors", activeList === w.id ? "bg-primary/10 text-primary border-primary/30" : "bg-muted/30 text-muted-foreground border-border hover:text-foreground")}>
-            {w.name} ({w.tokens.length})
+      <div className="terminal-panel p-4 space-y-3">
+        <h3 className="text-xs font-mono font-semibold text-foreground">Add Token</h3>
+        <div className="flex gap-2">
+          <input value={newAddr} onChange={e => setNewAddr(e.target.value)} placeholder="Token contract address..." className="flex-1 bg-muted/50 border border-border rounded px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50" />
+          <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Label..." className="w-28 bg-muted/50 border border-border rounded px-3 py-2 text-xs font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/50" />
+          <button onClick={handleAdd} disabled={addItem.isPending} className="px-4 py-2 rounded bg-primary text-primary-foreground text-xs font-mono font-medium hover:bg-primary/90 transition-colors disabled:opacity-50">
+            <Plus className="h-3.5 w-3.5" />
           </button>
-        ))}
+        </div>
       </div>
 
-      <PanelShell title={currentList.name} subtitle={`${currentList.tokens.length} tokens`} noPad>
-        <table className="w-full text-xs font-mono">
-          <thead>
-            <tr className="border-b border-border text-muted-foreground">
-              <th className="text-left p-3">TOKEN</th>
-              <th className="text-right p-3">PRICE</th>
-              <th className="text-right p-3">24H</th>
-              <th className="text-center p-3 hidden md:table-cell">AI SCORE</th>
-              <th className="text-center p-3 hidden md:table-cell">RISK</th>
-              <th className="text-center p-3 hidden lg:table-cell">ALERTS</th>
-              <th className="text-center p-3 w-20">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentList.tokens.map(t => (
-              <tr key={t.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                <td className="p-3">
-                  <Link to={`/token/${t.id}`} className="flex items-center gap-2 hover:text-primary">
-                    <Star className="h-3.5 w-3.5 text-terminal-amber fill-terminal-amber" />
-                    <div>
-                      <p className="font-medium text-foreground">{t.symbol}</p>
-                      <p className="text-[9px] text-muted-foreground">{t.chain}</p>
-                    </div>
-                  </Link>
-                </td>
-                <td className="p-3 text-right text-foreground">{formatPrice(t.price)}</td>
-                <td className={cn("p-3 text-right", t.change24h >= 0 ? "text-terminal-green" : "text-destructive")}>{t.change24h >= 0 ? "+" : ""}{t.change24h.toFixed(1)}%</td>
-                <td className="p-3 hidden md:table-cell"><ScoreMeter value={t.signalScore} size="sm" /></td>
-                <td className="p-3 text-center hidden md:table-cell">
-                  <StatusChip variant={t.riskScore < 25 ? "success" : t.riskScore < 50 ? "warning" : "danger"}>{t.riskScore}</StatusChip>
-                </td>
-                <td className="p-3 text-center hidden lg:table-cell">
-                  <StatusChip variant="muted">2 active</StatusChip>
-                </td>
-                <td className="p-3">
-                  <div className="flex items-center justify-center gap-1">
-                    <button className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground"><Bell className="h-3 w-3" /></button>
-                    <button className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
-                  </div>
-                </td>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="text-center py-16">
+          <Star className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p className="text-xs font-mono text-muted-foreground">Your watchlist is empty. Add token addresses above to track prices.</p>
+        </div>
+      ) : (
+        <PanelShell title="Watched Tokens" subtitle={`${items.length} tokens`} noPad>
+          <table className="w-full text-xs font-mono">
+            <thead>
+              <tr className="border-b border-border text-muted-foreground">
+                <th className="text-left p-3">TOKEN</th>
+                <th className="text-right p-3">PRICE</th>
+                <th className="text-right p-3">24H</th>
+                <th className="text-left p-3 hidden md:table-cell">ADDED</th>
+                <th className="text-center p-3 w-20">ACTIONS</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </PanelShell>
+            </thead>
+            <tbody>
+              {items.map(item => {
+                const priceData = prices?.[item.address];
+                return (
+                  <tr key={item.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
+                    <td className="p-3">
+                      <Link to={`/token/${item.address}`} className="flex items-center gap-2 hover:text-primary">
+                        <Star className="h-3.5 w-3.5 text-terminal-amber fill-terminal-amber" />
+                        <div>
+                          <p className="font-medium text-foreground">{item.label || item.address.slice(0, 8) + "…"}</p>
+                          <p className="text-[9px] text-muted-foreground">{item.address.slice(0, 12)}…</p>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="p-3 text-right text-foreground">{priceData ? formatPrice(priceData.price) : "—"}</td>
+                    <td className={cn("p-3 text-right", priceData ? (priceData.change24h >= 0 ? "text-terminal-green" : "text-destructive") : "text-muted-foreground")}>
+                      {priceData ? `${priceData.change24h >= 0 ? "+" : ""}${priceData.change24h.toFixed(1)}%` : "—"}
+                    </td>
+                    <td className="p-3 text-left hidden md:table-cell text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => removeItem.mutate(item.id)} className="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-destructive"><Trash2 className="h-3 w-3" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </PanelShell>
+      )}
     </div>
   );
 }
