@@ -440,11 +440,14 @@ async function fetchNewLaunches(): Promise<NewLaunchToken[]> {
     ]);
     const seen = new Set<string>();
     const merged: NewLaunchToken[] = [];
-    for (const token of [...pumpFunTokens, ...dexScreenerTokens, ...bonkFunTokens]) {
+    // Prioritize pump.fun (freshest, created every second) then bonk, then dexscreener
+    for (const token of [...pumpFunTokens, ...bonkFunTokens, ...dexScreenerTokens]) {
       if (!token.address || seen.has(token.address)) continue;
       seen.add(token.address);
       merged.push(token);
     }
+    // Sort by creation time descending (newest first)
+    merged.sort((a, b) => b.pairCreatedAt - a.pairCreatedAt);
     const results = merged.slice(0, 15);
     cache[cacheKey] = { data: results, ts: Date.now() };
     return results;
