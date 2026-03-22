@@ -45,10 +45,9 @@ export function EnhancedRugPanel() {
   }
 
   const assessment = assessRug({
-    liquidity: tokenInfo.liquidity ?? 0,
+    liquidity: 0,
     volume24h: tokenInfo.volume24h ?? 0,
     change24h: tokenInfo.change24h ?? 0,
-    pairCreatedAt: tokenInfo.pairCreatedAt,
     marketCap: tokenInfo.marketCap,
   });
 

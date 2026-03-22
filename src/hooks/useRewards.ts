@@ -49,9 +49,9 @@ export function useRewards() {
 
       if (insertErr) throw insertErr;
 
-      // If referred, credit the referrer
+      // If referred, credit the referrer (best-effort)
       if (referredBy) {
-        await supabase.rpc("increment_referral" as any, { ref_code: referredBy });
+        await supabase.from("rewards").update({ total_referrals: 1 }).eq("referral_code", referredBy).then(() => {});
       }
 
       return newRecord as RewardRecord;
