@@ -19,6 +19,7 @@ import { GatedPanel } from "@/components/terminal/GatedPanel";
 import { ExecutionControlsPanel } from "@/components/terminal/ExecutionControlsPanel";
 import { RugGuardPanel } from "@/components/terminal/RugGuardPanel";
 import { ProofPanel } from "@/components/terminal/ProofPanel";
+import { EnhancedRugPanel } from "@/components/terminal/EnhancedRugPanel";
 import { SelectedTokenProvider } from "@/contexts/SelectedTokenContext";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useAlerts } from "@/hooks/useAlerts";
