@@ -1,22 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useDeviceId } from "./useDeviceId";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function useSnipeHistory() {
-  const deviceId = useDeviceId();
+  const { user } = useAuth();
+  const userId = user?.id;
 
   const query = useQuery({
-    queryKey: ["snipe-history", deviceId],
+    queryKey: ["snipe-history", userId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("snipe_history")
         .select("*")
-        .eq("device_id", deviceId)
+        .eq("user_id", userId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!deviceId,
+    enabled: !!userId,
   });
 
   const wins = (query.data ?? []).filter(s => (s.pnl_percent ?? 0) > 0);
