@@ -22,7 +22,8 @@ const INVEST_ASSETS = [
 ];
 
 export function XRPBridgePanel() {
-  const { isConnected } = useWallet();
+  const { isConnected, balanceSOL } = useWallet();
+  const xrplWallet = useWalletStore();
   const [tab, setTab] = useState<BridgeTab>("bridge");
   const [fromAsset, setFromAsset] = useState("sol");
   const [toAsset, setToAsset] = useState("xrp");
@@ -31,6 +32,7 @@ export function XRPBridgePanel() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const solPrice = 168.42;
+  const xrpBalance = Number(xrplWallet.xrpBalance) / 1_000_000;
 
   const getConvertedAmount = () => {
     const amt = parseFloat(amount);
