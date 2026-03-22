@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWallet } from "@/contexts/WalletContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Lock, Mail } from "lucide-react";
+import { Loader2, Lock, Mail, Wallet, ChevronDown, ChevronUp } from "lucide-react";
+import bs58 from "@/lib/bs58Shim";
 
 export default function AuthPage() {
-  const { user, isLoading, signIn, signUp } = useAuth();
+  const { user, isLoading, signIn, signUp, signInWithWallet } = useAuth();
+  const { connect, walletAddress, isConnected, getWalletObject } = useWallet();
+  const [showEmail, setShowEmail] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,7 +28,61 @@ export default function AuthPage() {
 
   if (user) return <Navigate to="/" replace />;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleWalletAuth = async (providerType: "phantom" | "solflare") => {
+    setSubmitting(true);
+    try {
+      // First connect wallet if not connected
+      if (!isConnected) {
+        connect(providerType);
+        // Wait for wallet connection
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error("Wallet connection timeout")), 30000);
+          const check = setInterval(() => {
+            const wallet = providerType === "phantom"
+              ? (window as any).solana
+              : (window as any).solflare;
+            if (wallet?.isConnected && wallet?.publicKey) {
+              clearInterval(check);
+              clearTimeout(timeout);
+              resolve();
+            }
+          }, 500);
+        });
+      }
+
+      const wallet = getWalletObject();
+      if (!wallet?.publicKey) {
+        toast.error("Wallet not connected");
+        setSubmitting(false);
+        return;
+      }
+
+      const addr = wallet.publicKey.toString();
+      const message = `Sign in to Tanner Terminal\nWallet: ${addr}\nTimestamp: ${Date.now()}`;
+      const messageBytes = new TextEncoder().encode(message);
+
+      const { signature } = await wallet.signMessage(messageBytes);
+      const signatureB58 = bs58.encode(signature);
+
+      const { error } = await signInWithWallet(addr, signatureB58, message);
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Signed in with wallet");
+      }
+    } catch (err: any) {
+      if (err.message?.includes("timeout")) {
+        toast.error("Wallet connection timed out");
+      } else if (err.message?.includes("rejected") || err.message?.includes("denied")) {
+        toast.error("Signature rejected");
+      } else {
+        toast.error(err.message || "Wallet auth failed");
+      }
+    }
+    setSubmitting(false);
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) { toast.error("Email and password required"); return; }
     if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
@@ -48,12 +106,50 @@ export default function AuthPage() {
             <span className="text-primary">TANNER</span> TERMINAL
           </CardTitle>
           <p className="text-[10px] font-mono text-muted-foreground">
-            {mode === "login" ? "Sign in to your account" : "Create a new account"}
+            Connect your wallet to get started
           </p>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-3">
-            <div className="space-y-1">
+        <CardContent className="space-y-4">
+          {/* Primary: Wallet connect */}
+          <div className="space-y-2">
+            <Button
+              onClick={() => handleWalletAuth("phantom")}
+              disabled={submitting}
+              className="w-full font-mono text-sm bg-[hsl(270,60%,50%)] hover:bg-[hsl(270,60%,45%)] text-white"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
+              CONNECT PHANTOM
+            </Button>
+            <Button
+              onClick={() => handleWalletAuth("solflare")}
+              disabled={submitting}
+              variant="outline"
+              className="w-full font-mono text-sm border-terminal-amber/30 text-terminal-amber hover:bg-terminal-amber/10"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
+              CONNECT SOLFLARE
+            </Button>
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-[10px] font-mono text-muted-foreground">OR</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          {/* Secondary: Email fallback (collapsed) */}
+          <button
+            onClick={() => setShowEmail(!showEmail)}
+            className="flex items-center justify-center gap-2 w-full text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors py-1"
+          >
+            <Mail className="h-3 w-3" />
+            {showEmail ? "HIDE" : "USE"} EMAIL / PASSWORD
+            {showEmail ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          </button>
+
+          {showEmail && (
+            <form onSubmit={handleEmailSubmit} className="space-y-3">
               <div className="relative">
                 <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -64,8 +160,6 @@ export default function AuthPage() {
                   className="pl-9 font-mono text-sm bg-muted/20 border-border"
                 />
               </div>
-            </div>
-            <div className="space-y-1">
               <div className="relative">
                 <Lock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -76,20 +170,21 @@ export default function AuthPage() {
                   className="pl-9 font-mono text-sm bg-muted/20 border-border"
                 />
               </div>
-            </div>
-            <Button type="submit" disabled={submitting} className="w-full font-mono text-sm">
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {mode === "login" ? "SIGN IN" : "CREATE ACCOUNT"}
-            </Button>
-          </form>
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => setMode(mode === "login" ? "signup" : "login")}
-              className="text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
-            >
-              {mode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-            </button>
-          </div>
+              <Button type="submit" disabled={submitting} className="w-full font-mono text-sm">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {mode === "login" ? "SIGN IN" : "CREATE ACCOUNT"}
+              </Button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setMode(mode === "login" ? "signup" : "login")}
+                  className="text-[10px] font-mono text-muted-foreground hover:text-primary transition-colors"
+                >
+                  {mode === "login" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                </button>
+              </div>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
