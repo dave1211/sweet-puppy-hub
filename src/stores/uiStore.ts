@@ -1,15 +1,20 @@
 import { create } from "zustand";
 
+type MainTab = "trade" | "portfolio" | "orders" | "alerts" | "nft";
+
 interface UIStore {
   sidebarOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (v: boolean) => void;
 
-  activeTab: "trade" | "portfolio" | "orders";
-  setActiveTab: (t: "trade" | "portfolio" | "orders") => void;
+  activeTab: MainTab;
+  setActiveTab: (t: MainTab) => void;
 
   chartTimeframe: string;
   setChartTimeframe: (tf: string) => void;
+
+  showPairSearch: boolean;
+  setShowPairSearch: (v: boolean) => void;
 }
 
 export const useUIStore = create<UIStore>()((set) => ({
@@ -22,4 +27,7 @@ export const useUIStore = create<UIStore>()((set) => ({
 
   chartTimeframe: "1H",
   setChartTimeframe: (chartTimeframe) => set({ chartTimeframe }),
+
+  showPairSearch: false,
+  setShowPairSearch: (showPairSearch) => set({ showPairSearch }),
 }));

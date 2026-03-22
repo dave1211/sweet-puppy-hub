@@ -1,16 +1,24 @@
 import { PortfolioPanel } from "@/components/portfolio/PortfolioPanel";
+import { PnLPanel } from "@/components/portfolio/PnLPanel";
+import { TrustLineManager } from "@/components/portfolio/TrustLineManager";
 import { TransactionHistory } from "@/components/portfolio/TransactionHistory";
 import { OpenOrders } from "@/components/trading/OpenOrders";
+import { AlertCenter } from "@/components/alerts/AlertCenter";
 
 const PortfolioPage = () => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-      <div className="lg:col-span-8 space-y-3">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+      <div className="lg:col-span-5 space-y-2">
         <PortfolioPanel />
+        <PnLPanel />
       </div>
-      <div className="lg:col-span-4 space-y-3">
-        <OpenOrders />
+      <div className="lg:col-span-4 space-y-2">
+        <TrustLineManager />
         <TransactionHistory />
+      </div>
+      <div className="lg:col-span-3 space-y-2">
+        <OpenOrders />
+        <AlertCenter />
       </div>
     </div>
   );
