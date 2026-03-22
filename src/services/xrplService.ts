@@ -1,13 +1,5 @@
 /**
  * XRPL WebSocket service — singleton client for real-time data.
- *
- * Provides helpers to:
- *  - connect / disconnect to XRPL mainnet
- *  - subscribe to order book, account, ledger streams
- *  - fetch account info, balances, order book snapshots
- *
- * All public methods are safe to call before connection is ready —
- * they will queue until the socket is open.
  */
 
 import { Client } from "xrpl";
@@ -16,6 +8,7 @@ import type {
   OrderBookEntry,
   TokenBalance,
   NetworkStatus,
+  XRPLNft,
 } from "@/types/xrpl";
 
 const MAINNET = "wss://xrplcluster.com";
@@ -38,7 +31,6 @@ class XRPLService {
     this._ready = this.client.connect().then(() => {
       this.client.on("disconnected", () => {
         this.emit("network", { connected: false } as Partial<NetworkStatus>);
-        // auto-reconnect after 3s
         setTimeout(() => this.connect(), 3000);
       });
 
@@ -50,7 +42,6 @@ class XRPLService {
         } as Partial<NetworkStatus>);
       });
 
-      // subscribe to ledger stream
       this.client.request({ command: "subscribe", streams: ["ledger"] }).catch(() => {});
 
       this.emit("network", {
@@ -98,7 +89,6 @@ class XRPLService {
       const info = await this.getAccountInfo(address);
       const xrpDrops = info?.Balance ?? "0";
 
-      // get trust lines
       const lines = await this.client.request({
         command: "account_lines",
         account: address,
@@ -118,6 +108,174 @@ class XRPLService {
     } catch {
       return { xrpDrops: "0", tokens: [] };
     }
+  }
+
+  /* ── Trust Lines ── */
+
+  async setTrustLine(
+    address: string,
+    currency: string,
+    issuer: string,
+    limit: string = "1000000000"
+  ): Promise<Record<string, unknown>> {
+    await this.connect();
+    return {
+      TransactionType: "TrustSet",
+      Account: address,
+      LimitAmount: {
+        currency,
+        issuer,
+        value: limit,
+      },
+    };
+  }
+
+  async removeTrustLine(
+    address: string,
+    currency: string,
+    issuer: string
+  ): Promise<Record<string, unknown>> {
+    await this.connect();
+    return {
+      TransactionType: "TrustSet",
+      Account: address,
+      LimitAmount: {
+        currency,
+        issuer,
+        value: "0",
+      },
+      Flags: 0x00020000, // tfClearNoRipple
+    };
+  }
+
+  /* ── Pathfinding ── */
+
+  async findPath(
+    sourceAccount: string,
+    destinationAccount: string,
+    destinationAmount: { currency: string; issuer?: string; value: string }
+  ) {
+    await this.connect();
+    try {
+      const destAmt = destinationAmount.issuer
+        ? destinationAmount
+        : destinationAmount.currency === "XRP"
+          ? { currency: "XRP", value: destinationAmount.value }
+          : destinationAmount;
+
+      const res = await this.client.request({
+        command: "ripple_path_find",
+        source_account: sourceAccount,
+        destination_account: destinationAccount,
+        destination_amount: destAmt.currency === "XRP"
+          ? String(Math.round(Number(destAmt.value) * 1_000_000))
+          : destAmt as any,
+      });
+
+      return res.result.alternatives ?? [];
+    } catch (e) {
+      console.warn("[XRPL] Path find failed:", e);
+      return [];
+    }
+  }
+
+  /* ── Payment ── */
+
+  buildPaymentTx(
+    sourceAccount: string,
+    destinationAccount: string,
+    amount: { currency: string; issuer?: string; value: string },
+    paths?: unknown[],
+    sendMax?: unknown
+  ): Record<string, unknown> {
+    const deliverAmount = amount.currency === "XRP"
+      ? String(Math.round(Number(amount.value) * 1_000_000))
+      : { currency: amount.currency, issuer: amount.issuer, value: amount.value };
+
+    const tx: Record<string, unknown> = {
+      TransactionType: "Payment",
+      Account: sourceAccount,
+      Destination: destinationAccount,
+      Amount: deliverAmount,
+    };
+
+    if (paths && paths.length > 0) {
+      tx.Paths = paths;
+    }
+    if (sendMax) {
+      tx.SendMax = sendMax;
+    }
+
+    return tx;
+  }
+
+  /* ── NFTs ── */
+
+  async getAccountNFTs(address: string): Promise<XRPLNft[]> {
+    await this.connect();
+    try {
+      const res = await this.client.request({
+        command: "account_nfts",
+        account: address,
+        ledger_index: "validated",
+      } as any);
+
+      const raw = (res.result as any).account_nfts ?? [];
+
+      return raw.map((nft: any) => {
+        let name: string | undefined;
+        let description: string | undefined;
+        let imageUrl: string | undefined;
+        let collection: string | undefined;
+
+        // Decode URI if present (hex-encoded)
+        if (nft.URI) {
+          try {
+            const decoded = this.hexToString(nft.URI);
+            // If it's a JSON URI, try to parse
+            if (decoded.startsWith("{")) {
+              const meta = JSON.parse(decoded);
+              name = meta.name;
+              description = meta.description;
+              imageUrl = meta.image;
+              collection = meta.collection?.name;
+            } else {
+              // It's likely an IPFS or HTTP URL
+              imageUrl = decoded.startsWith("ipfs://")
+                ? `https://ipfs.io/ipfs/${decoded.slice(7)}`
+                : decoded;
+            }
+          } catch {
+            // URI decode failed, skip
+          }
+        }
+
+        return {
+          nftokenId: nft.NFTokenID,
+          issuer: nft.Issuer,
+          uri: nft.URI ?? "",
+          taxon: nft.NFTokenTaxon ?? 0,
+          serial: nft.nft_serial ?? 0,
+          flags: nft.Flags ?? 0,
+          transferFee: nft.TransferFee,
+          name,
+          description,
+          imageUrl,
+          collection,
+        };
+      });
+    } catch (e) {
+      console.warn("[XRPL] Failed to fetch NFTs:", e);
+      return [];
+    }
+  }
+
+  private hexToString(hex: string): string {
+    let str = "";
+    for (let i = 0; i < hex.length; i += 2) {
+      str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+    }
+    return str;
   }
 
   /* ── Order Book ── */
