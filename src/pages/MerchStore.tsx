@@ -1,4 +1,4 @@
-import { ShoppingBag, Tag, Loader2, ShoppingCart, Star, Truck, Shield, RotateCcw } from "lucide-react";
+import { ShoppingBag, Tag, Loader2, ShoppingCart, Star, Truck, Shield, RotateCcw, Plus, Minus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useMerchProducts } from "@/hooks/useMerchProducts";
 import { toast } from "sonner";
@@ -47,23 +47,64 @@ const CATEGORY_LABELS: Record<string, { icon: string; label: string }> = {
 
 const CATEGORIES = ["all", "apparel", "accessories", "pets"] as const;
 
+const SIZES = ["S", "M", "L", "XL", "XXL"] as const;
+
+// Products that support size selection
+const APPAREL_KEYWORDS = ["hoodie", "t-shirt", "tee", "tracksuit", "pants", "jogger"];
+const isApparel = (name: string) => APPAREL_KEYWORDS.some((k) => name.toLowerCase().includes(k));
+
+interface CartItem {
+  qty: number;
+  size?: string;
+}
+
 export default function MerchStore() {
   const { data: products, isLoading } = useMerchProducts();
   const [filter, setFilter] = useState<string>("all");
-  const [cart, setCart] = useState<Record<string, number>>({});
+  const [cart, setCart] = useState<Record<string, CartItem>>({});
+  const [selectedSizes, setSelectedSizes] = useState<Record<string, string>>({});
 
   const filtered = filter === "all" ? products : products?.filter((p) => p.category === filter);
-  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+
+  const cartCount = Object.values(cart).reduce((a, b) => a + b.qty, 0);
   const cartTotal = products
-    ? Object.entries(cart).reduce((sum, [id, qty]) => {
-        const p = products.find((pr) => pr.id === id);
-        return sum + (p ? Number(p.price) * qty : 0);
+    ? Object.entries(cart).reduce((sum, [id, item]) => {
+        const pId = id.split("__")[0];
+        const p = products.find((pr) => pr.id === pId);
+        return sum + (p ? Number(p.price) * item.qty : 0);
       }, 0)
     : 0;
 
-  const addToCart = (id: string, name: string) => {
-    setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
-    toast.success(`${name} added to cart`);
+  const cartKey = (id: string, size?: string) => (size ? `${id}__${size}` : id);
+
+  const addToCart = (id: string, name: string, size?: string) => {
+    if (isApparel(name) && !size) {
+      toast.error("Please select a size first");
+      return;
+    }
+    const key = cartKey(id, size);
+    setCart((prev) => ({
+      ...prev,
+      [key]: { qty: (prev[key]?.qty || 0) + 1, size },
+    }));
+    toast.success(`${name}${size ? ` (${size})` : ""} added to cart`);
+  };
+
+  const updateQty = (key: string, delta: number) => {
+    setCart((prev) => {
+      const cur = prev[key]?.qty || 0;
+      const next = cur + delta;
+      if (next <= 0) {
+        const { [key]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [key]: { ...prev[key], qty: next } };
+    });
+  };
+
+  const getCartQty = (id: string, size?: string) => {
+    const key = cartKey(id, size);
+    return cart[key]?.qty || 0;
   };
 
   const handleCheckout = () => {
@@ -127,7 +168,12 @@ export default function MerchStore() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {filtered.map((product) => {
             const imgSrc = product.image_url ? IMAGE_MAP[product.image_url] : null;
-            const inCart = cart[product.id] || 0;
+            const needsSize = isApparel(product.name);
+            const selSize = selectedSizes[product.id];
+            const inCart = needsSize
+              ? SIZES.reduce((sum, s) => sum + getCartQty(product.id, s), 0)
+              : getCartQty(product.id);
+
             return (
               <Card key={product.id} className="border-border bg-card hover:border-primary/30 transition-all group overflow-hidden hover:shadow-lg hover:shadow-primary/5">
                 {/* Image */}
@@ -158,18 +204,69 @@ export default function MerchStore() {
                     <p className="text-[11px] font-mono text-muted-foreground mt-1 line-clamp-2">{product.description}</p>
                   </div>
 
+                  {/* Size selector for apparel */}
+                  {needsSize && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-mono text-muted-foreground">Size:</span>
+                      <div className="flex gap-1.5">
+                        {SIZES.map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => setSelectedSizes((prev) => ({ ...prev, [product.id]: s }))}
+                            className={`w-9 h-8 rounded text-[10px] font-mono font-bold border transition-all ${
+                              selSize === s
+                                ? "bg-primary/20 text-primary border-primary/50 ring-1 ring-primary/30"
+                                : "bg-muted/30 text-muted-foreground border-border hover:border-primary/30 hover:text-foreground"
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pt-1">
                     <div className="flex items-center gap-1.5">
                       <Tag className="h-3 w-3 text-primary" />
                       <span className="text-xl font-mono font-black text-foreground">${Number(product.price).toFixed(2)}</span>
                     </div>
-                    <button
-                      onClick={() => addToCart(product.id, product.name)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary/10 text-primary text-[11px] font-mono font-bold hover:bg-primary/20 active:scale-95 transition-all border border-primary/30"
-                    >
-                      <ShoppingCart className="h-3.5 w-3.5" />
-                      ADD TO CART
-                    </button>
+
+                    {/* Quantity controls or Add button */}
+                    {(() => {
+                      const key = cartKey(product.id, needsSize ? selSize : undefined);
+                      const qty = cart[key]?.qty || 0;
+
+                      if (qty > 0) {
+                        return (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => updateQty(key, -1)}
+                              className="w-8 h-8 rounded-md bg-muted/50 text-muted-foreground hover:bg-destructive/20 hover:text-destructive border border-border flex items-center justify-center transition-colors"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-8 text-center text-sm font-mono font-bold text-foreground">{qty}</span>
+                            <button
+                              onClick={() => updateQty(key, 1)}
+                              className="w-8 h-8 rounded-md bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30 flex items-center justify-center transition-colors"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <button
+                          onClick={() => addToCart(product.id, product.name, needsSize ? selSize : undefined)}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-primary/10 text-primary text-[11px] font-mono font-bold hover:bg-primary/20 active:scale-95 transition-all border border-primary/30"
+                        >
+                          <ShoppingCart className="h-3.5 w-3.5" />
+                          ADD TO CART
+                        </button>
+                      );
+                    })()}
                   </div>
                 </CardContent>
               </Card>
