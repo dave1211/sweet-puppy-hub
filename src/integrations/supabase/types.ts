@@ -50,6 +50,48 @@ export type Database = {
         }
         Relationships: []
       }
+      burn_history: {
+        Row: {
+          account_closed: boolean
+          amount: number
+          created_at: string
+          decimals: number
+          id: string
+          rent_reclaimed: number | null
+          signature: string
+          token_mint: string
+          token_name: string
+          token_symbol: string
+          wallet_address: string
+        }
+        Insert: {
+          account_closed?: boolean
+          amount: number
+          created_at?: string
+          decimals?: number
+          id?: string
+          rent_reclaimed?: number | null
+          signature: string
+          token_mint: string
+          token_name: string
+          token_symbol: string
+          wallet_address: string
+        }
+        Update: {
+          account_closed?: boolean
+          amount?: number
+          created_at?: string
+          decimals?: number
+          id?: string
+          rent_reclaimed?: number | null
+          signature?: string
+          token_mint?: string
+          token_name?: string
+          token_symbol?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       merch_products: {
         Row: {
           category: string
