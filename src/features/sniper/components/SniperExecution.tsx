@@ -285,9 +285,16 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
               <div className="flex justify-between"><span className="text-muted-foreground">Token</span><span className="text-foreground font-bold">{st.token.symbol}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Amount</span><span className="text-foreground">{config.amountSOL} SOL</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Slippage</span><span className="text-foreground">{config.slippageBps / 100}%</span></div>
+              {preview && (
+                <>
+                  <div className="flex justify-between"><span className="text-muted-foreground">You Receive</span><span className="text-terminal-green font-bold">~{preview.outputAmount.toLocaleString()} {st.token.symbol}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Min Received</span><span className="text-foreground">{preview.minimumReceived.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Price Impact</span><span className={preview.priceImpact > 5 ? "text-terminal-red" : preview.priceImpact > 1 ? "text-terminal-amber" : "text-terminal-green"}>{preview.priceImpact.toFixed(2)}%</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Route</span><span className="text-foreground">{preview.route.join(" → ")}</span></div>
+                </>
+              )}
               <div className="flex justify-between"><span className="text-muted-foreground">Score</span><span className={SCORE_COLORS[st.score.band]}>{st.score.total} {st.score.band}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Risk</span><span className={RISK_COLORS[st.risk.band]}>{st.risk.total} {st.risk.band}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Liquidity</span><span className="text-foreground">${st.token.liquidity.toLocaleString()}</span></div>
             </div>
             {st.risk.band !== "LOW" && (
               <div className="bg-terminal-amber/10 border border-terminal-amber/20 rounded px-2 py-1.5 flex items-center gap-1.5">
@@ -295,16 +302,22 @@ export function SniperExecution({ token: st }: { token: SniperToken | null }) {
                 <span className="text-[9px] font-mono text-terminal-amber">Risk acknowledged: {st.risk.band}</span>
               </div>
             )}
+            {preview && preview.priceImpact > 5 && (
+              <div className="bg-terminal-red/10 border border-terminal-red/20 rounded px-2 py-1.5 flex items-center gap-1.5">
+                <AlertTriangle className="h-3 w-3 text-terminal-red" />
+                <span className="text-[9px] font-mono text-terminal-red">High price impact — consider reducing size</span>
+              </div>
+            )}
             <div className="flex gap-2">
-              <button onClick={closeConfirm} className="flex-1 py-2 rounded border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground">
+              <button onClick={() => { closeConfirm(); clearPreview(); }} className="flex-1 py-2 rounded border border-border text-[10px] font-mono text-muted-foreground hover:text-foreground">
                 CANCEL
               </button>
               <button
                 onClick={executeBuy}
-                disabled={isExecuting}
+                disabled={isExecuting || isBuilding}
                 className="flex-1 py-2 rounded bg-terminal-green/15 border border-terminal-green/30 text-[10px] font-mono font-bold text-terminal-green hover:bg-terminal-green/25 disabled:opacity-40"
               >
-                {isExecuting ? "SNIPING…" : "CONFIRM"}
+                {isExecuting ? <span className="flex items-center justify-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />{txPhase || "SNIPING…"}</span> : "CONFIRM & SIGN"}
               </button>
             </div>
           </div>
