@@ -789,11 +789,16 @@ async function fetchHeliusTransactions(address: string, limit = 15): Promise<unk
   if (cached) return cached;
 
   try {
-    const res = await fetch(
-      `https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${apiKey}&limit=${limit}`
-    );
-    if (!res.ok) return [];
+    const url = `https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${apiKey}&limit=${limit}`;
+    console.log(`[Helius] Fetching: ${url.replace(apiKey, "***")}`);
+    const res = await fetch(url);
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error(`[Helius] Error ${res.status}: ${errBody}`);
+      return [];
+    }
     const data = await res.json();
+    console.log(`[Helius] Got ${Array.isArray(data) ? data.length : 0} transactions for ${address.slice(0,8)}`);
     const results = (Array.isArray(data) ? data : []).map((tx: Record<string, unknown>) => ({
       signature: tx.signature,
       timestamp: tx.timestamp,
