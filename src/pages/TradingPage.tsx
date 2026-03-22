@@ -15,26 +15,21 @@ const TradingPage = () => {
   const { activeTab } = useUIStore();
   const setNetwork = useMarketStore((s) => s.setNetwork);
 
-  // Connect to XRPL on mount
   useEffect(() => {
     xrplService.connect().catch(console.error);
-
     const unsub = xrplService.on("network", (data) => {
       setNetwork(data as Partial<NetworkStatus>);
     });
-
-    return () => {
-      unsub();
-    };
+    return () => { unsub(); };
   }, [setNetwork]);
 
   if (activeTab === "portfolio") {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-full">
-        <div className="lg:col-span-8 space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 h-full animate-fade-in">
+        <div className="lg:col-span-8 space-y-2">
           <PortfolioPanel />
         </div>
-        <div className="lg:col-span-4 space-y-3">
+        <div className="lg:col-span-4 space-y-2">
           <TransactionHistory />
           <OpenOrders />
         </div>
@@ -44,34 +39,33 @@ const TradingPage = () => {
 
   if (activeTab === "orders") {
     return (
-      <div className="space-y-3">
+      <div className="space-y-2 animate-fade-in">
         <OpenOrders />
         <TransactionHistory />
       </div>
     );
   }
 
-  // Trade view (default)
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 h-full">
-      {/* Chart + order book area */}
-      <div className="lg:col-span-8 flex flex-col gap-3">
-        <div className="flex-1 min-h-[350px]">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 h-full">
+      {/* Main area: chart + bottom panels */}
+      <div className="lg:col-span-8 flex flex-col gap-2 min-h-0">
+        <div className="flex-1 min-h-[300px]">
           <ChartPanel />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 shrink-0">
           <OpenOrders />
           <TransactionHistory />
         </div>
       </div>
 
-      {/* Right column: order book + trade + recent trades */}
-      <div className="lg:col-span-4 flex flex-col gap-3">
-        <div className="flex-1 min-h-[250px]">
+      {/* Right column */}
+      <div className="lg:col-span-4 flex flex-col gap-2 min-h-0">
+        <div className="flex-1 min-h-[200px]">
           <OrderBook />
         </div>
         <TradeForm />
-        <div className="min-h-[180px]">
+        <div className="min-h-[160px]">
           <RecentTrades />
         </div>
       </div>
