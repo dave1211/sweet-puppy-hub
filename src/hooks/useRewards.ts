@@ -63,22 +63,13 @@ export function useRewards() {
 
   const claimPoints = useMutation({
     mutationFn: async (action: string) => {
-      const pointsMap: Record<string, number> = {
-        daily_login: 10,
-        share_signal: 25,
-        add_watchlist: 5,
-        set_alert: 5,
-        connect_wallet: 50,
-      };
-      const pts = pointsMap[action] || 0;
-      if (!pts || !query.data) return;
-
-      const { error } = await supabase
-        .from("rewards")
-        .update({ points: (query.data.points || 0) + pts })
-        .eq("user_id", userId!);
-
+      const { data, error } = await supabase.rpc("claim_reward_points", {
+        p_action: action,
+      });
       if (error) throw error;
+      const result = data as { success: boolean; error?: string };
+      if (!result.success) throw new Error(result.error || "Claim failed");
+      return result;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["rewards", userId] }),
   });

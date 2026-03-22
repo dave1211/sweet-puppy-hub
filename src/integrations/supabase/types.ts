@@ -131,6 +131,33 @@ export type Database = {
         }
         Relationships: []
       }
+      points_log: {
+        Row: {
+          action: string
+          claim_date: string
+          created_at: string
+          id: string
+          points: number
+          user_id: string
+        }
+        Insert: {
+          action: string
+          claim_date?: string
+          created_at?: string
+          id?: string
+          points: number
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          claim_date?: string
+          created_at?: string
+          id?: string
+          points?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       rewards: {
         Row: {
           created_at: string
@@ -316,6 +343,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_reward_points: { Args: { p_action: string }; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
