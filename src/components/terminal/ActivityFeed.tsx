@@ -63,7 +63,8 @@ export function ActivityFeed() {
     if (items.length > prevItemCountRef.current) {
       const newest = items[0];
       if (newest) {
-        setEvents((e) => [{ id: `watch-${newest.id}-${Date.now()}`, type: "watchlist_add", message: `Added ${newest.label || newest.address.slice(0, 8)} to watchlist`, timestamp: new Date() }, ...e].slice(0, 40));
+        const ev: FeedEvent = { id: `watch-${newest.id}-${Date.now()}`, type: "watchlist_add", message: `Added ${newest.label || newest.address.slice(0, 8)} to watchlist`, timestamp: new Date() };
+        setEvents((e) => [ev, ...e].slice(0, 40));
       }
     }
     prevItemCountRef.current = items.length;
