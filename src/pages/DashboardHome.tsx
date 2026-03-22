@@ -3,10 +3,11 @@ import { DashboardStatCard } from "@/components/shared/DashboardStatCard";
 import { PanelShell } from "@/components/shared/PanelShell";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { ScoreMeter } from "@/components/shared/ScoreMeter";
-import { formatPrice, formatVolume, timeAgo } from "@/data/mockData";
+import { MiniChart } from "@/components/shared/MiniChart";
+import { formatPrice, formatVolume } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { useNewLaunches, useTrendingSignals } from "@/hooks/useNewLaunches";
+import { useNewLaunches } from "@/hooks/useNewLaunches";
 import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useAlerts } from "@/hooks/useAlerts";
@@ -29,15 +30,15 @@ export default function DashboardHome() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-lg font-mono font-bold text-foreground">COMMAND CENTER</h1>
-          <p className="text-xs font-mono text-muted-foreground">Real-time market intelligence overview</p>
+          <h1 className="text-base sm:text-lg font-mono font-bold text-foreground">COMMAND CENTER</h1>
+          <p className="text-[10px] sm:text-xs font-mono text-muted-foreground">Real-time market intelligence overview</p>
         </div>
         <StatusChip variant="info" dot>LIVE FEED</StatusChip>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
         <DashboardStatCard icon={Brain} label="SOL Price" value={solPrice ? `$${solPrice.price.toFixed(2)}` : "—"} change={solPrice ? `${solPrice.change24h >= 0 ? "+" : ""}${solPrice.change24h.toFixed(1)}% 24h` : "Loading"} changeType={solPrice && solPrice.change24h >= 0 ? "positive" : "negative"} />
         <DashboardStatCard icon={Zap} label="Signals" value={String(signals.length)} change={`${topSignals.length} high confidence`} changeType="positive" />
         <DashboardStatCard icon={Rocket} label="New Launches" value={String(launches?.length ?? 0)} change="from live feeds" changeType="positive" />
@@ -46,8 +47,29 @@ export default function DashboardHome() {
         <DashboardStatCard icon={BarChart3} label="Active Alerts" value={String(activeAlerts)} change={`${alerts.length} total`} changeType="neutral" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-4 space-y-4">
+      {/* SOL price chart */}
+      {solPrice && (
+        <PanelShell title="SOL / USD" subtitle="24h price action">
+          <MiniChart baseValue={solPrice.price} change={solPrice.change24h} height={120} label="PRICE" />
+        </PanelShell>
+      )}
+
+      {/* Signal distribution bar chart */}
+      {signals.length > 0 && (
+        <PanelShell title="Signal Distribution" subtitle="Score breakdown across tokens">
+          <MiniChart
+            data={signals.slice(0, 20).map((s, i) => ({ time: i, value: s.score }))}
+            baseValue={50}
+            change={0}
+            height={90}
+            type="bar"
+            label="SIGNAL SCORES"
+          />
+        </PanelShell>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 sm:gap-4">
+        <div className="md:col-span-6 lg:col-span-4 space-y-3 sm:space-y-4">
           <PanelShell title="Trending Tokens" subtitle="Top signals" actions={<Link to="/live-pairs" className="text-[10px] font-mono text-primary hover:underline">VIEW ALL</Link>}>
             {trending.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">Loading live data…</p>
@@ -55,14 +77,14 @@ export default function DashboardHome() {
               <div className="space-y-2">
                 {trending.map(t => (
                   <Link key={t.address} to={`/token/${t.address}`} className="flex items-center justify-between py-2 px-2 rounded hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-mono font-bold text-primary">{t.symbol.slice(0, 2)}</div>
-                      <div>
-                        <p className="text-xs font-mono font-medium text-foreground">{t.symbol}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-mono font-bold text-primary shrink-0">{t.symbol.slice(0, 2)}</div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-mono font-medium text-foreground truncate">{t.symbol}</p>
                         <p className="text-[10px] text-muted-foreground">Score {t.score}</p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0 ml-2">
                       <p className="text-xs font-mono text-foreground">{formatPrice(t.price)}</p>
                       <p className={cn("text-[10px] font-mono", t.change24h >= 0 ? "text-terminal-green" : "text-destructive")}>
                         {t.change24h >= 0 ? "+" : ""}{t.change24h.toFixed(1)}%
@@ -84,8 +106,8 @@ export default function DashboardHome() {
               <div className="space-y-2">
                 {wallets.slice(0, 4).map(w => (
                   <Link key={w.id} to={`/wallet/${w.address}`} className="flex items-center justify-between py-2 px-2 rounded hover:bg-muted/30 transition-colors">
-                    <div>
-                      <p className="text-xs font-mono font-medium text-foreground">{w.label || `${w.address.slice(0, 6)}…${w.address.slice(-4)}`}</p>
+                    <div className="min-w-0">
+                      <p className="text-xs font-mono font-medium text-foreground truncate">{w.label || `${w.address.slice(0, 6)}…${w.address.slice(-4)}`}</p>
                       <p className="text-[10px] text-muted-foreground font-mono">{w.address.slice(0, 8)}…</p>
                     </div>
                     <StatusChip variant="info">TRACKING</StatusChip>
@@ -102,9 +124,9 @@ export default function DashboardHome() {
               <div className="space-y-2">
                 {watchlistItems.slice(0, 4).map(item => (
                   <Link key={item.id} to={`/token/${item.address}`} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-3 w-3 text-primary" />
-                      <span className="text-xs font-mono text-foreground">{item.label || `${item.address.slice(0, 8)}…`}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Eye className="h-3 w-3 text-primary shrink-0" />
+                      <span className="text-xs font-mono text-foreground truncate">{item.label || `${item.address.slice(0, 8)}…`}</span>
                     </div>
                   </Link>
                 ))}
@@ -113,28 +135,28 @@ export default function DashboardHome() {
           </PanelShell>
         </div>
 
-        <div className="lg:col-span-5 space-y-4">
+        <div className="md:col-span-6 lg:col-span-5 space-y-3 sm:space-y-4">
           <PanelShell title="Signal Feed" subtitle="Unified intelligence" actions={<Link to="/ai-signals" className="text-[10px] font-mono text-primary hover:underline">ALL SIGNALS</Link>}>
             {topSignals.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">Scanning for signals…</p>
             ) : (
               <div className="space-y-3">
                 {topSignals.slice(0, 4).map(s => (
-                  <div key={s.address} className="p-3 rounded-lg bg-muted/30 border border-border/50 space-y-2">
+                  <Link key={s.address} to={`/token/${s.address}`} className="block p-3 rounded-lg bg-muted/30 border border-border/50 space-y-2 hover:border-primary/20 transition-colors">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-bold text-foreground">{s.symbol}</span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-mono font-bold text-foreground truncate">{s.symbol}</span>
                         <StatusChip variant="success">{s.label}</StatusChip>
                       </div>
-                      <span className="text-[10px] font-mono text-muted-foreground">Score {s.score}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground shrink-0 ml-2">Score {s.score}</span>
                     </div>
+                    <MiniChart baseValue={s.price} change={s.change24h} height={48} />
                     <div className="flex gap-1 flex-wrap">
                       {s.factors.slice(0, 3).map(f => (
                         <span key={f} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-primary/5 text-primary/80">{f}</span>
                       ))}
                     </div>
-                    <ScoreMeter value={s.score} label="Signal" />
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -144,13 +166,13 @@ export default function DashboardHome() {
             {newLaunches.length === 0 ? (
               <p className="text-xs text-muted-foreground py-4 text-center">Scanning for new launches…</p>
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {newLaunches.map(t => (
                   <Link key={t.address} to={`/token/${t.address}`} className="p-3 rounded-lg bg-muted/30 border border-border/50 hover:border-primary/30 transition-colors">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-mono font-bold text-primary">{t.symbol.slice(0, 2)}</div>
-                      <div>
-                        <p className="text-xs font-mono font-medium text-foreground">{t.symbol}</p>
+                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[8px] font-mono font-bold text-primary shrink-0">{t.symbol.slice(0, 2)}</div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-mono font-medium text-foreground truncate">{t.symbol}</p>
                         <p className="text-[9px] text-muted-foreground">{t.dexId}</p>
                       </div>
                     </div>
@@ -167,7 +189,7 @@ export default function DashboardHome() {
           </PanelShell>
         </div>
 
-        <div className="lg:col-span-3 space-y-4">
+        <div className="md:col-span-12 lg:col-span-3 space-y-3 sm:space-y-4">
           <PanelShell title="Active Alerts" subtitle={`${activeAlerts} enabled`} actions={<Link to="/alerts" className="text-[10px] font-mono text-primary hover:underline">VIEW ALL</Link>}>
             {alerts.length === 0 ? (
               <div className="py-4 text-center">
@@ -182,7 +204,7 @@ export default function DashboardHome() {
                       <StatusChip variant={a.enabled ? "success" : "muted"} dot>{a.kind.toUpperCase()}</StatusChip>
                       <span className="text-[9px] font-mono text-muted-foreground">{a.direction} {a.threshold}</span>
                     </div>
-                    <p className="text-[11px] text-foreground leading-snug font-mono">{a.address.slice(0, 12)}…</p>
+                    <p className="text-[11px] text-foreground leading-snug font-mono truncate">{a.address.slice(0, 12)}…</p>
                   </div>
                 ))}
               </div>
@@ -196,11 +218,11 @@ export default function DashboardHome() {
               <div className="space-y-2">
                 {rugWarnings.map(t => (
                   <div key={t.address} className="flex items-center justify-between py-2 px-2 rounded bg-destructive/5 border border-destructive/10">
-                    <div className="flex items-center gap-2">
-                      <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
-                      <div>
-                        <p className="text-xs font-mono font-medium text-foreground">{t.symbol}</p>
-                        <p className="text-[9px] text-muted-foreground">{t.factors[0]}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ShieldAlert className="h-3.5 w-3.5 text-destructive shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-mono font-medium text-foreground truncate">{t.symbol}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">{t.factors[0]}</p>
                       </div>
                     </div>
                     <StatusChip variant="danger">Score {t.score}</StatusChip>
