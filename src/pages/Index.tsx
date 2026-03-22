@@ -10,7 +10,7 @@ const Index = () => {
       </main>
       <footer className="border-t border-border px-4 py-2">
         <p className="text-[10px] font-mono text-muted-foreground text-center">
-          TANNER TERMINAL v0.2.0 — Phase 2 Build — Data shown may be mock/scaffold
+          TANNER TERMINAL v2.0 — SOLANA LAUNCHPAD & RUG PROTECTION
         </p>
       </footer>
     </div>
