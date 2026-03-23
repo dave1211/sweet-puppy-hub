@@ -1,4 +1,3 @@
-import { forwardRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -31,7 +30,7 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = forwardRef<HTMLDivElement>(function App(_props, _ref) {
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -70,6 +69,6 @@ const App = forwardRef<HTMLDivElement>(function App(_props, _ref) {
       </TooltipProvider>
     </QueryClientProvider>
   );
-});
+}
 
 export default App;
