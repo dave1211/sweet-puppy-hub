@@ -101,7 +101,6 @@ serve(async (req) => {
     return new Response(JSON.stringify({ success: true, message_id: responseData.result?.message_id }), { headers: resHeaders });
   } catch (error: unknown) {
     console.error('Telegram alert error:', error);
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: resHeaders });
+    return new Response(JSON.stringify({ error: 'Internal server error' }), { status: 500, headers: resHeaders });
   }
 });
