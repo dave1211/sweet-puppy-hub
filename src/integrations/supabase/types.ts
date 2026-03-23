@@ -308,6 +308,30 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_auth_credentials: {
+        Row: {
+          created_at: string
+          email: string
+          password: string
+          updated_at: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          password: string
+          updated_at?: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          password?: string
+          updated_at?: string
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       watchlist: {
         Row: {
           address: string
@@ -350,6 +374,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      initialize_rewards: {
+        Args: {
+          p_device_id: string
+          p_referral_code: string
+          p_referred_by?: string
+        }
+        Returns: Json
       }
     }
     Enums: {

@@ -33,30 +33,27 @@ export function useRewards() {
       if (error) throw error;
       if (data) return data as RewardRecord;
 
-      // Create new record if none exists
+      // Initialize via secured RPC if no record exists
       const params = new URLSearchParams(window.location.search);
-      const referredBy = params.get("ref") || null;
+      const referredByParam = params.get("ref");
+      const referredBy = referredByParam && /^[a-zA-Z0-9_-]{4,64}$/.test(referredByParam)
+        ? referredByParam.toLowerCase()
+        : null;
 
-      const { data: newRecord, error: insertErr } = await supabase
-        .from("rewards")
-        .insert({
-          user_id: userId!,
-          device_id: userId!,
-          referral_code: refCode,
-          referred_by: referredBy,
-          points: referredBy ? 50 : 0,
-        } as any)
-        .select()
-        .single();
+      const { data: initData, error: initErr } = await supabase.rpc("initialize_rewards", {
+        p_device_id: userId!,
+        p_referral_code: refCode.toLowerCase(),
+        p_referred_by: referredBy,
+      });
 
-      if (insertErr) throw insertErr;
+      if (initErr) throw initErr;
 
-      if (referredBy) {
-        // Best-effort: credit referrer
-        await supabase.from("rewards").update({ total_referrals: 1 } as any).eq("referral_code", referredBy).then(() => {});
+      const initResult = initData as unknown as { success: boolean; error?: string; record?: RewardRecord };
+      if (!initResult?.success || !initResult.record) {
+        throw new Error(initResult?.error || "Failed to initialize rewards");
       }
 
-      return newRecord as RewardRecord;
+      return initResult.record;
     },
     enabled: !!userId,
   });
