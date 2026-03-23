@@ -105,7 +105,7 @@ function checkSafeguards(request: ExecutionRequest): SafeguardCheck {
   return { allowed: true };
 }
 
-async function executeLiveTrade(_request: ExecutionRequest): Promise<{ success: boolean; txHash: string | null; price: number | null; error?: string }> {
+function executeLiveTrade(_request: ExecutionRequest): { success: boolean; txHash: string | null; price: number | null; error?: string } {
   console.warn("[ExecutionEngine] Jupiter adapter called but not implemented");
   return { success: false, txHash: null, price: null, error: "Jupiter trade adapter not yet connected" };
 }
