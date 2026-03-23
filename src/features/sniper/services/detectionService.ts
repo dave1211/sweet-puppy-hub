@@ -32,7 +32,7 @@ export interface EnrichedTokenData {
   hasCompleteMeta: boolean;
 }
 
-let enrichCache: Map<string, { data: EnrichedTokenData; ts: number }> = new Map();
+const enrichCache: Map<string, { data: EnrichedTokenData; ts: number }> = new Map();
 const ENRICH_TTL = 30_000;
 
 export async function fetchEnrichedTokens(addresses: string[]): Promise<EnrichedTokenData[]> {

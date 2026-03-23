@@ -65,7 +65,7 @@ export const useSniperStore = create<SniperState>((set) => ({
 
 // Selectors
 export function getFilteredTokens(tokens: SniperToken[], filters: SniperFilters, sortField: SortField): SniperToken[] {
-  let result = tokens.filter((t) => {
+  const result = tokens.filter((t) => {
     if (filters.hiddenTokens.has(t.token.address)) return false;
     if (filters.blockedTokens.has(t.token.address)) return false;
     if (t.token.liquidity < filters.minLiquidity) return false;
