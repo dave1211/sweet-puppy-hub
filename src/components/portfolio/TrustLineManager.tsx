@@ -90,8 +90,8 @@ export function TrustLineManager() {
       const txHash = await signAndSubmitXRPL(provider, txJson);
       toast.success(`Trust line removed! TX: ${txHash.slice(0, 12)}…`);
       setTimeout(fetchTrustLines, 3000);
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed to remove trust line");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to remove trust line");
     }
     setIsSigning(false);
   };

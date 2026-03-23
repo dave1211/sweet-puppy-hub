@@ -41,9 +41,10 @@ export function XRPLWalletButton() {
       const balances = await xrplService.getBalances(result.address);
       setXRPBalance(balances.xrpDrops);
       setTokenBalances(balances.tokens);
-    } catch (err: any) {
-      setError(err?.message ?? "Connection failed");
-      toast.error(err?.message ?? "Connection failed");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Connection failed";
+      setError(msg);
+      toast.error(msg);
     }
     setOpen(false);
   };
