@@ -49,8 +49,8 @@ export function XRPBridgePanel() {
       } else {
         toast.success(`Found ${alts.length} payment path(s)`);
       }
-    } catch (e: any) {
-      toast.error(e.message ?? "Pathfinding failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Pathfinding failed");
     }
     setIsFinding(false);
   };
