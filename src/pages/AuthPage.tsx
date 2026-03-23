@@ -36,6 +36,7 @@ export default function AuthPage() {
 
   const handleWalletAuth = async (providerType: "phantom" | "solflare") => {
     setSubmitting(true);
+    setConnectingProvider(providerType);
     try {
       // First connect wallet if not connected
       if (!isConnected) {
@@ -59,6 +60,7 @@ export default function AuthPage() {
       if (!wallet?.publicKey) {
         toast.error("Wallet not connected");
         setSubmitting(false);
+        setConnectingProvider(null);
         return;
       }
 
@@ -86,6 +88,7 @@ export default function AuthPage() {
       }
     }
     setSubmitting(false);
+    setConnectingProvider(null);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
