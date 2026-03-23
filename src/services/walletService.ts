@@ -5,16 +5,38 @@
  */
 
 import type { WalletProviderType } from "@/types/xrpl";
-import { xrplService } from "@/services/xrplService";
 
 export interface WalletConnectResult {
   address: string;
   provider: WalletProviderType;
 }
 
+interface XamanWallet {
+  authorize?: () => Promise<{ me: { account: string } }>;
+  payload?: {
+    create: (params: { txjson: Record<string, unknown> }) => Promise<unknown>;
+    subscribe: (payload: unknown) => Promise<{ signed?: boolean; txid?: string } | null>;
+  };
+}
+
+interface XummPkceConstructor {
+  new (): { authorize: () => Promise<{ me: { account: string } }> };
+}
+
+interface CrossmarkWallet {
+  signIn?: () => Promise<{ response: { data: { address: string } } }>;
+  sign?: (txJson: Record<string, unknown>) => Promise<{ response?: { data?: { txnHash?: string } } } | null>;
+}
+
+interface WalletWindow extends Window {
+  xumm?: XamanWallet;
+  XummPkce?: XummPkceConstructor;
+  crossmark?: CrossmarkWallet;
+}
+
 /* ── Xaman (XUMM) ── */
 async function connectXaman(): Promise<WalletConnectResult> {
-  const win = window as any;
+  const win = window as unknown as WalletWindow;
 
   if (win?.xumm?.authorize) {
     try {
@@ -46,7 +68,7 @@ async function connectXaman(): Promise<WalletConnectResult> {
 
 /* ── Crossmark ── */
 async function connectCrossmark(): Promise<WalletConnectResult> {
-  const win = window as any;
+  const win = window as unknown as WalletWindow;
 
   if (win?.crossmark?.signIn) {
     try {
@@ -101,7 +123,7 @@ export async function signAndSubmitXRPL(
   provider: WalletProviderType,
   txJson: Record<string, unknown>
 ): Promise<string> {
-  const win = window as any;
+  const win = window as unknown as WalletWindow;
 
   if (provider === "xaman") {
     if (win?.xumm?.payload) {

@@ -9,6 +9,11 @@ import { toast } from "sonner";
 import { Loader2, Lock, Mail, Wallet, ChevronDown, ChevronUp } from "lucide-react";
 import bs58 from "@/lib/bs58Shim";
 
+interface SolanaWalletWindow extends Window {
+  solana?: { isConnected?: boolean; publicKey?: { toString(): string } };
+  solflare?: { isConnected?: boolean; publicKey?: { toString(): string } };
+}
+
 export default function AuthPage() {
   const { user, isLoading, signIn, signUp, signInWithWallet } = useAuth();
   const { connect, walletAddress, isConnected, getWalletObject } = useWallet();
@@ -38,9 +43,8 @@ export default function AuthPage() {
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => reject(new Error("Wallet connection timeout")), 30000);
           const check = setInterval(() => {
-            const wallet = providerType === "phantom"
-              ? (window as any).solana
-              : (window as any).solflare;
+            const win = window as unknown as SolanaWalletWindow;
+            const wallet = providerType === "phantom" ? win.solana : win.solflare;
             if (wallet?.isConnected && wallet?.publicKey) {
               clearInterval(check);
               clearTimeout(timeout);
@@ -70,13 +74,14 @@ export default function AuthPage() {
       } else {
         toast.success("Signed in with wallet");
       }
-    } catch (err: any) {
-      if (err.message?.includes("timeout")) {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Wallet auth failed";
+      if (msg.includes("timeout")) {
         toast.error("Wallet connection timed out");
-      } else if (err.message?.includes("rejected") || err.message?.includes("denied")) {
+      } else if (msg.includes("rejected") || msg.includes("denied")) {
         toast.error("Signature rejected");
       } else {
-        toast.error(err.message || "Wallet auth failed");
+        toast.error(msg);
       }
     }
     setSubmitting(false);

@@ -17,7 +17,7 @@ export interface BurnRecord {
 }
 
 export async function insertBurnRecord(record: Omit<BurnRecord, "id" | "created_at"> & { user_id: string }) {
-  const { error } = await (supabase as any).from("burn_history").insert(record);
+  const { error } = await supabase.from("burn_history").insert(record);
   if (error) console.error("[BurnHistory] insert error:", error);
 }
 
@@ -29,7 +29,7 @@ export function useBurnHistory(walletAddress: string | null) {
     queryKey: ["burn-history", walletAddress, userId],
     queryFn: async () => {
       if (!walletAddress) return [];
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("burn_history")
         .select("*")
         .eq("user_id", userId!)

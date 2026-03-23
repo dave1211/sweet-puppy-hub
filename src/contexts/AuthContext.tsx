@@ -24,7 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAdmin = async (userId: string) => {
     try {
       const { data } = await supabase
-        .from("user_roles" as any)
+        .from("user_roles")
         .select("role")
         .eq("user_id", userId)
         .eq("role", "admin")
@@ -91,8 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (setErr) return { error: new Error(setErr.message) };
       return { error: null };
-    } catch (err: any) {
-      return { error: new Error(err.message || "Wallet auth failed") };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Wallet auth failed";
+      return { error: new Error(msg) };
     }
   };
 

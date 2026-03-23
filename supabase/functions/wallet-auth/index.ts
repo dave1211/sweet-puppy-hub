@@ -36,7 +36,7 @@ function generateSecurePassword() {
 async function findUserByEmail(supabaseAdmin: ReturnType<typeof createClient>, email: string) {
   const perPage = 200;
   for (let page = 1; page <= 10; page += 1) {
-    const { data, error } = await (supabaseAdmin.auth.admin as any).listUsers({ page, perPage });
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
     if (error) throw error;
     const users = (data?.users ?? []) as Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
     const match = users.find((u) => (u.email || "").toLowerCase() === email.toLowerCase());
