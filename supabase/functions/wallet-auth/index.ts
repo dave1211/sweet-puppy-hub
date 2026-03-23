@@ -6,8 +6,31 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
 // Admin wallet addresses that get auto-assigned admin role
 const ADMIN_WALLETS: string[] = (Deno.env.get("ADMIN_WALLETS") || "").split(",").map(s => s.trim()).filter(Boolean);
+
+function generateSecurePassword() {
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `wallet_${token}`;
+}
+
+async function findUserByEmail(supabaseAdmin: ReturnType<typeof createClient>, email: string) {
+  const perPage = 200;
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await (supabaseAdmin.auth.admin as any).listUsers({ page, perPage });
+    if (error) throw error;
+
+    const users = (data?.users ?? []) as Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
+    const match = users.find((u) => (u.email || "").toLowerCase() === email.toLowerCase());
+    if (match) return match;
+    if (users.length < perPage) break;
+  }
+
+  return null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -16,22 +39,29 @@ Deno.serve(async (req) => {
   try {
     const { walletAddress, signature, message } = await req.json();
 
-    if (!walletAddress || typeof walletAddress !== "string" || walletAddress.length < 32 || walletAddress.length > 44) {
-      return new Response(JSON.stringify({ error: "Invalid wallet address" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!walletAddress || typeof walletAddress !== "string" || walletAddress.length < 32 || walletAddress.length > 44 || !/^[1-9A-HJ-NP-Za-km-z]+$/.test(walletAddress)) {
+      return new Response(JSON.stringify({ error: "Invalid wallet address" }), { status: 400, headers: jsonHeaders });
     }
-    if (!signature || !message) {
-      return new Response(JSON.stringify({ error: "Missing signature or message" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+    if (!signature || typeof signature !== "string" || signature.length < 64 || signature.length > 256) {
+      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 400, headers: jsonHeaders });
     }
+
+    if (!message || typeof message !== "string" || message.length < 10 || message.length > 512) {
+      return new Response(JSON.stringify({ error: "Invalid message" }), { status: 400, headers: jsonHeaders });
+    }
+
+    const normalizedWalletAddress = walletAddress.trim();
 
     // Verify the message contains a recent timestamp (within 5 minutes)
     const timestampMatch = message.match(/Timestamp:\s*(\d+)/);
     if (!timestampMatch) {
-      return new Response(JSON.stringify({ error: "Invalid message format" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Invalid message format" }), { status: 400, headers: jsonHeaders });
     }
     const msgTimestamp = parseInt(timestampMatch[1], 10);
     const now = Date.now();
     if (Math.abs(now - msgTimestamp) > 5 * 60 * 1000) {
-      return new Response(JSON.stringify({ error: "Message expired" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Message expired" }), { status: 400, headers: jsonHeaders });
     }
 
     // Verify ed25519 signature
@@ -40,11 +70,11 @@ Deno.serve(async (req) => {
 
     const messageBytes = new TextEncoder().encode(message);
     const signatureBytes = bs58.decode(signature);
-    const publicKeyBytes = bs58.decode(walletAddress);
+    const publicKeyBytes = bs58.decode(normalizedWalletAddress);
 
     const isValid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
     if (!isValid) {
-      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: jsonHeaders });
     }
 
     // Create Supabase admin client
@@ -53,53 +83,85 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const email = `${walletAddress.toLowerCase()}@wallet.tanner.local`;
-    const password = `wallet_${walletAddress}_${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!.slice(-8)}`;
+    const email = `${normalizedWalletAddress.toLowerCase()}@wallet.tanner.local`;
 
-    // Try sign in first
-    let session: any = null;
-    const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+    const { data: credentialData, error: credentialError } = await supabaseAdmin
+      .from("wallet_auth_credentials")
+      .select("password")
+      .eq("wallet_address", normalizedWalletAddress)
+      .maybeSingle();
 
-    if (signInData?.session) {
-      session = signInData.session;
-    } else {
-      // Create user
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { wallet_address: walletAddress },
-      });
+    if (credentialError) {
+      console.error("Credential lookup error:", credentialError);
+      return new Response(JSON.stringify({ error: "Authentication system unavailable" }), { status: 500, headers: jsonHeaders });
+    }
 
-      if (createError) {
-        console.error("Create user error:", createError);
-        return new Response(JSON.stringify({ error: "Failed to create account" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    let password = credentialData?.password as string | undefined;
+
+    if (!password) {
+      password = generateSecurePassword();
+
+      const existingUser = await findUserByEmail(supabaseAdmin, email);
+
+      if (existingUser?.id) {
+        const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+          password,
+          user_metadata: {
+            ...(existingUser.user_metadata ?? {}),
+            wallet_address: normalizedWalletAddress,
+          },
+        });
+
+        if (updateUserError) {
+          console.error("Update user password error:", updateUserError);
+          return new Response(JSON.stringify({ error: "Failed to update wallet credentials" }), { status: 500, headers: jsonHeaders });
+        }
+      } else {
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { wallet_address: normalizedWalletAddress },
+        });
+
+        if (createError || !newUser?.user?.id) {
+          console.error("Create user error:", createError);
+          return new Response(JSON.stringify({ error: "Failed to create account" }), { status: 500, headers: jsonHeaders });
+        }
       }
 
-      // Sign in the new user
-      const { data: newSignIn, error: newSignInError } = await supabaseAdmin.auth.signInWithPassword({ email, password });
-      if (newSignInError || !newSignIn?.session) {
-        return new Response(JSON.stringify({ error: "Failed to sign in" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      session = newSignIn.session;
+      const { error: saveCredentialError } = await supabaseAdmin
+        .from("wallet_auth_credentials")
+        .upsert(
+          {
+            wallet_address: normalizedWalletAddress,
+            email,
+            password,
+          },
+          { onConflict: "wallet_address" },
+        );
 
-      // Check if this wallet is an admin wallet
-      if (ADMIN_WALLETS.includes(walletAddress)) {
-        await supabaseAdmin.from("user_roles").upsert({
-          user_id: newUser.user!.id,
-          role: "admin",
-          wallet_address: walletAddress,
-        }, { onConflict: "user_id,role" });
+      if (saveCredentialError) {
+        console.error("Credential save error:", saveCredentialError);
+        return new Response(JSON.stringify({ error: "Failed to persist credentials" }), { status: 500, headers: jsonHeaders });
       }
     }
 
+    const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+    if (signInError || !signInData?.session) {
+      console.error("Sign in error:", signInError);
+      return new Response(JSON.stringify({ error: "Failed to authenticate wallet" }), { status: 401, headers: jsonHeaders });
+    }
+
+    const session = signInData.session;
+
     // Check admin status for existing users too
-    const isAdmin = ADMIN_WALLETS.includes(walletAddress);
+    const isAdmin = ADMIN_WALLETS.includes(normalizedWalletAddress);
     if (isAdmin && session?.user?.id) {
       await supabaseAdmin.from("user_roles").upsert({
         user_id: session.user.id,
         role: "admin",
-        wallet_address: walletAddress,
+        wallet_address: normalizedWalletAddress,
       }, { onConflict: "user_id,role" });
     }
 
@@ -113,12 +175,12 @@ Deno.serve(async (req) => {
       user: {
         id: session.user.id,
         email: session.user.email,
-        wallet_address: walletAddress,
+        wallet_address: normalizedWalletAddress,
         is_admin: isAdmin,
       },
-    }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { status: 200, headers: jsonHeaders });
   } catch (err) {
     console.error("wallet-auth error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: jsonHeaders });
   }
 });
