@@ -76,8 +76,8 @@ export function XRPBridgePanel() {
       toast.success(`Bridge payment sent! TX: ${txHash.slice(0, 16)}…`);
       setPaths([]);
       setDestAmount("");
-    } catch (e: any) {
-      toast.error(e.message ?? "Transaction failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Transaction failed");
     }
     setIsSending(false);
   };
