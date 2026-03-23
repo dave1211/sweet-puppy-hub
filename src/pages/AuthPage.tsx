@@ -22,6 +22,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [connectingProvider, setConnectingProvider] = useState<"phantom" | "solflare" | null>(null);
 
   if (isLoading) {
     return (
