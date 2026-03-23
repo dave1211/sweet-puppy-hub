@@ -48,7 +48,7 @@ export function useRewards() {
 
       if (initErr) throw initErr;
 
-      const initResult = initData as { success: boolean; error?: string; record?: RewardRecord };
+      const initResult = initData as unknown as { success: boolean; error?: string; record?: RewardRecord };
       if (!initResult?.success || !initResult.record) {
         throw new Error(initResult?.error || "Failed to initialize rewards");
       }
