@@ -22,6 +22,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [connectingProvider, setConnectingProvider] = useState<"phantom" | "solflare" | null>(null);
 
   if (isLoading) {
     return (
@@ -35,6 +36,7 @@ export default function AuthPage() {
 
   const handleWalletAuth = async (providerType: "phantom" | "solflare") => {
     setSubmitting(true);
+    setConnectingProvider(providerType);
     try {
       // First connect wallet if not connected
       if (!isConnected) {
@@ -58,6 +60,7 @@ export default function AuthPage() {
       if (!wallet?.publicKey) {
         toast.error("Wallet not connected");
         setSubmitting(false);
+        setConnectingProvider(null);
         return;
       }
 
@@ -85,6 +88,7 @@ export default function AuthPage() {
       }
     }
     setSubmitting(false);
+    setConnectingProvider(null);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -122,7 +126,7 @@ export default function AuthPage() {
               disabled={submitting}
               className="w-full font-mono text-sm bg-[hsl(270,60%,50%)] hover:bg-[hsl(270,60%,45%)] text-white"
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
+              {connectingProvider === "phantom" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT PHANTOM
             </Button>
             <Button
@@ -131,7 +135,7 @@ export default function AuthPage() {
               variant="outline"
               className="w-full font-mono text-sm border-terminal-amber/30 text-terminal-amber hover:bg-terminal-amber/10"
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
+              {connectingProvider === "solflare" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT SOLFLARE
             </Button>
           </div>
