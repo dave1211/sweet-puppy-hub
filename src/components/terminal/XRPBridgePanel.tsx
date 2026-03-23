@@ -42,12 +42,13 @@ export function XRPBridgePanel() {
         destAddress,
         destAmt
       );
-      setPaths(alts as PathAlternative[]);
+      const pathAlts = alts as PathAlternative[];
+      setPaths(pathAlts);
       setSelectedPath(0);
-      if (alts.length === 0) {
+      if (pathAlts.length === 0) {
         toast.info("No payment paths found for this pair");
       } else {
-        toast.success(`Found ${alts.length} payment path(s)`);
+        toast.success(`Found ${pathAlts.length} payment path(s)`);
       }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Pathfinding failed");
