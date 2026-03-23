@@ -1,35 +1,24 @@
 
 
-# Plan: Create Tanner Logo from Photo & Apply to Merch
+## Fix Broken CI Workflows
 
-## What We're Building
-A professional logo based on the uploaded photo of Tanner (the fluffy red/brown doodle), then applying it across the merch store branding and regenerating product images with the new logo.
+The current `.github/workflows/deno.yml` is malformed — it contains two workflows (Android APK + Deno) merged into one file with corrupted content in the artifact path line.
 
-## Steps
+### Changes
 
-### 1. Generate Tanner Logo
-- Use AI image generation to create a clean, stylized logo from the uploaded dog photo
-- Style: bold, modern brand mark — think clean vector-style illustration of Tanner's distinctive silhouette/face with the fluffy curly fur
-- Generate variations: full logo (icon + "TANNER" wordmark) and icon-only version
-- Save to `src/assets/merch/tanner-logo.png`
+1. **Delete** `.github/workflows/deno.yml` (the malformed combined file)
 
-### 2. Update Merch Store Header
-- Replace the generic ShoppingBag icon in MerchStore.tsx header with the new Tanner logo
-- Use the logo as the brand identity throughout the store
+2. **Create** `.github/workflows/android-apk.yml` — clean Android APK build workflow with:
+   - Triggers: `workflow_dispatch` + push to main
+   - Concurrency group to cancel stale runs
+   - Minimal `contents: read` permissions
+   - Correct artifact upload path
 
-### 3. Regenerate Product Images with Tanner Branding
-- Regenerate all 15 product mockups using the Tanner dog logo/illustration as the brand mark on each product:
-  - T-shirts, hoodies, caps with Tanner's face/silhouette printed on them
-  - Dog accessories featuring the Tanner brand
-  - Mugs, stickers with the logo
-- Each product shot remains photorealistic lifestyle photography but now features the actual Tanner branding
+3. **Create** `.github/workflows/deno.yml` — clean Deno lint/test workflow with:
+   - Triggers: push + PR to main
+   - Concurrency group
+   - Minimal permissions
+   - Pinned `setup-deno` action hash
 
-### 4. Add Logo to Site Header
-- Optionally add a small Tanner logo icon to the TerminalHeader for brand consistency
-
-### Technical Details
-- AI image generation via `google/gemini-3-pro-image-preview` for highest quality logo output
-- Logo saved as PNG asset imported via ES6 modules
-- All 15 product images regenerated with Tanner branding baked in
-- No database changes needed — products already exist, only images update
+Both files match the exact YAML provided in the user's message. No other files are affected.
 
