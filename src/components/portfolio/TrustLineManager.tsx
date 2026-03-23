@@ -76,8 +76,8 @@ export function TrustLineManager() {
       setNewLimit("1000000000");
       // Refresh after a short delay
       setTimeout(fetchTrustLines, 3000);
-    } catch (e: any) {
-      toast.error(e.message ?? "Failed to add trust line");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Failed to add trust line");
     }
     setIsSigning(false);
   };
