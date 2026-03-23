@@ -308,30 +308,6 @@ export type Database = {
         }
         Relationships: []
       }
-      wallet_auth_credentials: {
-        Row: {
-          created_at: string
-          email: string
-          password: string
-          updated_at: string
-          wallet_address: string
-        }
-        Insert: {
-          created_at?: string
-          email: string
-          password: string
-          updated_at?: string
-          wallet_address: string
-        }
-        Update: {
-          created_at?: string
-          email?: string
-          password?: string
-          updated_at?: string
-          wallet_address?: string
-        }
-        Relationships: []
-      }
       watchlist: {
         Row: {
           address: string

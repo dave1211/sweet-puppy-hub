@@ -11,10 +11,26 @@ const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 // Admin wallet addresses that get auto-assigned admin role
 const ADMIN_WALLETS: string[] = (Deno.env.get("ADMIN_WALLETS") || "").split(",").map(s => s.trim()).filter(Boolean);
 
+// In-memory rate limiter: walletAddress -> { count, windowStart }
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(key, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
+}
+
 function generateSecurePassword() {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  return `wallet_${token}`;
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return `wallet_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
 async function findUserByEmail(supabaseAdmin: ReturnType<typeof createClient>, email: string) {
@@ -22,13 +38,11 @@ async function findUserByEmail(supabaseAdmin: ReturnType<typeof createClient>, e
   for (let page = 1; page <= 10; page += 1) {
     const { data, error } = await (supabaseAdmin.auth.admin as any).listUsers({ page, perPage });
     if (error) throw error;
-
     const users = (data?.users ?? []) as Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
     const match = users.find((u) => (u.email || "").toLowerCase() === email.toLowerCase());
     if (match) return match;
     if (users.length < perPage) break;
   }
-
   return null;
 }
 
@@ -52,6 +66,11 @@ Deno.serve(async (req) => {
     }
 
     const normalizedWalletAddress = walletAddress.trim();
+
+    // Rate limit by wallet address
+    if (!checkRateLimit(normalizedWalletAddress)) {
+      return new Response(JSON.stringify({ error: "Too many attempts. Try again later." }), { status: 429, headers: jsonHeaders });
+    }
 
     // Verify the message contains a recent timestamp (within 5 minutes)
     const timestampMatch = message.match(/Timestamp:\s*(\d+)/);
@@ -85,68 +104,40 @@ Deno.serve(async (req) => {
 
     const email = `${normalizedWalletAddress.toLowerCase()}@wallet.tanner.local`;
 
-    const { data: credentialData, error: credentialError } = await supabaseAdmin
-      .from("wallet_auth_credentials")
-      .select("password")
-      .eq("wallet_address", normalizedWalletAddress)
-      .maybeSingle();
+    // Generate a fresh ephemeral password on every successful auth — never persist it
+    const password = generateSecurePassword();
 
-    if (credentialError) {
-      console.error("Credential lookup error:", credentialError);
-      return new Response(JSON.stringify({ error: "Authentication system unavailable" }), { status: 500, headers: jsonHeaders });
-    }
+    const existingUser = await findUserByEmail(supabaseAdmin, email);
 
-    let password = credentialData?.password as string | undefined;
+    if (existingUser?.id) {
+      // Update password to the fresh ephemeral one
+      const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+        password,
+        user_metadata: {
+          ...(existingUser.user_metadata ?? {}),
+          wallet_address: normalizedWalletAddress,
+        },
+      });
 
-    if (!password) {
-      password = generateSecurePassword();
-
-      const existingUser = await findUserByEmail(supabaseAdmin, email);
-
-      if (existingUser?.id) {
-        const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
-          password,
-          user_metadata: {
-            ...(existingUser.user_metadata ?? {}),
-            wallet_address: normalizedWalletAddress,
-          },
-        });
-
-        if (updateUserError) {
-          console.error("Update user password error:", updateUserError);
-          return new Response(JSON.stringify({ error: "Failed to update wallet credentials" }), { status: 500, headers: jsonHeaders });
-        }
-      } else {
-        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email,
-          password,
-          email_confirm: true,
-          user_metadata: { wallet_address: normalizedWalletAddress },
-        });
-
-        if (createError || !newUser?.user?.id) {
-          console.error("Create user error:", createError);
-          return new Response(JSON.stringify({ error: "Failed to create account" }), { status: 500, headers: jsonHeaders });
-        }
+      if (updateUserError) {
+        console.error("Update user password error:", updateUserError);
+        return new Response(JSON.stringify({ error: "Authentication system unavailable" }), { status: 500, headers: jsonHeaders });
       }
+    } else {
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { wallet_address: normalizedWalletAddress },
+      });
 
-      const { error: saveCredentialError } = await supabaseAdmin
-        .from("wallet_auth_credentials")
-        .upsert(
-          {
-            wallet_address: normalizedWalletAddress,
-            email,
-            password,
-          },
-          { onConflict: "wallet_address" },
-        );
-
-      if (saveCredentialError) {
-        console.error("Credential save error:", saveCredentialError);
-        return new Response(JSON.stringify({ error: "Failed to persist credentials" }), { status: 500, headers: jsonHeaders });
+      if (createError || !newUser?.user?.id) {
+        console.error("Create user error:", createError);
+        return new Response(JSON.stringify({ error: "Failed to create account" }), { status: 500, headers: jsonHeaders });
       }
     }
 
+    // Sign in with the ephemeral password
     const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({ email, password });
     if (signInError || !signInData?.session) {
       console.error("Sign in error:", signInError);
@@ -155,7 +146,7 @@ Deno.serve(async (req) => {
 
     const session = signInData.session;
 
-    // Check admin status for existing users too
+    // Check admin status
     const isAdmin = ADMIN_WALLETS.includes(normalizedWalletAddress);
     if (isAdmin && session?.user?.id) {
       await supabaseAdmin.from("user_roles").upsert({
