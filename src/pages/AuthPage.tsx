@@ -126,7 +126,7 @@ export default function AuthPage() {
               disabled={submitting}
               className="w-full font-mono text-sm bg-[hsl(270,60%,50%)] hover:bg-[hsl(270,60%,45%)] text-white"
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
+              {connectingProvider === "phantom" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT PHANTOM
             </Button>
             <Button
@@ -135,7 +135,7 @@ export default function AuthPage() {
               variant="outline"
               className="w-full font-mono text-sm border-terminal-amber/30 text-terminal-amber hover:bg-terminal-amber/10"
             >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
+              {connectingProvider === "solflare" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT SOLFLARE
             </Button>
           </div>
