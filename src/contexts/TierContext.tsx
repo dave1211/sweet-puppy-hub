@@ -23,15 +23,17 @@ export interface TierGates {
   canUseLaunchPriority: boolean;
 }
 
-function getGates(_tier: Tier): TierGates {
-  // All features unlocked — no tier gating
+function getGates(tier: Tier): TierGates {
+  // TODO: enforce tier server-side in edge functions before monetization
+  const isPro = tier === "pro" || tier === "elite";
+  const isElite = tier === "elite";
   return {
-    canUseSniper: true,
-    canUseSmartMoney: true,
-    canUseCopyTrading: true,
-    canUseAutoSniper: true,
-    canUseAdvancedSignals: true,
-    canUseLaunchPriority: true,
+    canUseSniper: isPro,
+    canUseSmartMoney: isPro,
+    canUseCopyTrading: isElite,
+    canUseAutoSniper: isElite,
+    canUseAdvancedSignals: isPro,
+    canUseLaunchPriority: isElite,
   };
 }
 
@@ -62,7 +64,7 @@ const TIER_LABELS: Record<Tier, string> = {
 const TierContext = createContext<TierContextValue | null>(null);
 
 export function TierProvider({ children }: { children: ReactNode }) {
-  const [tier, setTier] = useState<Tier>("elite");
+  const [tier, setTier] = useState<Tier>("free");
 
   const requiredTier = useCallback(
     (gate: keyof TierGates) => GATE_REQUIRED_TIER[gate],
