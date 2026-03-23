@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,12 +7,34 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function requireAuth(req: Request) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } }
+  );
+  const token = authHeader.replace("Bearer ", "");
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims) return null;
+  return data.claims.sub as string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const userId = await requireAuth(req);
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const { prompt, style = "dank", topText, bottomText } = body;
 
@@ -37,32 +60,20 @@ serve(async (req) => {
 
     const stylePrompt = styleGuides[style] ?? styleGuides.dank;
 
-    // Build the full image generation prompt
     let fullPrompt = `${stylePrompt}. ${cleanPrompt}`;
     if (cleanTop) fullPrompt += `. Top text overlay: "${cleanTop}"`;
     if (cleanBottom) fullPrompt += `. Bottom text overlay: "${cleanBottom}"`;
     fullPrompt += ". High quality, shareable, social media ready.";
 
-    // Use Lovable AI (Google Gemini image generation)
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Generate with Lovable AI proxy
-    const aiRes = await fetch(`${SUPABASE_URL}/functions/v1/meme-generator-ai`, {
+    await fetch(`${SUPABASE_URL}/functions/v1/meme-generator-ai`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt: fullPrompt }),
     }).catch(() => null);
 
-    // Since we can't directly generate images from edge functions,
-    // return the prompt and metadata for client-side generation
     const memeData = {
       id: crypto.randomUUID(),
       prompt: cleanPrompt,
@@ -71,8 +82,6 @@ serve(async (req) => {
       bottomText: cleanBottom || null,
       fullPrompt,
       createdAt: new Date().toISOString(),
-      // The client will use the prompt to render a text-based meme
-      // or call an image generation API
     };
 
     return new Response(JSON.stringify(memeData), {
@@ -80,8 +89,7 @@ serve(async (req) => {
     });
   } catch (error: unknown) {
     console.error("Meme generator error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

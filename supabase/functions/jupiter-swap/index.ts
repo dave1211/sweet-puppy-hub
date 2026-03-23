@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,12 +10,36 @@ const corsHeaders = {
 const JUPITER_API = "https://lite-api.jup.ag/swap/v1";
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
+async function requireAuth(req: Request) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return null;
+  }
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } }
+  );
+  const token = authHeader.replace("Bearer ", "");
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims) return null;
+  return data.claims.sub as string;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const userId = await requireAuth(req);
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { action, inputMint, outputMint, amount, slippageBps, userPublicKey } =
       await req.json();
 
@@ -34,7 +59,8 @@ serve(async (req) => {
       const quoteRes = await fetch(`${JUPITER_API}/quote?${params}`);
       if (!quoteRes.ok) {
         const errText = await quoteRes.text();
-        throw new Error(`Jupiter quote failed [${quoteRes.status}]: ${errText}`);
+        console.error(`Jupiter quote failed [${quoteRes.status}]: ${errText}`);
+        throw new Error("Quote service temporarily unavailable");
       }
       const quoteData = await quoteRes.json();
       return new Response(JSON.stringify(quoteData), {
@@ -58,7 +84,8 @@ serve(async (req) => {
       const quoteRes = await fetch(`${JUPITER_API}/quote?${params}`);
       if (!quoteRes.ok) {
         const errText = await quoteRes.text();
-        throw new Error(`Jupiter quote failed [${quoteRes.status}]: ${errText}`);
+        console.error(`Jupiter quote failed [${quoteRes.status}]: ${errText}`);
+        throw new Error("Quote service temporarily unavailable");
       }
       const quoteData = await quoteRes.json();
       const swapRes = await fetch(`${JUPITER_API}/swap`, {
@@ -74,7 +101,8 @@ serve(async (req) => {
       });
       if (!swapRes.ok) {
         const errText = await swapRes.text();
-        throw new Error(`Jupiter swap failed [${swapRes.status}]: ${errText}`);
+        console.error(`Jupiter swap failed [${swapRes.status}]: ${errText}`);
+        throw new Error("Swap service temporarily unavailable");
       }
       const swapData = await swapRes.json();
       return new Response(
@@ -93,8 +121,7 @@ serve(async (req) => {
     );
   } catch (error: unknown) {
     console.error("Jupiter proxy error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
