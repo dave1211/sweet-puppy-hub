@@ -42,7 +42,7 @@ async function persistRecord(record: SnipeRecord, userId: string) {
     risk: record.risk,
     state: record.state,
     status: record.status,
-  } as any);
+  });
 }
 
 async function updateRecordInDb(id: string, partial: Partial<SnipeRecord>) {

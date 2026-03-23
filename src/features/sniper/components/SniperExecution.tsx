@@ -30,7 +30,7 @@ async function logSwapTx(params: {
     status: params.side === "buy" ? "active" : "profit",
     entry_price: 0,
     entry_time: new Date().toISOString(),
-  } as any);
+  });
 }
 
 export function SniperExecution({ token: st }: { token: SniperToken | null }) {

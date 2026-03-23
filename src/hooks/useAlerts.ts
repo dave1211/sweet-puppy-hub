@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import type { Tables } from "@/integrations/supabase/types";
 
 export type AlertItem = Tables<"alerts">;
 
@@ -30,12 +30,12 @@ export function useAlerts() {
         .from("alerts")
         .insert({
           user_id: userId!,
-          device_id: userId!, // keep for backward compat
+          device_id: userId!,
           address: alert.address,
           kind: alert.kind,
           threshold: alert.threshold,
           direction: alert.direction,
-        } as any)
+        })
         .select()
         .single();
       if (error) throw error;

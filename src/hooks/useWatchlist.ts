@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import type { Tables } from "@/integrations/supabase/types";
 
 export type WatchlistItem = Tables<"watchlist">;
 
@@ -57,7 +57,7 @@ export function useWatchlist() {
           device_id: userId!,
           address: normalized,
           label: item.label || null,
-        } as any)
+        })
         .select()
         .single();
       if (error) throw error;

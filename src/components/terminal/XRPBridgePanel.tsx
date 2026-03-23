@@ -183,7 +183,7 @@ export function XRPBridgePanel() {
                 <span className="font-bold">{formatSourceAmount(p.source_amount)}</span>
               </div>
               <div className="text-[8px] text-muted-foreground/60 mt-0.5">
-                {(p.paths_computed as any[])?.length ?? 0} hop(s)
+                {(p.paths_computed as unknown[])?.length ?? 0} hop(s)
               </div>
             </button>
           ))}
