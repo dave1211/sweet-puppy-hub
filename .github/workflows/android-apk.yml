@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
 
@@ -24,45 +27,98 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v3
+
+      - name: Ensure sdkmanager exists (install cmdline-tools if missing)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          if command -v sdkmanager >/dev/null 2>&1; then exit 0; fi
+          cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+          rm -rf latest latest.tmp tools.zip
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
+          mkdir -p latest.tmp
+          unzip -q tools.zip -d latest.tmp
+          rm tools.zip
+          if [ -d latest.tmp/cmdline-tools ]; then
+            mv latest.tmp/cmdline-tools/* latest.tmp/
+            rmdir latest.tmp/cmdline-tools
+          fi
+          mv latest.tmp latest
+
+      - name: Add Android tools to PATH
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "${ANDROID_SDK_ROOT}/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Verify toolchain versions
+        shell: bash
+        run: |
+          set -euxo pipefail
+          node -v
+          java -version
+          sdkmanager --version
 
       - name: Accept Android licenses
         shell: bash
-        run: yes | sdkmanager --licenses || true
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
+          yes | sdkmanager --licenses
 
-      - name: Install Android SDK components
+      - name: Install Android SDK (34 with fallback to 33)
         shell: bash
         run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
           sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || \
           sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-      - name: Install dependencies
+      - name: Install deps
         run: npm ci
 
-      - name: Build web assets
-        run: npm run build
+      - name: Build web + sync Capacitor
+        run: npm run mobile:prep
 
-      - name: Add Android platform
-        run: npx cap add android || true
+      - name: Ensure Android platform exists
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -d android || npx cap add android
 
-      - name: Sync Capacitor
+      - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build debug APK
-        working-directory: android
-        run: ./gradlew assembleDebug
+      - name: Build Android debug APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
-      - name: Verify APK
-        run: test -f android/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify APK exists
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f android/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: tanner-terminal-debug-apk
