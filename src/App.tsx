@@ -73,6 +73,10 @@ function App() {
                     <Route path="strategies" element={<StrategiesPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="launchpad" element={<LaunchpadPage />} />
+                    <Route path="claim-sol" element={<ClaimSolPage />} />
+                    <Route path="sol-burn" element={<SolBurnPage />} />
+                    <Route path="holdings" element={<TokenHoldingsPage />} />
+                    <Route path="xrpl" element={<XRPLPage />} />
                     <Route path="about" element={<AboutPage />} />
                     <Route path="memes" element={<MemeGeneratorPage />} />
                     <Route path="token/:id" element={<TokenDetailPage />} />

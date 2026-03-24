@@ -52,24 +52,43 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
       collapsed ? "w-14" : "w-48"
     )}>
       <div className="flex-1 py-2 overflow-y-auto space-y-0.5 px-2">
-        {NAV.map((item) => {
+        {!collapsed && <p className="text-[8px] font-mono text-muted-foreground/50 tracking-widest px-2.5 pt-1 pb-0.5">SOLANA</p>}
+        {NAV_SOLANA.map((item) => {
           const active = location.pathname === item.path;
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-3 px-2.5 py-2 rounded-md text-xs font-mono transition-all duration-150",
-                active
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              )}
-            >
+            <NavLink key={item.path} to={item.path} onClick={onNavigate}
+              className={cn("flex items-center gap-3 px-2.5 py-2 rounded-md text-xs font-mono transition-all duration-150",
+                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}>
               <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
-              {!collapsed && (
-                <span className="truncate tracking-wide text-[11px]">{item.label.toUpperCase()}</span>
-              )}
+              {!collapsed && <span className="truncate tracking-wide text-[11px]">{item.label.toUpperCase()}</span>}
+            </NavLink>
+          );
+        })}
+        {!collapsed && <div className="border-t border-border/30 my-1.5" />}
+        {!collapsed && <p className="text-[8px] font-mono text-muted-foreground/50 tracking-widest px-2.5 pt-1 pb-0.5">XRPL</p>}
+        {NAV_XRPL.map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <NavLink key={item.path} to={item.path} onClick={onNavigate}
+              className={cn("flex items-center gap-3 px-2.5 py-2 rounded-md text-xs font-mono transition-all duration-150",
+                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}>
+              <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+              {!collapsed && <span className="truncate tracking-wide text-[11px]">{item.label.toUpperCase()}</span>}
+            </NavLink>
+          );
+        })}
+        {!collapsed && <div className="border-t border-border/30 my-1.5" />}
+        {NAV_OTHER.map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <NavLink key={item.path} to={item.path} onClick={onNavigate}
+              className={cn("flex items-center gap-3 px-2.5 py-2 rounded-md text-xs font-mono transition-all duration-150",
+                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}>
+              <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
+              {!collapsed && <span className="truncate tracking-wide text-[11px]">{item.label.toUpperCase()}</span>}
             </NavLink>
           );
         })}
