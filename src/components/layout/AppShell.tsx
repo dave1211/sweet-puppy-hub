@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { AppTopbar } from "./AppTopbar";
 import { AppSidebar } from "./AppSidebar";
 import { BottomStrip } from "./BottomStrip";
+import { PriceTickerBar } from "./PriceTickerBar";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -45,6 +46,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <PriceTickerBar />
       <BottomStrip />
     </div>
   );
