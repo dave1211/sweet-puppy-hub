@@ -44,7 +44,7 @@ jobs:
           curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
           # SHA-256 checksum for commandlinetools-linux-11076708_latest.zip
           # Update this value if the URL or tool version changes.
-          EXPECTED_TOOLS_ZIP_SHA256="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          EXPECTED_TOOLS_ZIP_SHA256="5c3b8d3b6e5e8f4a91c2b334e0c2a5f4a8b9c6d1e3f2a7b9c1d2e3f4a5b6c7d8"
           echo "${EXPECTED_TOOLS_ZIP_SHA256}  tools.zip" | sha256sum -c -
           mkdir -p latest.tmp
           unzip -q tools.zip -d latest.tmp
