@@ -209,9 +209,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const wallet = getWalletProvider(p);
     if (!wallet) {
       const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+
+      // Phantom mobile deep link: redirect to Phantom in-app browser
+      if (isMobile && p === "phantom") {
+        const currentUrl = encodeURIComponent(window.location.href);
+        const deepLink = `https://phantom.app/ul/browse/${currentUrl}?ref=${currentUrl}`;
+        console.info("[Wallet] Redirecting to Phantom mobile deep link", { deepLink });
+        setIsLoading(false);
+        window.location.href = deepLink;
+        return ""; // Will redirect
+      }
+
       const message = isMobile
-        ? `${p} wallet provider not found in this browser. Open Tanner Terminal inside the ${p} wallet app browser.`
-        : `${p} wallet extension not detected in this browser.`;
+        ? `${p} wallet provider not found. Open Tanner Terminal inside the ${p} wallet app browser.`
+        : `${p} wallet extension not detected. Install it from ${p === "phantom" ? "phantom.app" : p === "solflare" ? "solflare.com" : "backpack.app"}.`;
 
       console.error("[Wallet] provider not found", { provider: p, isMobile });
       setIsLoading(false);
