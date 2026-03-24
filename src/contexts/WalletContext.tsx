@@ -1,18 +1,29 @@
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 
 type WalletProviderType = "phantom" | "solflare" | null;
 
+interface WalletPublicKey {
+  toString: () => string;
+  toBytes: () => Uint8Array;
+}
+
+interface WalletConnectResponse {
+  publicKey?: WalletPublicKey;
+}
+
 interface SolanaWallet {
-  publicKey: { toString: () => string; toBytes: () => Uint8Array } | null;
+  isPhantom?: boolean;
+  isSolflare?: boolean;
+  publicKey: WalletPublicKey | null;
   isConnected: boolean;
-  connect: () => Promise<{ publicKey: { toString: () => string } }>;
+  connect: () => Promise<WalletConnectResponse>;
   disconnect: () => Promise<void>;
   signAndSendTransaction: (tx: unknown, opts?: unknown) => Promise<{ signature: string }>;
-  signTransaction: (tx: unknown) => Promise<unknown>;
-  signMessage: (msg: Uint8Array) => Promise<{ signature: Uint8Array }>;
-  on: (event: string, handler: (...args: unknown[]) => void) => void;
-  off: (event: string, handler: (...args: unknown[]) => void) => void;
+  signTransaction?: (tx: unknown) => Promise<unknown>;
+  signMessage?: (msg: Uint8Array) => Promise<{ signature: Uint8Array }>;
+  on?: (event: string, handler: (...args: unknown[]) => void) => void;
+  off?: (event: string, handler: (...args: unknown[]) => void) => void;
 }
 
 interface WalletState {
@@ -21,7 +32,7 @@ interface WalletState {
   provider: WalletProviderType;
   balanceSOL: number | null;
   isLoading: boolean;
-  connect: (provider: WalletProviderType) => void;
+  connect: (provider: WalletProviderType) => Promise<string>;
   disconnect: () => void;
   refreshBalance: () => Promise<void>;
   signAndSendTransaction: (tx: unknown) => Promise<{ signature: string }>;
@@ -29,14 +40,49 @@ interface WalletState {
 }
 
 const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+const WALLET_STORAGE_KEY = "tanner_wallet_provider";
 
 const WalletContext = createContext<WalletState | null>(null);
 
+interface WalletWindow extends Window {
+  solana?: (SolanaWallet & { providers?: SolanaWallet[] }) | undefined;
+  phantom?: { solana?: SolanaWallet };
+  solflare?: SolanaWallet;
+}
+
+function resolvePhantomProvider(win: WalletWindow): SolanaWallet | null {
+  if (win.phantom?.solana?.isPhantom) return win.phantom.solana;
+
+  const injected = win.solana;
+  if (injected?.isPhantom) return injected;
+
+  if (Array.isArray(injected?.providers)) {
+    const phantomProvider = injected.providers.find((provider) => provider?.isPhantom);
+    if (phantomProvider) return phantomProvider;
+  }
+
+  return null;
+}
+
+function resolveSolflareProvider(win: WalletWindow): SolanaWallet | null {
+  if (win.solflare) return win.solflare;
+
+  const injected = win.solana;
+  if (injected?.isSolflare) return injected;
+
+  if (Array.isArray(injected?.providers)) {
+    const solflareProvider = injected.providers.find((provider) => provider?.isSolflare);
+    if (solflareProvider) return solflareProvider;
+  }
+
+  return null;
+}
+
 function getWalletProvider(p: WalletProviderType): SolanaWallet | null {
   if (!p) return null;
-  const win = window as unknown as Record<string, unknown>;
-  if (p === "phantom") return (win.solana as SolanaWallet) ?? null;
-  if (p === "solflare") return (win.solflare as SolanaWallet) ?? null;
+  const win = window as unknown as WalletWindow;
+  if (p === "phantom") return resolvePhantomProvider(win);
+  if (p === "solflare") return resolveSolflareProvider(win);
   return null;
 }
 
@@ -69,26 +115,36 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
   const refreshBalance = useCallback(async () => {
     if (!walletAddress) return;
+    console.info("[Wallet] Refresh balance", { walletAddress });
     const bal = await fetchSOLBalance(walletAddress);
     setBalanceSOL(bal);
   }, [walletAddress]);
 
-  // Auto-reconnect on page load if wallet was previously connected
+  // Auto-reconnect on page load if wallet was previously connected in this browser.
   useEffect(() => {
-    const savedProvider = localStorage.getItem("tanner_wallet_provider") as WalletProviderType;
+    const savedProvider = localStorage.getItem(WALLET_STORAGE_KEY) as WalletProviderType;
     if (!savedProvider) return;
 
     const wallet = getWalletProvider(savedProvider);
+    console.info("[Wallet] Reconnect check", {
+      provider: savedProvider,
+      providerFound: Boolean(wallet),
+      walletConnected: wallet?.isConnected ?? false,
+    });
+
     if (wallet?.isConnected && wallet?.publicKey) {
       const pubKey = wallet.publicKey.toString();
       setWalletAddress(pubKey);
       setProvider(savedProvider);
       setIsConnected(true);
       fetchSOLBalance(pubKey).then(setBalanceSOL);
+      return;
     }
+
+    localStorage.removeItem(WALLET_STORAGE_KEY);
   }, []);
 
-  // Listen for account changes and disconnects
+  // Listen for account changes and disconnects from the active provider.
   useEffect(() => {
     if (!provider) return;
     const wallet = getWalletProvider(provider);
@@ -97,33 +153,35 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const handleAccountChanged = (publicKey: unknown) => {
       if (publicKey && typeof publicKey === "object" && "toString" in (publicKey as object)) {
         const newAddr = (publicKey as { toString: () => string }).toString();
+        console.info("[Wallet] accountChanged", { provider, address: newAddr });
         setWalletAddress(newAddr);
         fetchSOLBalance(newAddr).then(setBalanceSOL);
         toast.info(`Wallet changed: ${newAddr.slice(0, 4)}…${newAddr.slice(-4)}`);
       } else {
-        // Disconnected
+        console.info("[Wallet] accountChanged -> disconnected", { provider });
         setIsConnected(false);
         setWalletAddress(null);
         setProvider(null);
         setBalanceSOL(null);
-        localStorage.removeItem("tanner_wallet_provider");
+        localStorage.removeItem(WALLET_STORAGE_KEY);
       }
     };
 
     const handleDisconnect = () => {
+      console.info("[Wallet] disconnect event", { provider });
       setIsConnected(false);
       setWalletAddress(null);
       setProvider(null);
       setBalanceSOL(null);
-      localStorage.removeItem("tanner_wallet_provider");
+      localStorage.removeItem(WALLET_STORAGE_KEY);
     };
 
-    wallet.on("accountChanged", handleAccountChanged);
-    wallet.on("disconnect", handleDisconnect);
+    wallet.on?.("accountChanged", handleAccountChanged);
+    wallet.on?.("disconnect", handleDisconnect);
 
     return () => {
-      wallet.off("accountChanged", handleAccountChanged);
-      wallet.off("disconnect", handleDisconnect);
+      wallet.off?.("accountChanged", handleAccountChanged);
+      wallet.off?.("disconnect", handleDisconnect);
     };
   }, [provider]);
 
@@ -136,52 +194,83 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [walletAddress]);
 
-  const connect = useCallback((p: WalletProviderType) => {
-    if (!p) return;
+  const connect = useCallback(async (p: WalletProviderType): Promise<string> => {
+    if (!p) throw new Error("Wallet provider is required");
     setIsLoading(true);
+    console.info("[Wallet] connect start", { provider: p });
 
     const wallet = getWalletProvider(p);
     if (!wallet) {
+      const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+      const message = isMobile
+        ? `${p} wallet provider not found in this browser. Open Tanner Terminal inside the ${p} wallet app browser.`
+        : `${p} wallet extension not detected in this browser.`;
+
+      console.error("[Wallet] provider not found", { provider: p, isMobile });
       setIsLoading(false);
-      toast.error(`${p} wallet not detected`, {
-        description: "You're in preview mode — wallet extensions aren't available here. Install the extension in your browser to connect, or explore the app in demo mode.",
-        duration: 6000,
-      });
-      return;
+      toast.error(message, { duration: 6000 });
+      throw new Error(message);
     }
 
-    wallet
-      .connect()
-      .then((resp) => {
-        const pubKey = resp?.publicKey?.toString() ?? wallet.publicKey?.toString();
-        if (pubKey) {
-          setWalletAddress(pubKey);
-          setProvider(p);
-          setIsConnected(true);
-          localStorage.setItem("tanner_wallet_provider", p);
-          fetchSOLBalance(pubKey).then(setBalanceSOL);
-          toast.success(`Connected via ${p}`, {
-            description: `${pubKey.slice(0, 6)}…${pubKey.slice(-4)}`,
-          });
-        }
-      })
-      .catch((err: Error) => {
-        console.error(`[Wallet] Connection rejected`, err);
-        toast.error("Connection rejected", { description: err.message });
-      })
-      .finally(() => setIsLoading(false));
+    try {
+      const resp = await wallet.connect();
+      const pubKey = resp?.publicKey?.toString() ?? wallet.publicKey?.toString();
+
+      if (!pubKey) {
+        throw new Error("Wallet connected but no public key was returned");
+      }
+
+      setWalletAddress(pubKey);
+      setProvider(p);
+      setIsConnected(true);
+      localStorage.setItem(WALLET_STORAGE_KEY, p);
+
+      const bal = await fetchSOLBalance(pubKey);
+      setBalanceSOL(bal);
+
+      console.info("[Wallet] connect success", { provider: p, address: pubKey });
+      toast.success(`Connected via ${p}`, {
+        description: `${pubKey.slice(0, 6)}…${pubKey.slice(-4)}`,
+      });
+
+      return pubKey;
+    } catch (err: unknown) {
+      const rawMessage = err instanceof Error ? err.message : "Wallet connection failed";
+      const normalizedMessage = /rejected|denied|cancel|4001|User rejected/i.test(rawMessage)
+        ? "Wallet connection was rejected by the user"
+        : rawMessage;
+
+      console.error("[Wallet] connect failure", { provider: p, error: rawMessage });
+      setIsConnected(false);
+      setWalletAddress(null);
+      setProvider(null);
+      setBalanceSOL(null);
+      localStorage.removeItem(WALLET_STORAGE_KEY);
+
+      toast.error(normalizedMessage);
+      throw new Error(normalizedMessage);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const disconnect = useCallback(() => {
+    console.info("[Wallet] disconnect start", { provider });
     const wallet = getWalletProvider(provider);
     if (wallet) {
-      wallet.disconnect().catch(() => {});
+      wallet.disconnect().catch((err) => {
+        const message = err instanceof Error ? err.message : "Unknown disconnect error";
+        console.warn("[Wallet] disconnect provider call failed", { provider, error: message });
+      });
     }
+
     setIsConnected(false);
     setWalletAddress(null);
     setProvider(null);
     setBalanceSOL(null);
-    localStorage.removeItem("tanner_wallet_provider");
+    setIsLoading(false);
+    localStorage.removeItem(WALLET_STORAGE_KEY);
+    console.info("[Wallet] disconnect success");
     toast.info("Wallet disconnected");
   }, [provider]);
 
@@ -191,6 +280,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (!wallet || !isConnected) {
         throw new Error("Wallet not connected");
       }
+      console.info("[Wallet] signAndSendTransaction start", { provider, isConnected });
       return wallet.signAndSendTransaction(tx);
     },
     [provider, isConnected]
