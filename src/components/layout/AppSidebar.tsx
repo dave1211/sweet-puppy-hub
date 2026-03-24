@@ -8,20 +8,30 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
-const NAV = [
+const NAV_SOLANA = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
   { label: "Live Pairs", path: "/live-pairs", icon: BarChart3 },
   { label: "New Launches", path: "/new-launches", icon: Rocket },
   { label: "Sniper Mode", path: "/sniper-mode", icon: Crosshair },
   { label: "Wallet Tracker", path: "/wallet-tracker", icon: Wallet },
+  { label: "Holdings", path: "/holdings", icon: Layers },
   { label: "Copy Trade", path: "/copy-trade", icon: Users },
   { label: "AI Signals", path: "/ai-signals", icon: Brain },
   { label: "Risk Scanner", path: "/risk-scanner", icon: ShieldAlert },
+  { label: "Claim Your SOL", path: "/claim-sol", icon: Coins },
+  { label: "SOL Burn", path: "/sol-burn", icon: Flame },
   { label: "Watchlist", path: "/watchlist", icon: Star },
   { label: "Alerts", path: "/alerts", icon: Bell },
   { label: "Portfolio", path: "/portfolio", icon: PieChart },
   { label: "Strategies", path: "/strategies", icon: Sliders },
   { label: "Launchpad", path: "/launchpad", icon: Flame },
+];
+
+const NAV_XRPL = [
+  { label: "XRPL Ledger", path: "/xrpl", icon: Globe },
+];
+
+const NAV_OTHER = [
   { label: "Meme Gen", path: "/memes", icon: Sparkles },
   { label: "About", path: "/about", icon: Info },
   { label: "Settings", path: "/settings", icon: Settings },
