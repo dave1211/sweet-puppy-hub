@@ -30,23 +30,46 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+
+      - name: Fallback install Android cmdline-tools if sdkmanager missing
+        run: |
+          if ! command -v sdkmanager >/dev/null 2>&1; then
+            mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+            cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+            rm -rf latest
+            curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
+            mkdir -p latest
+            unzip -q tools.zip -d latest
+            rm tools.zip
+            # Fix structure: Google puts all files in a folder called 'cmdline-tools', move up
+            if [ -d latest/cmdline-tools ]; then
+              mv latest/cmdline-tools/* latest/
+              rmdir latest/cmdline-tools
+            fi
+          fi
+        shell: bash
+
       - name: Ensure Android SDK tools are on PATH
         run: |
-          echo "${ANDROID_HOME}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-          echo "${ANDROID_HOME}/cmdline-tools/bin" >> "$GITHUB_PATH"
           echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "${ANDROID_SDK_ROOT}/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Verify sdkmanager installation
+        run: |
           command -v sdkmanager
+          sdkmanager --version
 
       - name: Accept Android licenses
-        run: yes | sdkmanager --licenses >/dev/null || true
+        run: yes | sdkmanager --licenses
 
       - name: Show available Android SDK packages
         run: sdkmanager --list | sed -n '1,200p'
 
       - name: Install Android SDK packages
-        run: |
-          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || \
-          sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+        run: sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
       - name: Install deps
         run: npm ci
