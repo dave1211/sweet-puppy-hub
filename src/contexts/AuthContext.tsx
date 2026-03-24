@@ -9,11 +9,38 @@ interface AuthContextType {
   isAdmin: boolean;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithWallet: (walletAddress: string, signature: string, message: string) => Promise<{ error: Error | null }>;
+  signInWithWallet: (
+    walletAddress: string,
+    signature: string,
+    message: string,
+    challengeToken: string
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface WalletAuthSuccess {
+  ok: true;
+  data: {
+    session: {
+      access_token: string;
+      refresh_token: string;
+      expires_in?: number;
+      token_type?: string;
+    };
+  };
+}
+
+interface WalletAuthFailure {
+  ok: false;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
+
+type WalletAuthResponse = WalletAuthSuccess | WalletAuthFailure;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -69,17 +96,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? new Error(error.message) : null };
   };
 
-  const signInWithWallet = async (walletAddress: string, signature: string, message: string) => {
+  const signInWithWallet = async (
+    walletAddress: string,
+    signature: string,
+    message: string,
+    challengeToken: string
+  ) => {
     try {
-      const res = await supabase.functions.invoke("wallet-auth", {
-        body: { walletAddress, signature, message },
+      console.info("[WalletAuth] verify request", { walletAddress });
+
+      const res = await supabase.functions.invoke<WalletAuthResponse>("wallet-auth", {
+        body: {
+          action: "verify",
+          walletAddress,
+          signature,
+          message,
+          challengeToken,
+        },
       });
 
       if (res.error) {
+        console.error("[WalletAuth] verify transport failure", {
+          walletAddress,
+          message: res.error.message,
+        });
         return { error: new Error(res.error.message || "Wallet auth failed") };
       }
 
-      const { session: walletSession } = res.data;
+      const payload = res.data;
+      if (!payload || !payload.ok || !payload.data?.session) {
+        const messageFromPayload = payload && "error" in payload ? payload.error?.message : undefined;
+        console.error("[WalletAuth] verify logical failure", {
+          walletAddress,
+          payload,
+        });
+        return { error: new Error(messageFromPayload || "Wallet auth failed") };
+      }
+
+      const { session: walletSession } = payload.data;
       if (!walletSession?.access_token) {
         return { error: new Error("No session returned") };
       }
@@ -89,10 +143,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refresh_token: walletSession.refresh_token,
       });
 
-      if (setErr) return { error: new Error(setErr.message) };
+      if (setErr) {
+        console.error("[WalletAuth] session set failure", {
+          walletAddress,
+          message: setErr.message,
+        });
+        return { error: new Error(setErr.message) };
+      }
+
+      console.info("[WalletAuth] session success", { walletAddress });
       return { error: null };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Wallet auth failed";
+      console.error("[WalletAuth] verify unexpected failure", {
+        walletAddress,
+        error: msg,
+      });
       return { error: new Error(msg) };
     }
   };
