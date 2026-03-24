@@ -112,6 +112,13 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [connectingProvider, setConnectingProvider] = useState<"phantom" | "solflare" | null>(null);
+  const [detected, setDetected] = useState<{ phantom: boolean; solflare: boolean }>({ phantom: true, solflare: true });
+
+  useEffect(() => {
+    // Wallet extensions inject after DOMContentLoaded; give them a moment
+    const timer = setTimeout(() => setDetected(detectWallets()), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (isLoading) {
     return (
