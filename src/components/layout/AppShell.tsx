@@ -9,6 +9,8 @@ import { Eye } from "lucide-react";
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { isGuest, signOut } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden w-full">
