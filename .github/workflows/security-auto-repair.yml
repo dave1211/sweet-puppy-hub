@@ -22,32 +22,22 @@ jobs:
           node-version: 20
 
       - name: Run auto-repair
-        id: repair
+        id: changes
         run: bash scripts/security/auto-repair.sh
 
-      - name: Create PR if changes exist
-        if: steps.repair.outputs.has_fixes == 'true'
-        uses: peter-evans/create-pull-request@v6
+      - name: Create or update pull request
+        if: steps.changes.outputs.has_changes == 'true' && github.event_name != 'pull_request'
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: 'security(sentinel): auto-repair low-risk issues'
-          title: '🛡️ Sentinel Auto-Repair — Low-Risk Fixes'
+          commit-message: security(sentinel): auto-repair low-risk issues
+          title: security(sentinel): auto-repair low-risk issues
           body: |
-            ## Tanner Sentinel Auto-Repair
+            Automated low-risk security repairs.
 
-            This PR contains **low-risk automated fixes** only.
-
-            ### What was fixed
-            - Lockfile consistency (if drifted)
-            - Formatting issues
-            - Safe config/doc fixes
-
-            ### What was NOT touched
-            - Execution engine, wallet, auth, trading logic
-            - Edge functions
-            - Any protected path
-
-            **Review before merging.** Auto-repair never pushes directly to main.
-          branch: sentinel/auto-repair
-          delete-branch: true
+            This PR was created by the Security Auto Repair workflow.
+            It uses PR flow so protected-branch rules and required checks run normally.
+          branch: sentinel/auto-repair-work
+          base: sentinel/auto-repair
+          delete-branch: false
           labels: security, auto-repair, sentinel

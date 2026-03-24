@@ -66,8 +66,8 @@ echo ""
 echo "==================================="
 if [ "$HAS_FIXES" = "true" ]; then
   echo "✅ Fixes applied — PR will be created"
-  echo "has_fixes=true" >> "${GITHUB_OUTPUT:-/dev/null}"
+  echo "has_changes=true" >> "${GITHUB_OUTPUT:-/dev/null}"
 else
   echo "ℹ️  No fixes needed"
-  echo "has_fixes=false" >> "${GITHUB_OUTPUT:-/dev/null}"
+  echo "has_changes=false" >> "${GITHUB_OUTPUT:-/dev/null}"
 fi
