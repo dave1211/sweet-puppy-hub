@@ -48,6 +48,7 @@ interface WalletWindow extends Window {
   solana?: (SolanaWallet & { providers?: SolanaWallet[] }) | undefined;
   phantom?: { solana?: SolanaWallet };
   solflare?: SolanaWallet;
+  backpack?: SolanaWallet;
 }
 
 function resolvePhantomProvider(win: WalletWindow): SolanaWallet | null {
