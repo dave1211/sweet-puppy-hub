@@ -92,6 +92,9 @@ export function WalletConnectButton() {
         <DropdownMenuItem onClick={() => { void handleConnect("solflare"); }} className="text-[10px] font-mono">
           🔆 Solflare
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { void handleConnect("backpack"); }} className="text-[10px] font-mono">
+          🎒 Backpack
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled className="text-[8px] font-mono text-muted-foreground/60">
           Connects to Solana mainnet

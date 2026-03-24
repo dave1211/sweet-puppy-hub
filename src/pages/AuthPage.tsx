@@ -276,6 +276,37 @@ export default function AuthPage() {
                 </div>
               </div>
             )}
+            <Button
+              onClick={() => handleWalletAuth("backpack")}
+              disabled={submitting}
+              variant="outline"
+              className="w-full font-mono text-sm border-terminal-cyan/30 text-terminal-cyan hover:bg-terminal-cyan/10"
+            >
+              {connectingProvider === "backpack" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
+              CONNECT BACKPACK
+            </Button>
+            {!detected.backpack && (
+              <div className="flex flex-col items-center gap-0.5 py-0.5">
+                <span className="text-[9px] font-mono text-terminal-amber">Backpack not detected — Install:</span>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {[
+                    { label: "Chrome / Brave / Edge", href: "https://chromewebstore.google.com/detail/backpack/aflkmfhebedbjioipglgcbcmnbpgliof" },
+                    { label: "iOS / Android", href: "https://backpack.app/download" },
+                  ].map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[8px] font-mono text-primary/80 hover:text-primary underline underline-offset-2 transition-colors"
+                    >
+                      <ExternalLink className="h-2 w-2 shrink-0" />
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Divider */}
