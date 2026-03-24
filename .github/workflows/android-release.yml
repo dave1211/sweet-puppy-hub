@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          bun install
+          bun install --frozen
 
       - name: Build web assets
         shell: bash
