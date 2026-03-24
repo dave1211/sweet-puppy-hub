@@ -309,6 +309,15 @@ export default function AuthPage() {
             )}
           </div>
 
+          {/* Guest mode */}
+          <Button
+            onClick={enterGuestMode}
+            variant="ghost"
+            className="w-full font-mono text-xs text-muted-foreground hover:text-foreground border border-dashed border-border"
+          >
+            BROWSE AS GUEST (READ-ONLY)
+          </Button>
+
           {/* Divider */}
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
