@@ -17,7 +17,7 @@ function deriveSource(token: ScoredToken): ProofSource { if (token.sniperType ==
 
 export function useProofCapture() {
   const [entries, setEntries] = useState<ProofEntry[]>(loadEntries);
-  const capturedRef = useRef<Set<string>>(new Set(entries.map((e) => e.id)));
+  const capturedRef = useRef<Set<string>>(new Set(entries.map((e) => e.address)));
   useEffect(() => { saveEntries(entries); }, [entries]);
 
   const capture = useCallback((token: ScoredToken, source?: ProofSource) => {

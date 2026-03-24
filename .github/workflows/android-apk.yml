@@ -1,0 +1,168 @@
+name: Android APK (Capacitor)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          bun install
+
+      - name: Build web assets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          bun run mobile:prep
+
+      - name: Ensure Android platform exists
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -d android || bunx cap add android
+
+      - name: Detect required Android SDK level
+        id: sdk
+        shell: bash
+        run: |
+          set -euxo pipefail
+          COMPILE_SDK=$(grep -E 'compileSdkVersion\s*=\s*[0-9]+' android/variables.gradle | grep -Eo '[0-9]+' | head -1)
+          if [ -z "$COMPILE_SDK" ]; then
+            echo "Failed to detect compileSdkVersion from android/variables.gradle"
+            exit 1
+          fi
+          echo "compile_sdk=$COMPILE_SDK" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure sdkmanager exists (install cmdline-tools if missing)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          if command -v sdkmanager >/dev/null 2>&1; then exit 0; fi
+          cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+          rm -rf latest latest.tmp tools.zip
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
+          mkdir -p latest.tmp
+          unzip -q tools.zip -d latest.tmp
+          rm tools.zip
+          if [ -d latest.tmp/cmdline-tools ]; then
+            mv latest.tmp/cmdline-tools/* latest.tmp/
+            rmdir latest.tmp/cmdline-tools
+          fi
+          mv latest.tmp latest
+
+      - name: Add Android tools to PATH
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "${ANDROID_SDK_ROOT}/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Accept Android licenses
+        shell: bash
+        run: |
+          set -euxo pipefail
+          set +o pipefail
+          yes | sdkmanager --licenses > /dev/null
+          set -o pipefail
+
+      - name: Install Android SDK components
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          REQUIRED="${{ steps.sdk.outputs.compile_sdk }}"
+
+          sdkmanager --install "platform-tools"
+
+          for API in "$REQUIRED" 36 35 34; do
+            sdkmanager --install "platforms;android-${API}" || true
+          done
+
+          for BUILD_TOOLS in 36.0.0 35.0.0 34.0.0; do
+            sdkmanager --install "build-tools;${BUILD_TOOLS}" || true
+          done
+
+          CHOSEN=""
+          for API in "$REQUIRED" 36 35 34; do
+            if [ -d "${ANDROID_SDK_ROOT}/platforms/android-${API}" ]; then
+              CHOSEN="$API"
+              break
+            fi
+          done
+
+          if [ -z "$CHOSEN" ]; then
+            echo "No compatible Android platform was installed"
+            ls -la "${ANDROID_SDK_ROOT}/platforms" || true
+            exit 1
+          fi
+
+          if [ "$CHOSEN" != "$REQUIRED" ]; then
+            echo "android-${REQUIRED} unavailable on mirror; using android-${CHOSEN} for CI build"
+            sed -i -E "s/compileSdkVersion\s*=\s*[0-9]+/compileSdkVersion = ${CHOSEN}/" android/variables.gradle
+            sed -i -E "s/targetSdkVersion\s*=\s*[0-9]+/targetSdkVersion = ${CHOSEN}/" android/variables.gradle
+          fi
+
+          echo "Using Android API ${CHOSEN}"
+
+      - name: Sync Capacitor Android
+        shell: bash
+        run: |
+          set -euxo pipefail
+          bunx cap sync android
+
+      - name: Build Android debug APK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Verify APK exists
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tanner-terminal-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

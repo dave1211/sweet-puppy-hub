@@ -1,177 +1,428 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import nacl from "npm:tweetnacl@1.0.3";
+import bs58 from "npm:bs58@6.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 
-// Admin wallet addresses that get auto-assigned admin role
-const ADMIN_WALLETS: string[] = (Deno.env.get("ADMIN_WALLETS") || "").split(",").map(s => s.trim()).filter(Boolean);
+const ADMIN_WALLETS: string[] = (Deno.env.get("ADMIN_WALLETS") || "")
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
 
-// In-memory rate limiter: walletAddress -> { count, windowStart }
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT_MAX = 5;
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+interface ChallengePayload {
+  walletAddress: string;
+  nonce: string;
+  expiresAt: number;
+}
+
+interface ParsedSignInMessage {
+  walletAddress: string;
+  nonce: string;
+  timestamp: number;
+}
+
+type SupabaseAdminClient = ReturnType<typeof createClient>;
+
+function successResponse<T>(data: T, status = 200): Response {
+  return new Response(JSON.stringify({ ok: true, data }), {
+    status,
+    headers: jsonHeaders,
+  });
+}
+
+function errorResponse(status: number, code: string, message: string): Response {
+  return new Response(
+    JSON.stringify({
+      ok: false,
+      error: {
+        code,
+        message,
+      },
+    }),
+    { status, headers: jsonHeaders },
+  );
+}
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(key);
+
   if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
     rateLimitMap.set(key, { count: 1, windowStart: now });
     return true;
   }
+
   if (entry.count >= RATE_LIMIT_MAX) return false;
-  entry.count++;
+  entry.count += 1;
   return true;
 }
 
-function generateSecurePassword() {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return `wallet_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
+function normalizeWalletAddress(walletAddress: string): string {
+  return walletAddress.trim();
 }
 
-async function findUserByEmail(supabaseAdmin: ReturnType<typeof createClient>, email: string) {
+function isValidWalletAddress(walletAddress: string): boolean {
+  return walletAddress.length >= 32 && walletAddress.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(walletAddress);
+}
+
+function randomNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlToBytes(value: string): Uint8Array {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const decoded = atob(padded);
+  const out = new Uint8Array(decoded.length);
+  for (let i = 0; i < decoded.length; i += 1) {
+    out[i] = decoded.charCodeAt(i);
+  }
+  return out;
+}
+
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
+}
+
+async function hmacSign(secret: string, payload: string): Promise<Uint8Array> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+
+  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payload));
+  return new Uint8Array(signature);
+}
+
+async function createChallengeToken(payload: ChallengePayload, secret: string): Promise<string> {
+  const serialized = JSON.stringify(payload);
+  const body = bytesToBase64Url(new TextEncoder().encode(serialized));
+  const signature = bytesToBase64Url(await hmacSign(secret, body));
+  return `${body}.${signature}`;
+}
+
+async function verifyChallengeToken(token: string, secret: string): Promise<ChallengePayload | null> {
+  const [body, signature] = token.split(".");
+  if (!body || !signature) return null;
+
+  const expectedSignature = await hmacSign(secret, body);
+  const providedSignature = base64UrlToBytes(signature);
+  if (!timingSafeEqual(expectedSignature, providedSignature)) return null;
+
+  try {
+    const json = new TextDecoder().decode(base64UrlToBytes(body));
+    const payload = JSON.parse(json) as Partial<ChallengePayload>;
+
+    if (
+      !payload ||
+      typeof payload.walletAddress !== "string" ||
+      typeof payload.nonce !== "string" ||
+      typeof payload.expiresAt !== "number"
+    ) {
+      return null;
+    }
+
+    return {
+      walletAddress: payload.walletAddress,
+      nonce: payload.nonce,
+      expiresAt: payload.expiresAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseSignInMessage(message: string): ParsedSignInMessage | null {
+  const lines = message
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines[0] !== "Sign in to Tanner Terminal") return null;
+
+  const walletLine = lines.find((line) => line.startsWith("Wallet:"));
+  const nonceLine = lines.find((line) => line.startsWith("Nonce:"));
+  const timestampLine = lines.find((line) => line.startsWith("Timestamp:"));
+  if (!walletLine || !nonceLine || !timestampLine) return null;
+
+  const walletAddress = walletLine.replace("Wallet:", "").trim();
+  const nonce = nonceLine.replace("Nonce:", "").trim();
+  const timestampText = timestampLine.replace("Timestamp:", "").trim();
+  const timestamp = Number.parseInt(timestampText, 10);
+
+  if (!walletAddress || !nonce || Number.isNaN(timestamp)) return null;
+
+  return { walletAddress, nonce, timestamp };
+}
+
+function generateSecurePassword(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return `wallet_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+async function findUserByEmail(supabaseAdmin: SupabaseAdminClient, email: string) {
   const perPage = 200;
+
   for (let page = 1; page <= 10; page += 1) {
-    const { data, error } = await (supabaseAdmin.auth.admin as any).listUsers({ page, perPage });
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
     if (error) throw error;
-    const users = (data?.users ?? []) as Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>;
-    const match = users.find((u) => (u.email || "").toLowerCase() === email.toLowerCase());
+
+    const users = (data?.users ?? []) as Array<{
+      id: string;
+      email?: string;
+      user_metadata?: Record<string, unknown>;
+    }>;
+
+    const match = users.find((user) => (user.email || "").toLowerCase() === email.toLowerCase());
     if (match) return match;
     if (users.length < perPage) break;
   }
+
   return null;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (req.method !== "POST") return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+async function issueWalletSession(walletAddress: string): Promise<Response> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  try {
-    const { walletAddress, signature, message } = await req.json();
+  if (!supabaseUrl || !serviceRole) {
+    console.error("[wallet-auth] missing backend configuration");
+    return errorResponse(500, "CONFIGURATION_ERROR", "Authentication backend is not configured");
+  }
 
-    if (!walletAddress || typeof walletAddress !== "string" || walletAddress.length < 32 || walletAddress.length > 44 || !/^[1-9A-HJ-NP-Za-km-z]+$/.test(walletAddress)) {
-      return new Response(JSON.stringify({ error: "Invalid wallet address" }), { status: 400, headers: jsonHeaders });
+  const supabaseAdmin = createClient(supabaseUrl, serviceRole);
+  const email = `${walletAddress.toLowerCase()}@wallet.tanner.local`;
+  const password = generateSecurePassword();
+
+  const existingUser = await findUserByEmail(supabaseAdmin, email);
+
+  if (existingUser?.id) {
+    const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+      password,
+      user_metadata: {
+        ...(existingUser.user_metadata ?? {}),
+        wallet_address: walletAddress,
+      },
+    });
+
+    if (updateUserError) {
+      console.error("[wallet-auth] updateUser error", updateUserError);
+      return errorResponse(500, "AUTH_UPDATE_FAILED", "Authentication system unavailable");
     }
+  } else {
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { wallet_address: walletAddress },
+    });
 
-    if (!signature || typeof signature !== "string" || signature.length < 64 || signature.length > 256) {
-      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 400, headers: jsonHeaders });
+    if (createError || !newUser?.user?.id) {
+      console.error("[wallet-auth] createUser error", createError);
+      return errorResponse(500, "AUTH_CREATE_FAILED", "Failed to create wallet account");
     }
+  }
 
-    if (!message || typeof message !== "string" || message.length < 10 || message.length > 512) {
-      return new Response(JSON.stringify({ error: "Invalid message" }), { status: 400, headers: jsonHeaders });
-    }
+  const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+  if (signInError || !signInData?.session) {
+    console.error("[wallet-auth] signInWithPassword error", signInError);
+    return errorResponse(401, "AUTH_FAILED", "Failed to authenticate wallet");
+  }
 
-    const normalizedWalletAddress = walletAddress.trim();
+  const session = signInData.session;
+  const isAdmin = ADMIN_WALLETS.includes(walletAddress);
 
-    // Rate limit by wallet address
-    if (!checkRateLimit(normalizedWalletAddress)) {
-      return new Response(JSON.stringify({ error: "Too many attempts. Try again later." }), { status: 429, headers: jsonHeaders });
-    }
-
-    // Verify the message contains a recent timestamp (within 5 minutes)
-    const timestampMatch = message.match(/Timestamp:\s*(\d+)/);
-    if (!timestampMatch) {
-      return new Response(JSON.stringify({ error: "Invalid message format" }), { status: 400, headers: jsonHeaders });
-    }
-    const msgTimestamp = parseInt(timestampMatch[1], 10);
-    const now = Date.now();
-    if (Math.abs(now - msgTimestamp) > 5 * 60 * 1000) {
-      return new Response(JSON.stringify({ error: "Message expired" }), { status: 400, headers: jsonHeaders });
-    }
-
-    // Verify ed25519 signature
-    const { default: nacl } = await import("npm:tweetnacl@1.0.3");
-    const { default: bs58 } = await import("npm:bs58@5.0.0");
-
-    const messageBytes = new TextEncoder().encode(message);
-    const signatureBytes = bs58.decode(signature);
-    const publicKeyBytes = bs58.decode(normalizedWalletAddress);
-
-    const isValid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
-    if (!isValid) {
-      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401, headers: jsonHeaders });
-    }
-
-    // Create Supabase admin client
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const email = `${normalizedWalletAddress.toLowerCase()}@wallet.tanner.local`;
-
-    // Generate a fresh ephemeral password on every successful auth — never persist it
-    const password = generateSecurePassword();
-
-    const existingUser = await findUserByEmail(supabaseAdmin, email);
-
-    if (existingUser?.id) {
-      // Update password to the fresh ephemeral one
-      const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
-        password,
-        user_metadata: {
-          ...(existingUser.user_metadata ?? {}),
-          wallet_address: normalizedWalletAddress,
-        },
-      });
-
-      if (updateUserError) {
-        console.error("Update user password error:", updateUserError);
-        return new Response(JSON.stringify({ error: "Authentication system unavailable" }), { status: 500, headers: jsonHeaders });
-      }
-    } else {
-      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: { wallet_address: normalizedWalletAddress },
-      });
-
-      if (createError || !newUser?.user?.id) {
-        console.error("Create user error:", createError);
-        return new Response(JSON.stringify({ error: "Failed to create account" }), { status: 500, headers: jsonHeaders });
-      }
-    }
-
-    // Sign in with the ephemeral password
-    const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({ email, password });
-    if (signInError || !signInData?.session) {
-      console.error("Sign in error:", signInError);
-      return new Response(JSON.stringify({ error: "Failed to authenticate wallet" }), { status: 401, headers: jsonHeaders });
-    }
-
-    const session = signInData.session;
-
-    // Check admin status
-    const isAdmin = ADMIN_WALLETS.includes(normalizedWalletAddress);
-    if (isAdmin && session?.user?.id) {
-      await supabaseAdmin.from("user_roles").upsert({
+  if (isAdmin && session.user?.id) {
+    const { error: upsertRoleError } = await supabaseAdmin.from("user_roles").upsert(
+      {
         user_id: session.user.id,
         role: "admin",
-        wallet_address: normalizedWalletAddress,
-      }, { onConflict: "user_id,role" });
+        wallet_address: walletAddress,
+      },
+      { onConflict: "user_id,role" },
+    );
+
+    if (upsertRoleError) {
+      console.error("[wallet-auth] upsert admin role error", upsertRoleError);
+      return errorResponse(500, "ROLE_ASSIGN_FAILED", "Failed to assign wallet role");
+    }
+  }
+
+  console.info("[wallet-auth] verify success", { walletAddress, userId: session.user.id });
+
+  return successResponse({
+    session: {
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+      expires_in: session.expires_in,
+      token_type: session.token_type,
+    },
+    user: {
+      id: session.user.id,
+      email: session.user.email,
+      wallet_address: walletAddress,
+      is_admin: isAdmin,
+    },
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return errorResponse(405, "METHOD_NOT_ALLOWED", "Method not allowed");
+  }
+
+  try {
+    const body = await req.json();
+    const action = typeof body?.action === "string" ? body.action : "verify";
+    const challengeSecret = Deno.env.get("WALLET_AUTH_SECRET") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!challengeSecret) {
+      return errorResponse(500, "CONFIGURATION_ERROR", "Wallet auth secret is not configured");
     }
 
-    return new Response(JSON.stringify({
-      session: {
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-        expires_in: session.expires_in,
-        token_type: session.token_type,
-      },
-      user: {
-        id: session.user.id,
-        email: session.user.email,
-        wallet_address: normalizedWalletAddress,
-        is_admin: isAdmin,
-      },
-    }), { status: 200, headers: jsonHeaders });
+    if (action === "challenge") {
+      const walletAddressRaw = typeof body.walletAddress === "string" ? body.walletAddress : "";
+      const walletAddress = normalizeWalletAddress(walletAddressRaw);
+
+      if (!isValidWalletAddress(walletAddress)) {
+        return errorResponse(400, "INVALID_WALLET", "Invalid wallet address");
+      }
+
+      if (!checkRateLimit(`challenge:${walletAddress}`)) {
+        return errorResponse(429, "RATE_LIMITED", "Too many challenge requests. Try again later.");
+      }
+
+      const nonce = randomNonce();
+      const expiresAt = Date.now() + CHALLENGE_TTL_MS;
+      const challengeToken = await createChallengeToken(
+        {
+          walletAddress,
+          nonce,
+          expiresAt,
+        },
+        challengeSecret,
+      );
+
+      console.info("[wallet-auth] challenge issued", { walletAddress, expiresAt });
+
+      return successResponse({
+        walletAddress,
+        nonce,
+        challengeToken,
+        expiresAt,
+      });
+    }
+
+    if (action === "verify") {
+      const walletAddressRaw = typeof body.walletAddress === "string" ? body.walletAddress : "";
+      const signature = typeof body.signature === "string" ? body.signature.trim() : "";
+      const message = typeof body.message === "string" ? body.message : "";
+      const challengeToken = typeof body.challengeToken === "string" ? body.challengeToken.trim() : "";
+      const walletAddress = normalizeWalletAddress(walletAddressRaw);
+
+      if (!isValidWalletAddress(walletAddress)) {
+        return errorResponse(400, "INVALID_WALLET", "Invalid wallet address");
+      }
+
+      if (!signature || signature.length < 64 || signature.length > 256) {
+        return errorResponse(400, "INVALID_SIGNATURE", "Invalid signature");
+      }
+
+      if (!message || message.length < 10 || message.length > 1024) {
+        return errorResponse(400, "INVALID_MESSAGE", "Invalid sign-in message");
+      }
+
+      if (!challengeToken) {
+        return errorResponse(400, "MISSING_CHALLENGE", "Missing challenge token");
+      }
+
+      if (!checkRateLimit(`verify:${walletAddress}`)) {
+        return errorResponse(429, "RATE_LIMITED", "Too many verification attempts. Try again later.");
+      }
+
+      const challengePayload = await verifyChallengeToken(challengeToken, challengeSecret);
+      if (!challengePayload) {
+        return errorResponse(401, "INVALID_CHALLENGE", "Challenge token is invalid or tampered");
+      }
+
+      if (challengePayload.expiresAt < Date.now()) {
+        return errorResponse(401, "EXPIRED_CHALLENGE", "Challenge token expired");
+      }
+
+      const parsedMessage = parseSignInMessage(message);
+      if (!parsedMessage) {
+        return errorResponse(400, "INVALID_MESSAGE_FORMAT", "Invalid sign-in message format");
+      }
+
+      if (parsedMessage.walletAddress !== walletAddress || challengePayload.walletAddress !== walletAddress) {
+        return errorResponse(401, "WALLET_MISMATCH", "Wallet mismatch in sign-in request");
+      }
+
+      if (parsedMessage.nonce !== challengePayload.nonce) {
+        return errorResponse(401, "NONCE_MISMATCH", "Nonce mismatch in sign-in request");
+      }
+
+      const now = Date.now();
+      if (Math.abs(now - parsedMessage.timestamp) > CHALLENGE_TTL_MS) {
+        return errorResponse(401, "MESSAGE_EXPIRED", "Signed message expired");
+      }
+
+      let signatureBytes: Uint8Array;
+      let publicKeyBytes: Uint8Array;
+
+      try {
+        signatureBytes = bs58.decode(signature);
+        publicKeyBytes = bs58.decode(walletAddress);
+      } catch {
+        return errorResponse(400, "INVALID_SIGNATURE_ENCODING", "Signature or wallet encoding is invalid");
+      }
+
+      const messageBytes = new TextEncoder().encode(message);
+      const signatureValid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
+      if (!signatureValid) {
+        return errorResponse(401, "SIGNATURE_VERIFICATION_FAILED", "Signature verification failed");
+      }
+
+      return await issueWalletSession(walletAddress);
+    }
+
+    return errorResponse(400, "INVALID_ACTION", "Invalid action. Use challenge or verify.");
   } catch (err) {
-    console.error("wallet-auth error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: jsonHeaders });
+    console.error("[wallet-auth] unhandled error", err);
+    return errorResponse(500, "INTERNAL_ERROR", "Internal server error");
   }
 });

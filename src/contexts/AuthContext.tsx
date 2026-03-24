@@ -7,24 +7,58 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isGuest: boolean;
+  enterGuestMode: () => void;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signInWithWallet: (walletAddress: string, signature: string, message: string) => Promise<{ error: Error | null }>;
+  signInWithWallet: (
+    walletAddress: string,
+    signature: string,
+    message: string,
+    challengeToken: string
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface WalletAuthSuccess {
+  ok: true;
+  data: {
+    session: {
+      access_token: string;
+      refresh_token: string;
+      expires_in?: number;
+      token_type?: string;
+    };
+  };
+}
+
+interface WalletAuthFailure {
+  ok: false;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
+
+type WalletAuthResponse = WalletAuthSuccess | WalletAuthFailure;
+const walletAuthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wallet-auth`;
+const walletAuthKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
+
+  const enterGuestMode = () => setIsGuest(true);
 
   const checkAdmin = async (userId: string) => {
     try {
       const { data } = await supabase
-        .from("user_roles" as any)
+        .from("user_roles")
         .select("role")
         .eq("user_id", userId)
         .eq("role", "admin")
@@ -36,27 +70,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-      if (session?.user?.id) {
-        setTimeout(() => checkAdmin(session.user.id), 0);
-      } else {
-        setIsAdmin(false);
+    // Set up listener FIRST — it fires INITIAL_SESSION on subscribe,
+    // so we don't need a separate getSession() call (avoids race).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.info("[Auth] onAuthStateChange", { event, userId: session?.user?.id ?? null });
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+        if (session?.user?.id) {
+          // Defer admin check to avoid Supabase deadlock in callback
+          setTimeout(() => checkAdmin(session.user.id), 0);
+        } else {
+          setIsAdmin(false);
+        }
       }
-    });
+    );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-      if (session?.user?.id) {
-        checkAdmin(session.user.id);
-      }
-    });
+    // Fallback: if INITIAL_SESSION doesn't fire within 3s, force ready state
+    const timeout = setTimeout(() => {
+      setIsLoading((prev) => {
+        if (prev) {
+          console.warn("[Auth] Timed out waiting for INITIAL_SESSION, forcing ready");
+        }
+        return false;
+      });
+    }, 3000);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {
@@ -69,17 +113,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? new Error(error.message) : null };
   };
 
-  const signInWithWallet = async (walletAddress: string, signature: string, message: string) => {
+  const signInWithWallet = async (
+    walletAddress: string,
+    signature: string,
+    message: string,
+    challengeToken: string
+  ) => {
     try {
-      const res = await supabase.functions.invoke("wallet-auth", {
-        body: { walletAddress, signature, message },
-      });
+      console.info("[WalletAuth] verify request", { walletAddress });
 
-      if (res.error) {
-        return { error: new Error(res.error.message || "Wallet auth failed") };
+      if (!walletAuthKey) {
+        return { error: new Error("Wallet auth key is missing") };
       }
 
-      const { session: walletSession } = res.data;
+      const response = await fetch(walletAuthUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: walletAuthKey,
+          authorization: `Bearer ${walletAuthKey}`,
+        },
+        body: JSON.stringify({
+          action: "verify",
+          walletAddress,
+          signature,
+          message,
+          challengeToken,
+        }),
+      });
+
+      let payload: WalletAuthResponse | null = null;
+      try {
+        payload = (await response.json()) as WalletAuthResponse;
+      } catch {
+        console.error("[WalletAuth] verify invalid json", {
+          walletAddress,
+          status: response.status,
+        });
+        return { error: new Error("Wallet auth returned invalid response") };
+      }
+
+      console.info("[WalletAuth] verify response", {
+        walletAddress,
+        status: response.status,
+        ok: response.ok,
+        payloadOk: Boolean(payload && payload.ok),
+      });
+
+      if (!response.ok || !payload || !payload.ok || !payload.data?.session) {
+        const messageFromPayload = payload && "error" in payload ? payload.error?.message : undefined;
+        console.error("[WalletAuth] verify logical failure", {
+          walletAddress,
+          status: response.status,
+          payload,
+        });
+        return { error: new Error(messageFromPayload || "Wallet auth failed") };
+      }
+
+      const { session: walletSession } = payload.data;
       if (!walletSession?.access_token) {
         return { error: new Error("No session returned") };
       }
@@ -89,20 +180,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refresh_token: walletSession.refresh_token,
       });
 
-      if (setErr) return { error: new Error(setErr.message) };
+      if (setErr) {
+        console.error("[WalletAuth] session set failure", {
+          walletAddress,
+          message: setErr.message,
+        });
+        return { error: new Error(setErr.message) };
+      }
+
+      console.info("[WalletAuth] session success", { walletAddress });
       return { error: null };
-    } catch (err: any) {
-      return { error: new Error(err.message || "Wallet auth failed") };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Wallet auth failed";
+      console.error("[WalletAuth] verify unexpected failure", {
+        walletAddress,
+        error: msg,
+      });
+      return { error: new Error(msg) };
     }
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setIsAdmin(false);
+    setIsGuest(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, isAdmin, signUp, signIn, signInWithWallet, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, isAdmin, isGuest, enterGuestMode, signUp, signIn, signInWithWallet, signOut }}>
       {children}
     </AuthContext.Provider>
   );

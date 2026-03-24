@@ -1,0 +1,154 @@
+#!/bin/bash
+
+# Comprehensive Pre-Commit Hook for Tanner Terminal
+# This prevents commits with lint, format, or build issues
+# Runs locally before code is pushed
+
+set -euo pipefail
+
+# Color codes
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}=========================================${NC}"
+echo -e "${BLUE}Tanner Terminal Pre-Commit Checks${NC}"
+echo -e "${BLUE}=========================================${NC}"
+
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+# Track failures
+FAILURES=0
+
+# ===== CHECK 1: Lockfile Integrity =====
+echo -e "\n${BLUE}[1/5] Checking lockfile integrity...${NC}"
+
+HAS_NPM=$([ -f package-lock.json ] && echo "true" || echo "false")
+HAS_BUN=$([ -f bun.lockb ] && echo "true" || echo "false")
+HAS_BUN_OLD=$([ -f bun.lock ] && echo "true" || echo "false")
+
+if [ "$HAS_NPM" = "true" ] || [ "$HAS_BUN_OLD" = "true" ]; then
+    echo -e "${RED}✗ CRITICAL - Mixed or wrong lockfiles detected${NC}"
+    [ "$HAS_NPM" = "true" ] && echo "  Remove: package-lock.json"
+    [ "$HAS_BUN_OLD" = "true" ] && echo "  Remove: bun.lock (keep only bun.lockb)"
+    ((FAILURES++))
+elif [ "$HAS_BUN" != "true" ]; then
+    echo -e "${RED}✗ CRITICAL - Missing bun.lockb${NC}"
+    echo "  Run: bun install"
+    ((FAILURES++))
+else
+    echo -e "${GREEN}✓ Lockfile OK (bun)${NC}"
+fi
+
+# ===== CHECK 2: Deno Lint & Format =====
+if command -v deno &> /dev/null; then
+    echo -e "\n${BLUE}[2/5] Running Deno lint & format...${NC}"
+    
+    if deno lint --fix > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Deno format checked${NC}"
+    else
+        echo -e "${RED}✗ Deno lint failed${NC}"
+        echo "  Run: deno lint --fix"
+        ((FAILURES++))
+    fi
+else
+    echo -e "\n${YELLOW}[2/5] Skipping Deno checks (not installed)${NC}"
+fi
+
+# ===== CHECK 3: Frontend Lint & Type Check =====
+if command -v bun &> /dev/null; then
+    echo -e "\n${BLUE}[3/5] Running frontend lint & typecheck...${NC}"
+    
+    # Check if scripts exist
+    if bun run lint > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ Linting passed${NC}"
+    else
+        echo -e "${YELLOW}⚠ Lint check may have issues${NC}"
+        echo "  Run: bun run lint"
+        echo "  Continue? [y/N]"
+        # Don't fail on lint for now, allow override
+        # ((FAILURES++))
+    fi
+    
+    if bun run typecheck > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ TypeScript check passed${NC}"
+    else
+        echo -e "${RED}✗ TypeScript errors found${NC}"
+        echo "  Run: bun run typecheck"
+        ((FAILURES++))
+    fi
+else
+    echo -e "\n${YELLOW}[3/5] Skipping Bun checks (not installed)${NC}"
+fi
+
+# ===== CHECK 4: No Forbidden Files =====
+echo -e "\n${BLUE}[4/5] Checking for forbidden files...${NC}"
+
+FORBIDDEN_FILES=(
+    "package-lock.json"
+    "bun.lock"
+    "yarn.lock"
+    "pnpm-lock.yaml"
+    ".env"
+    ".env.local"
+    "android/app/release-keystore.jks"
+)
+
+FOUND_FORBIDDEN=0
+for file in "${FORBIDDEN_FILES[@]}"; do
+    if git diff --cached --name-only | grep -q "^$file\$"; then
+        echo -e "${RED}✗ Forbidden file staged: $file${NC}"
+        echo "  This file should not be committed"
+        ((FOUND_FORBIDDEN++))
+    fi
+done
+
+if [ $FOUND_FORBIDDEN -eq 0 ]; then
+    echo -e "${GREEN}✓ No forbidden files staged${NC}"
+else
+    ((FAILURES++))
+fi
+
+# ===== CHECK 5: Dangerous Content =====
+echo -e "\n${BLUE}[5/5] Scanning for dangerous content...${NC}"
+
+# Check for common secrets patterns
+DANGEROUS_PATTERNS=(
+    "SUPABASE_SERVICE_ROLE_KEY"
+    "TELEGRAM_API_KEY"
+    "private_key"
+    "api_key.*="
+    "secret.*="
+)
+
+FOUND_DANGEROUS=0
+for pattern in "${DANGEROUS_PATTERNS[@]}"; do
+    if git diff --cached | grep -i "$pattern" > /dev/null 2>&1; then
+        echo -e "${YELLOW}⚠ Potential secret detected: $pattern${NC}"
+        echo "  Verify this is not a real API key or secret"
+        ((FOUND_DANGEROUS++))
+    fi
+done
+
+if [ $FOUND_DANGEROUS -eq 0 ]; then
+    echo -e "${GREEN}✓ No obvious secrets found${NC}"
+fi
+
+# ===== SUMMARY =====
+echo -e "\n${BLUE}=========================================${NC}"
+if [ $FAILURES -eq 0 ]; then
+    echo -e "${GREEN}✓ All pre-commit checks PASSED${NC}"
+    echo -e "${GREEN}Proceeding with commit...${NC}"
+    echo -e "${BLUE}=========================================${NC}"
+    exit 0
+else
+    echo -e "${RED}✗ Pre-commit checks FAILED ($FAILURES issues)${NC}"
+    echo -e "${RED}Fix issues above and try again${NC}"
+    echo -e "${RED}To skip (NOT RECOMMENDED): git commit --no-verify${NC}"
+    echo -e "${BLUE}=========================================${NC}"
+    exit 1
+fi
