@@ -13,9 +13,10 @@ interface WalletWindow extends Window {
   solana?: { isPhantom?: boolean; providers?: Array<{ isPhantom?: boolean; isSolflare?: boolean }> };
   phantom?: { solana?: { isPhantom?: boolean } };
   solflare?: unknown;
+  backpack?: unknown;
 }
 
-function detectWallets(): { phantom: boolean; solflare: boolean } {
+function detectWallets(): { phantom: boolean; solflare: boolean; backpack: boolean } {
   const win = window as unknown as WalletWindow;
   const hasPhantom = !!(
     win.phantom?.solana?.isPhantom ||
@@ -27,7 +28,8 @@ function detectWallets(): { phantom: boolean; solflare: boolean } {
     (win.solana && "isSolflare" in win.solana && win.solana.isSolflare) ||
     win.solana?.providers?.some((p) => p?.isSolflare)
   );
-  return { phantom: hasPhantom, solflare: hasSolflare };
+  const hasBackpack = !!win.backpack;
+  return { phantom: hasPhantom, solflare: hasSolflare, backpack: hasBackpack };
 }
 
 const walletAuthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wallet-auth`;
