@@ -33,7 +33,7 @@ interface AppSidebarProps {
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const { signOut, user, isAdmin } = useAuth();
+  const { signOut, user, isAdmin, isGuest } = useAuth();
 
   return (
     <aside className={cn(
@@ -63,22 +63,25 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           );
         })}
       </div>
-      {user && (
-        <div className="border-t border-border">
-          {isAdmin && !collapsed && (
-            <div className="px-4 py-1.5 text-[9px] font-mono text-terminal-amber bg-terminal-amber/5 flex items-center gap-1.5">
-              <ShieldAlert className="h-3 w-3" /> ADMIN
-            </div>
-          )}
-          <button
-            onClick={signOut}
-            className="flex items-center gap-3 px-4 py-2 text-muted-foreground hover:text-terminal-red transition-colors text-xs font-mono w-full"
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            {!collapsed && <span className="text-[11px]">SIGN OUT</span>}
-          </button>
-        </div>
-      )}
+      <div className="border-t border-border">
+        {user && isAdmin && !collapsed && (
+          <div className="px-4 py-1.5 text-[9px] font-mono text-terminal-amber bg-terminal-amber/5 flex items-center gap-1.5">
+            <ShieldAlert className="h-3 w-3" /> ADMIN
+          </div>
+        )}
+        {isGuest && !collapsed && (
+          <div className="px-4 py-1.5 text-[9px] font-mono text-muted-foreground bg-muted/20 flex items-center gap-1.5">
+            <Info className="h-3 w-3" /> GUEST (READ-ONLY)
+          </div>
+        )}
+        <button
+          onClick={signOut}
+          className="flex items-center gap-3 px-4 py-2 text-muted-foreground hover:text-terminal-red transition-colors text-xs font-mono w-full"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          {!collapsed && <span className="text-[11px]">{isGuest ? "SIGN IN" : "SIGN OUT"}</span>}
+        </button>
+      </div>
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="p-2 border-t border-border text-muted-foreground hover:text-foreground transition-colors hidden md:flex items-center justify-center"
