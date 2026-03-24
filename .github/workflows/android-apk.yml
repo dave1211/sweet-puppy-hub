@@ -90,11 +90,6 @@ jobs:
           export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
           if ! sdkmanager --list > sdkmanager-list.txt; then
-            status=$?
-            echo "sdkmanager --list failed with status $status"
-            exit "$status"
-          fi
-          sed -n '1,200p' sdkmanager-list.txt || true
 
       - name: Install Android SDK (34 with conditional fallback to 33)
         shell: bash
