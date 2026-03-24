@@ -51,6 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
+
+  const enterGuestMode = () => setIsGuest(true);
 
   const checkAdmin = async (userId: string) => {
     try {
