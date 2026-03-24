@@ -21,12 +21,12 @@ FIXES_SKIPPED=0
 
 fix_applied() {
   echo -e "${GREEN}⚡ FIXED:${NC} $1"
-  ((FIXES_APPLIED++))
+  FIXES_APPLIED=$((FIXES_APPLIED + 1))
 }
 
 fix_skipped() {
   echo -e "${YELLOW}⏭  SKIPPED:${NC} $1 — $2"
-  ((FIXES_SKIPPED++))
+  FIXES_SKIPPED=$((FIXES_SKIPPED + 1))
 }
 
 echo "══════════════════════════════════════════"
