@@ -16,10 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: oven-sh/setup-bun@v2
 
       - name: Run auto-repair
         id: changes
@@ -30,14 +27,14 @@ jobs:
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: security(sentinel): auto-repair low-risk issues
-          title: security(sentinel): auto-repair low-risk issues
+          commit-message: "security(sentinel): auto-repair low-risk issues"
+          title: "security(sentinel): auto-repair low-risk issues"
           body: |
             Automated low-risk security repairs.
 
             This PR was created by the Security Auto Repair workflow.
             It uses PR flow so protected-branch rules and required checks run normally.
-          branch: sentinel/auto-repair-work
-          base: sentinel/auto-repair
-          delete-branch: false
+          branch: sentinel/auto-repair
+          base: main
+          delete-branch: true
           labels: security, auto-repair, sentinel
