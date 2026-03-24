@@ -130,7 +130,7 @@ export default function AuthPage() {
     );
   }
 
-  if (user) return <Navigate to="/" replace />;
+  if (user || isGuest) return <Navigate to="/" replace />;
 
   const handleWalletAuth = async (providerType: "phantom" | "solflare" | "backpack") => {
     setSubmitting(true);
