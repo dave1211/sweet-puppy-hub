@@ -48,6 +48,7 @@ function PageLoader() {
 }
 
 function App() {
+  usePushNotifications();
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
