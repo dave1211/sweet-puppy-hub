@@ -38,10 +38,14 @@ jobs:
           set -euxo pipefail
           export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
-          if command -v sdkmanager >/dev/null 2>&1; then exit 0; fi
+          if [ -x "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" ]; then exit 0; fi
           cd "${ANDROID_SDK_ROOT}/cmdline-tools"
           rm -rf latest latest.tmp tools.zip
           curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
+          # SHA-256 checksum for commandlinetools-linux-11076708_latest.zip
+          # Update this value if the URL or tool version changes.
+          EXPECTED_TOOLS_ZIP_SHA256="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          echo "${EXPECTED_TOOLS_ZIP_SHA256}  tools.zip" | sha256sum -c -
           mkdir -p latest.tmp
           unzip -q tools.zip -d latest.tmp
           rm tools.zip
@@ -65,7 +69,19 @@ jobs:
           set -euxo pipefail
           export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
+          set +o pipefail
           yes | sdkmanager --licenses
+          status_yes=${PIPESTATUS[0]}
+          status_sdk=${PIPESTATUS[1]}
+          set -o pipefail
+          if [ "$status_sdk" -ne 0 ]; then
+            echo "sdkmanager --licenses failed with exit code $status_sdk" >&2
+            exit "$status_sdk"
+          fi
+          if [ "$status_yes" -ne 0 ] && [ "$status_yes" -ne 141 ]; then
+            echo "yes command failed with exit code $status_yes" >&2
+            exit "$status_yes"
+          fi
 
       - name: Show available Android SDK packages
         shell: bash
@@ -73,7 +89,13 @@ jobs:
           set -euxo pipefail
           export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
-          sdkmanager --list | sed -n '1,200p'
+          sdkmanager --list > sdkmanager-list.txt
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "sdkmanager --list failed with status $status"
+            exit "$status"
+          fi
+          sed -n '1,200p' sdkmanager-list.txt || true
 
       - name: Install Android SDK (34 with conditional fallback to 33)
         shell: bash
