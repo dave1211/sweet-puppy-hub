@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          bun install --frozen-lockfile
+          bun install
 
       - name: Build web assets
         shell: bash
@@ -98,32 +98,48 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          yes | sdkmanager --licenses
+          set +o pipefail
+          yes | sdkmanager --licenses > /dev/null
+          set -o pipefail
 
       - name: Install Android SDK components
         shell: bash
         run: |
           set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           REQUIRED="${{ steps.sdk.outputs.compile_sdk }}"
 
           sdkmanager --install "platform-tools"
 
-          # Install exact required platform first; if missing on mirrors, attempt nearby stable fallbacks.
-          sdkmanager --install "platforms;android-${REQUIRED}" || true
-          sdkmanager --install "platforms;android-36" || true
-          sdkmanager --install "platforms;android-35" || true
-          sdkmanager --install "platforms;android-34" || true
+          for API in "$REQUIRED" 36 35 34; do
+            sdkmanager --install "platforms;android-${API}" || true
+          done
 
-          # Build-tools compatibility set.
-          sdkmanager --install "build-tools;36.0.0" || true
-          sdkmanager --install "build-tools;35.0.0" || true
-          sdkmanager --install "build-tools;34.0.0" || true
+          for BUILD_TOOLS in 36.0.0 35.0.0 34.0.0; do
+            sdkmanager --install "build-tools;${BUILD_TOOLS}" || true
+          done
 
-          if [ ! -d "${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}/platforms/android-${REQUIRED}" ]; then
-            echo "Required Android platform android-${REQUIRED} not installed"
-            ls -la "${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}/platforms" || true
+          CHOSEN=""
+          for API in "$REQUIRED" 36 35 34; do
+            if [ -d "${ANDROID_SDK_ROOT}/platforms/android-${API}" ]; then
+              CHOSEN="$API"
+              break
+            fi
+          done
+
+          if [ -z "$CHOSEN" ]; then
+            echo "No compatible Android platform was installed"
+            ls -la "${ANDROID_SDK_ROOT}/platforms" || true
             exit 1
           fi
+
+          if [ "$CHOSEN" != "$REQUIRED" ]; then
+            echo "android-${REQUIRED} unavailable on mirror; using android-${CHOSEN} for CI build"
+            sed -i -E "s/compileSdkVersion\s*=\s*[0-9]+/compileSdkVersion = ${CHOSEN}/" android/variables.gradle
+            sed -i -E "s/targetSdkVersion\s*=\s*[0-9]+/targetSdkVersion = ${CHOSEN}/" android/variables.gradle
+          fi
+
+          echo "Using Android API ${CHOSEN}"
 
       - name: Sync Capacitor Android
         shell: bash
