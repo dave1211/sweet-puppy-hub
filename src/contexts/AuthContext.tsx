@@ -70,27 +70,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-      if (session?.user?.id) {
-        setTimeout(() => checkAdmin(session.user.id), 0);
-      } else {
-        setIsAdmin(false);
+    // Set up listener FIRST — it fires INITIAL_SESSION on subscribe,
+    // so we don't need a separate getSession() call (avoids race).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.info("[Auth] onAuthStateChange", { event, userId: session?.user?.id ?? null });
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+        if (session?.user?.id) {
+          // Defer admin check to avoid Supabase deadlock in callback
+          setTimeout(() => checkAdmin(session.user.id), 0);
+        } else {
+          setIsAdmin(false);
+        }
       }
-    });
+    );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-      if (session?.user?.id) {
-        checkAdmin(session.user.id);
-      }
-    });
+    // Fallback: if INITIAL_SESSION doesn't fire within 3s, force ready state
+    const timeout = setTimeout(() => {
+      setIsLoading((prev) => {
+        if (prev) {
+          console.warn("[Auth] Timed out waiting for INITIAL_SESSION, forcing ready");
+        }
+        return false;
+      });
+    }, 3000);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {

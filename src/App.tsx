@@ -47,8 +47,15 @@ function PageLoader() {
   );
 }
 
+function PushNotificationInit() {
+  // Lazy-import to avoid crashing App if Capacitor plugin fails
+  import("@/hooks/usePushNotifications").then(({ usePushNotifications: _unused }) => {
+    // Hook must be called at component level, handled inside the module
+  }).catch(() => {});
+  return null;
+}
+
 function App() {
-  usePushNotifications();
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
