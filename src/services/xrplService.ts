@@ -13,6 +13,22 @@ import type {
 
 const MAINNET = "wss://xrplcluster.com";
 
+interface XRPLAmount {
+  currency: string;
+  issuer?: string;
+  value: string;
+}
+
+interface XRPLNftRaw {
+  NFTokenID: string;
+  Issuer: string;
+  URI?: string;
+  NFTokenTaxon?: number;
+  nft_serial?: number;
+  Flags?: number;
+  TransferFee?: number;
+}
+
 class XRPLService {
   private client: Client;
   private _ready: Promise<void> | null = null;
@@ -163,16 +179,18 @@ class XRPLService {
           ? { currency: "XRP", value: destinationAmount.value }
           : destinationAmount;
 
+      const destination_amount: string | XRPLAmount = destAmt.currency === "XRP"
+        ? String(Math.round(Number(destAmt.value) * 1_000_000))
+        : destAmt as XRPLAmount;
+
       const res = await this.client.request({
         command: "ripple_path_find",
         source_account: sourceAccount,
         destination_account: destinationAccount,
-        destination_amount: destAmt.currency === "XRP"
-          ? String(Math.round(Number(destAmt.value) * 1_000_000))
-          : destAmt as any,
-      });
+        destination_amount,
+      } as Parameters<typeof this.client.request>[0]);
 
-      return res.result.alternatives ?? [];
+      return (res.result as Record<string, unknown>).alternatives ?? [];
     } catch (e) {
       console.warn("[XRPL] Path find failed:", e);
       return [];
@@ -218,11 +236,11 @@ class XRPLService {
         command: "account_nfts",
         account: address,
         ledger_index: "validated",
-      } as any);
+      } as Parameters<typeof this.client.request>[0]);
 
-      const raw = (res.result as any).account_nfts ?? [];
+      const raw = ((res.result as Record<string, unknown>).account_nfts ?? []) as XRPLNftRaw[];
 
-      return raw.map((nft: any) => {
+      return raw.map((nft) => {
         let name: string | undefined;
         let description: string | undefined;
         let imageUrl: string | undefined;
@@ -300,20 +318,23 @@ class XRPLService {
       const [askRes, bidRes] = await Promise.all([
         this.client.request({
           command: "book_offers",
-          taker_gets: takerGets as any,
-          taker_pays: takerPays as any,
+          taker_gets: takerGets,
+          taker_pays: takerPays,
           limit,
-        }),
+        } as Parameters<typeof this.client.request>[0]),
         this.client.request({
           command: "book_offers",
-          taker_gets: takerPays as any,
-          taker_pays: takerGets as any,
+          taker_gets: takerPays,
+          taker_pays: takerGets,
           limit,
-        }),
+        } as Parameters<typeof this.client.request>[0]),
       ]);
 
-      const asks = this.parseOffers(askRes.result.offers as any[] ?? [], "ask");
-      const bids = this.parseOffers(bidRes.result.offers as any[] ?? [], "bid");
+      const askOffers = ((askRes.result as Record<string, unknown>).offers ?? []) as Record<string, unknown>[];
+      const bidOffers = ((bidRes.result as Record<string, unknown>).offers ?? []) as Record<string, unknown>[];
+
+      const asks = this.parseOffers(askOffers, "ask");
+      const bids = this.parseOffers(bidOffers, "bid");
 
       const bestBid = bids[0]?.price ?? 0;
       const bestAsk = asks[0]?.price ?? 0;
@@ -335,9 +356,9 @@ class XRPLService {
       const gets = o.TakerGets;
       const pays = o.TakerPays;
       const getsVal =
-        typeof gets === "string" ? Number(gets) / 1_000_000 : Number((gets as any).value);
+        typeof gets === "string" ? Number(gets) / 1_000_000 : Number((gets as XRPLAmount).value);
       const paysVal =
-        typeof pays === "string" ? Number(pays) / 1_000_000 : Number((pays as any).value);
+        typeof pays === "string" ? Number(pays) / 1_000_000 : Number((pays as XRPLAmount).value);
 
       const price = side === "ask" ? paysVal / getsVal : getsVal / paysVal;
       const size = side === "ask" ? getsVal : paysVal;

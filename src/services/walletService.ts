@@ -1,20 +1,42 @@
 /**
  * XRPL wallet connection service.
- * Supports Xaman (xumm) and Crossmark with fallback demo mode.
+ * Supports Xaman (xumm) and Crossmark wallet providers.
  * Includes transaction signing helpers for trust lines and payments.
  */
 
 import type { WalletProviderType } from "@/types/xrpl";
-import { xrplService } from "@/services/xrplService";
 
 export interface WalletConnectResult {
   address: string;
   provider: WalletProviderType;
 }
 
+interface XamanWallet {
+  authorize?: () => Promise<{ me: { account: string } }>;
+  payload?: {
+    create: (params: { txjson: Record<string, unknown> }) => Promise<unknown>;
+    subscribe: (payload: unknown) => Promise<{ signed?: boolean; txid?: string } | null>;
+  };
+}
+
+interface XummPkceConstructor {
+  new (): { authorize: () => Promise<{ me: { account: string } }> };
+}
+
+interface CrossmarkWallet {
+  signIn?: () => Promise<{ response: { data: { address: string } } }>;
+  sign?: (txJson: Record<string, unknown>) => Promise<{ response?: { data?: { txnHash?: string } } } | null>;
+}
+
+interface WalletWindow extends Window {
+  xumm?: XamanWallet;
+  XummPkce?: XummPkceConstructor;
+  crossmark?: CrossmarkWallet;
+}
+
 /* ── Xaman (XUMM) ── */
 async function connectXaman(): Promise<WalletConnectResult> {
-  const win = window as any;
+  const win = window as unknown as WalletWindow;
 
   if (win?.xumm?.authorize) {
     try {
@@ -36,17 +58,12 @@ async function connectXaman(): Promise<WalletConnectResult> {
     }
   }
 
-  // Demo fallback
-  console.warn("[Wallet] Xaman not detected — using demo address");
-  return {
-    address: "rN7n3473SaZBCG4dFL83w7p1W9cgZw5iFR",
-    provider: "xaman",
-  };
+  throw new Error("Xaman wallet provider not detected");
 }
 
 /* ── Crossmark ── */
 async function connectCrossmark(): Promise<WalletConnectResult> {
-  const win = window as any;
+  const win = window as unknown as WalletWindow;
 
   if (win?.crossmark?.signIn) {
     try {
@@ -57,20 +74,12 @@ async function connectCrossmark(): Promise<WalletConnectResult> {
     }
   }
 
-  console.warn("[Wallet] Crossmark not detected — using demo address");
-  return {
-    address: "rLHzPsX6oXkzU2qL12kHCH8G8cnZv1rBJh",
-    provider: "crossmark",
-  };
+  throw new Error("Crossmark wallet provider not detected");
 }
 
 /* ── Ledger (placeholder) ── */
 async function connectLedger(): Promise<WalletConnectResult> {
-  console.warn("[Wallet] Ledger integration coming soon — using demo address");
-  return {
-    address: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
-    provider: "ledger",
-  };
+  throw new Error("Ledger wallet integration is not available yet");
 }
 
 /* ── Public API ── */
@@ -101,7 +110,7 @@ export async function signAndSubmitXRPL(
   provider: WalletProviderType,
   txJson: Record<string, unknown>
 ): Promise<string> {
-  const win = window as any;
+  const win = window as unknown as WalletWindow;
 
   if (provider === "xaman") {
     if (win?.xumm?.payload) {
@@ -110,9 +119,7 @@ export async function signAndSubmitXRPL(
       if (result?.signed) return result.txid ?? "signed";
       throw new Error("Transaction rejected in Xaman");
     }
-    // Demo mode
-    console.warn("[Wallet] Xaman not available for signing — demo mode");
-    return "DEMO_TX_" + Math.random().toString(36).slice(2, 10);
+    throw new Error("Xaman wallet payload API unavailable for signing");
   }
 
   if (provider === "crossmark") {
@@ -120,8 +127,7 @@ export async function signAndSubmitXRPL(
       const res = await win.crossmark.sign(txJson);
       return res?.response?.data?.txnHash ?? "signed";
     }
-    console.warn("[Wallet] Crossmark not available for signing — demo mode");
-    return "DEMO_TX_" + Math.random().toString(36).slice(2, 10);
+    throw new Error("Crossmark wallet signing API unavailable");
   }
 
   throw new Error(`Signing not supported for provider: ${provider}`);

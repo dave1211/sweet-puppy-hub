@@ -722,25 +722,29 @@ function parseDexPair(pair: Record<string, unknown>): LivePair {
   const h24 = txns.h24 ?? {};
   const priceChange = (pair.priceChange ?? {}) as Record<string, number>;
   const info = (pair.info ?? {}) as Record<string, unknown>;
+  const baseToken = (pair.baseToken ?? {}) as Record<string, string>;
+  const volume = (pair.volume ?? {}) as Record<string, number>;
+  const liquidity = (pair.liquidity ?? {}) as Record<string, number>;
+  const makers = (pair.makers ?? {}) as Record<string, number>;
 
   return {
-    address: (pair.baseToken as any)?.address ?? "",
-    symbol: (pair.baseToken as any)?.symbol ?? "???",
-    name: (pair.baseToken as any)?.name ?? "Unknown",
+    address: baseToken.address ?? "",
+    symbol: baseToken.symbol ?? "???",
+    name: baseToken.name ?? "Unknown",
     price: parseFloat((pair.priceUsd as string) ?? "0") || 0,
     change24h: priceChange.h24 ?? 0,
     change1h: priceChange.h1 ?? 0,
     change5m: priceChange.m5 ?? 0,
-    volume24h: ((pair.volume as any)?.h24 ?? 0),
-    volume1h: ((pair.volume as any)?.h1 ?? 0),
-    liquidity: ((pair.liquidity as any)?.usd ?? 0),
+    volume24h: volume.h24 ?? 0,
+    volume1h: volume.h1 ?? 0,
+    liquidity: liquidity.usd ?? 0,
     marketCap: (pair.marketCap as number) ?? ((pair.fdv as number) ?? 0),
     pairCreatedAt: (pair.pairCreatedAt as number) ?? Date.now(),
     dexId: (pair.dexId as string) ?? "unknown",
-    url: (pair.url as string) ?? `https://dexscreener.com/solana/${(pair.baseToken as any)?.address}`,
+    url: (pair.url as string) ?? `https://dexscreener.com/solana/${baseToken.address}`,
     buyCount24h: h24.buys ?? 0,
     sellCount24h: h24.sells ?? 0,
-    makers24h: ((pair.makers as any)?.h24 ?? 0),
+    makers24h: makers.h24 ?? 0,
     imageUrl: (info.imageUrl as string) ?? null,
   };
 }

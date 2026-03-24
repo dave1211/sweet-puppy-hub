@@ -108,7 +108,7 @@ export default function LaunchpadPage() {
 
       // Step 2: Create token
       setLaunchPhase("Creating token on-chain…");
-      const { data: tokenData, error: tokenErr } = await supabase.functions.invoke("token-launch", {
+      const { error: tokenErr } = await supabase.functions.invoke("token-launch", {
         body: {
           action: "create-token",
           userPublicKey: walletAddress,

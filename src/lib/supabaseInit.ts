@@ -18,10 +18,9 @@ const deviceId = getOrCreateDeviceId();
 
 // Inject x-device-id into all PostgREST requests for RLS policies
 try {
-  // Access internal REST client headers
-  const restClient = (supabase as any).rest;
-  if (restClient && restClient.headers) {
-    restClient.headers["x-device-id"] = deviceId;
+  const client = supabase as unknown as { rest?: { headers?: Record<string, string> } };
+  if (client.rest?.headers) {
+    client.rest.headers["x-device-id"] = deviceId;
   }
 } catch (e) {
   console.warn("Failed to set device-id header on Supabase client:", e);

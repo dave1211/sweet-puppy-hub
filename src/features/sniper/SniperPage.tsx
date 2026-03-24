@@ -67,7 +67,7 @@ const SniperPage = () => {
         risk: record.risk,
         state: record.state,
         status: record.status,
-      } as any);
+      });
       toast.success(`🎯 Fast sniped ${selectedToken.token.symbol} — ${config.amountSOL} SOL`);
     } else {
       openConfirm();

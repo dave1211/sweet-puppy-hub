@@ -50,7 +50,7 @@ export function useTrackedWallets() {
 
       const { data, error } = await supabase
         .from("tracked_wallets")
-        .insert({ user_id: userId!, device_id: userId!, address: addr, label: wallet.label || null } as any)
+        .insert({ user_id: userId!, device_id: userId!, address: addr, label: wallet.label || null })
         .select()
         .single();
       if (error) throw error;

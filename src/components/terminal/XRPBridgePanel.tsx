@@ -42,15 +42,16 @@ export function XRPBridgePanel() {
         destAddress,
         destAmt
       );
-      setPaths(alts as PathAlternative[]);
+      const pathAlts = alts as PathAlternative[];
+      setPaths(pathAlts);
       setSelectedPath(0);
-      if (alts.length === 0) {
+      if (pathAlts.length === 0) {
         toast.info("No payment paths found for this pair");
       } else {
-        toast.success(`Found ${alts.length} payment path(s)`);
+        toast.success(`Found ${pathAlts.length} payment path(s)`);
       }
-    } catch (e: any) {
-      toast.error(e.message ?? "Pathfinding failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Pathfinding failed");
     }
     setIsFinding(false);
   };
@@ -76,8 +77,8 @@ export function XRPBridgePanel() {
       toast.success(`Bridge payment sent! TX: ${txHash.slice(0, 16)}…`);
       setPaths([]);
       setDestAmount("");
-    } catch (e: any) {
-      toast.error(e.message ?? "Transaction failed");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Transaction failed");
     }
     setIsSending(false);
   };
@@ -183,7 +184,7 @@ export function XRPBridgePanel() {
                 <span className="font-bold">{formatSourceAmount(p.source_amount)}</span>
               </div>
               <div className="text-[8px] text-muted-foreground/60 mt-0.5">
-                {(p.paths_computed as any[])?.length ?? 0} hop(s)
+                {(p.paths_computed as unknown[])?.length ?? 0} hop(s)
               </div>
             </button>
           ))}
