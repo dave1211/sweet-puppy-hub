@@ -1,6 +1,7 @@
 import {
   LayoutDashboard, BarChart3, Rocket, Crosshair, Wallet,
-  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings, ChevronLeft, ChevronRight, Flame, Info, Sparkles, LogOut
+  Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings,
+  ChevronLeft, ChevronRight, Flame, Info, Sparkles, LogOut, Coins, Globe, Layers
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
