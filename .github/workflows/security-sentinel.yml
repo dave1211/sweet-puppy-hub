@@ -2,9 +2,9 @@ name: Tanner Sentinel — Security Scan
 
 on:
   pull_request:
-    branches: [main, master, develop]
+    branches: [main]
   push:
-    branches: [main, master]
+    branches: [main]
   schedule:
     - cron: '0 3 * * *' # Nightly at 3 AM UTC
 
@@ -20,13 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen
 
       - name: Run Tanner Sentinel scan
         id: scan
@@ -85,24 +82,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen
 
-      - name: npm audit (high + critical)
-        run: npm audit --audit-level=high || true
-
-      - name: Check lockfile consistency
+      # Bun-only lockfile enforcement
+      - name: Verify Bun-only lockfile
         run: |
-          if [ ! -f package-lock.json ]; then
-            echo "::error::package-lock.json is missing — npm only policy"
+          if [ ! -f bun.lockb ]; then
+            echo "::error::bun.lockb is missing — Bun-only policy"
             exit 1
           fi
-          npm ci --ignore-scripts 2>&1 | grep -i "npm warn" && echo "::warning::Lockfile may have drift" || true
+          for BAD in package-lock.json yarn.lock pnpm-lock.yaml bun.lock; do
+            if [ -f "$BAD" ]; then
+              echo "::error::Found $BAD — remove it, this repo is Bun-only"
+              exit 1
+            fi
+          done
+          echo "✓ Bun-only lockfile verified"
 
       - name: Check React version
         run: |
