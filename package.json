@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "mobile:prep": "vite build"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
