@@ -15,6 +15,20 @@ export function AppShell() {
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden w-full">
       <AppTopbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
+      {isGuest && (
+        <div className="bg-terminal-amber/10 border-b border-terminal-amber/20 px-4 py-1.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Eye className="h-3 w-3 text-terminal-amber" />
+            <span className="text-[10px] font-mono text-terminal-amber">GUEST MODE — READ-ONLY</span>
+          </div>
+          <button
+            onClick={() => { signOut(); navigate("/auth"); }}
+            className="text-[10px] font-mono text-primary hover:text-primary/80 underline underline-offset-2"
+          >
+            SIGN IN
+          </button>
+        </div>
+      )}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Mobile overlay */}
         {sidebarOpen && (
