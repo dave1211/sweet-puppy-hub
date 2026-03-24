@@ -106,7 +106,7 @@ async function requestWalletChallenge(walletAddress: string): Promise<WalletChal
 }
 
 export default function AuthPage() {
-  const { user, isLoading, signIn, signUp, signInWithWallet } = useAuth();
+  const { user, isLoading, isGuest, enterGuestMode, signIn, signUp, signInWithWallet } = useAuth();
   const { connect, walletAddress, isConnected, provider, getWalletObject } = useWallet();
   const [showEmail, setShowEmail] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
