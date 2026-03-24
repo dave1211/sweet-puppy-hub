@@ -8,7 +8,7 @@ export function WalletConnectButton() {
   const { isConnected, walletAddress, provider, balanceSOL, isLoading, connect, disconnect, refreshBalance } = useWallet();
   const [open, setOpen] = useState(false);
 
-  const handleConnect = async (providerType: "phantom" | "solflare") => {
+  const handleConnect = async (providerType: "phantom" | "solflare" | "backpack") => {
     setOpen(false);
     try {
       await connect(providerType);
