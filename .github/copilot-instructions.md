@@ -37,3 +37,20 @@
 - All trade execution requires user confirmation.
 - Wallet security: public keys only, no private key handling.
 - Input validation on all user-facing inputs.
+
+## Autonomous Maintenance Rules
+
+Automated fixes may ONLY touch these categories:
+1. Remove forbidden lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`, `bun.lock`)
+2. Deno lint auto-fix in `supabase/functions/` only
+3. ESLint auto-fix in `src/` only
+
+Automated fixes must NEVER:
+- Upgrade React beyond 18.x
+- Change product logic, database schema, or auth config
+- Modify secrets or environment values
+- Broaden workflow permissions
+- Alter Deno runtime behavior
+- Rewrite test architecture
+- Merge PRs without human review
+- Push directly to `main`
