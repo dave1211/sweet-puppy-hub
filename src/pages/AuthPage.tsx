@@ -220,15 +220,27 @@ export default function AuthPage() {
               CONNECT PHANTOM
             </Button>
             {!detected.phantom && (
-              <a
-                href="https://phantom.app/download"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 text-[9px] font-mono text-terminal-amber hover:text-primary transition-colors py-0.5"
-              >
-                <ExternalLink className="h-2.5 w-2.5" />
-                Phantom not detected — Install for Chrome, Brave, Firefox, Edge & mobile
-              </a>
+              <div className="flex flex-col items-center gap-0.5 py-0.5">
+                <span className="text-[9px] font-mono text-terminal-amber">Phantom not detected — Install:</span>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {[
+                    { label: "Chrome / Brave / Edge", href: "https://chrome.google.com/webstore/detail/phantom/bfnaelmomeimhlpmgjnjophhpkkoljpa" },
+                    { label: "Firefox", href: "https://addons.mozilla.org/en-US/firefox/addon/phantom-app/" },
+                    { label: "iOS / Android", href: "https://phantom.app/download" },
+                  ].map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[8px] font-mono text-primary/80 hover:text-primary underline underline-offset-2 transition-colors"
+                    >
+                      <ExternalLink className="h-2 w-2 shrink-0" />
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
             )}
             <Button
               onClick={() => handleWalletAuth("solflare")}
