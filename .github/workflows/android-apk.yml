@@ -89,9 +89,8 @@ jobs:
           set -euxo pipefail
           export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
-          sdkmanager --list > sdkmanager-list.txt
-          status=$?
-          if [ "$status" -ne 0 ]; then
+          if ! sdkmanager --list > sdkmanager-list.txt; then
+            status=$?
             echo "sdkmanager --list failed with status $status"
             exit "$status"
           fi
