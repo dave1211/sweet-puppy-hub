@@ -113,8 +113,8 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [connectingProvider, setConnectingProvider] = useState<"phantom" | "solflare" | null>(null);
-  const [detected, setDetected] = useState<{ phantom: boolean; solflare: boolean }>({ phantom: true, solflare: true });
+  const [connectingProvider, setConnectingProvider] = useState<"phantom" | "solflare" | "backpack" | null>(null);
+  const [detected, setDetected] = useState<{ phantom: boolean; solflare: boolean; backpack: boolean }>({ phantom: true, solflare: true, backpack: true });
 
   useEffect(() => {
     // Wallet extensions inject after DOMContentLoaded; give them a moment
