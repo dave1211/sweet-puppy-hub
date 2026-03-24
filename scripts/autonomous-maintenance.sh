@@ -68,15 +68,12 @@ fi
 # ── APPROVED FIX 4: Frontend lint auto-fix ──
 echo -e "${BLUE}── Fix Category: Frontend Lint ──${NC}"
 if command -v bun &>/dev/null; then
-  if bun run lint 2>/dev/null; then
+  if bun run lint >/dev/null 2>&1; then
     echo -e "${GREEN}✓${NC} Frontend lint clean — no fixes needed"
+  elif bunx eslint --fix src/ >/dev/null 2>&1; then
+    fix_applied "Auto-fixed ESLint issues in src/"
   else
-    # Only attempt auto-fix if eslint supports it
-    if npx eslint --fix src/ 2>/dev/null; then
-      fix_applied "Auto-fixed ESLint issues in src/"
-    else
-      fix_skipped "ESLint issues" "Auto-fix could not resolve all issues"
-    fi
+    fix_skipped "ESLint issues" "Auto-fix could not resolve all issues"
   fi
 fi
 
