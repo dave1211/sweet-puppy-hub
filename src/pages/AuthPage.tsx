@@ -331,14 +331,12 @@ export default function AuthPage() {
             </form>
           )}
         </CardContent>
-        {(!detected.phantom || !detected.solflare) && (
-          <div className="px-6 pb-4">
-            <p className="text-[8px] font-mono text-muted-foreground/60 text-center leading-relaxed">
-              Works on Chrome, Brave, Firefox, Edge & mobile wallet browsers.
-              Install a Solana wallet extension to connect.
-            </p>
-          </div>
-        )}
+        <div className="px-6 pb-4">
+          <p className="text-[8px] font-mono text-muted-foreground/60 text-center leading-relaxed">
+            Works on Chrome, Brave, Firefox, Edge, Opera, Arc & mobile wallet browsers (iOS / Android).
+            Install a Solana wallet extension above to connect.
+          </p>
+        </div>
       </Card>
     </div>
   );
