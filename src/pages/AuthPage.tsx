@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/contexts/WalletContext";
@@ -6,8 +6,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Lock, Mail, Wallet, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Lock, Mail, Wallet, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import bs58 from "@/lib/bs58Shim";
+
+interface WalletWindow extends Window {
+  solana?: { isPhantom?: boolean; providers?: Array<{ isPhantom?: boolean; isSolflare?: boolean }> };
+  phantom?: { solana?: { isPhantom?: boolean } };
+  solflare?: unknown;
+}
+
+function detectWallets(): { phantom: boolean; solflare: boolean } {
+  const win = window as unknown as WalletWindow;
+  const hasPhantom = !!(
+    win.phantom?.solana?.isPhantom ||
+    win.solana?.isPhantom ||
+    win.solana?.providers?.some((p) => p?.isPhantom)
+  );
+  const hasSolflare = !!(
+    win.solflare ||
+    (win.solana && "isSolflare" in win.solana && win.solana.isSolflare) ||
+    win.solana?.providers?.some((p) => p?.isSolflare)
+  );
+  return { phantom: hasPhantom, solflare: hasSolflare };
+}
 
 const walletAuthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wallet-auth`;
 const walletAuthKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -91,6 +112,13 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [connectingProvider, setConnectingProvider] = useState<"phantom" | "solflare" | null>(null);
+  const [detected, setDetected] = useState<{ phantom: boolean; solflare: boolean }>({ phantom: true, solflare: true });
+
+  useEffect(() => {
+    // Wallet extensions inject after DOMContentLoaded; give them a moment
+    const timer = setTimeout(() => setDetected(detectWallets()), 500);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (isLoading) {
     return (
@@ -191,6 +219,17 @@ export default function AuthPage() {
               {connectingProvider === "phantom" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT PHANTOM
             </Button>
+            {!detected.phantom && (
+              <a
+                href="https://phantom.app/download"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 text-[9px] font-mono text-terminal-amber hover:text-primary transition-colors py-0.5"
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Phantom not detected — Install for Chrome, Brave, Firefox, Edge & mobile
+              </a>
+            )}
             <Button
               onClick={() => handleWalletAuth("solflare")}
               disabled={submitting}
@@ -200,6 +239,17 @@ export default function AuthPage() {
               {connectingProvider === "solflare" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT SOLFLARE
             </Button>
+            {!detected.solflare && (
+              <a
+                href="https://solflare.com/download"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 text-[9px] font-mono text-terminal-amber hover:text-primary transition-colors py-0.5"
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Solflare not detected — Install extension
+              </a>
+            )}
           </div>
 
           {/* Divider */}
@@ -257,6 +307,14 @@ export default function AuthPage() {
             </form>
           )}
         </CardContent>
+        {(!detected.phantom || !detected.solflare) && (
+          <div className="px-6 pb-4">
+            <p className="text-[8px] font-mono text-muted-foreground/60 text-center leading-relaxed">
+              Works on Chrome, Brave, Firefox, Edge & mobile wallet browsers.
+              Install a Solana wallet extension to connect.
+            </p>
+          </div>
+        )}
       </Card>
     </div>
   );
