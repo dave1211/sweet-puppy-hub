@@ -1,19 +1,78 @@
 version: 2
 updates:
+  # ===== Bun / Node Dependencies =====
+  # CRITICAL: This project uses Bun (bun.lockb), NOT npm
+  # package-lock.json must be deleted and never checked in again
   - package-ecosystem: npm
-    directory: /
+    directory: "/"
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 10
+      time: "03:00"
+    open-pull-requests-limit: 5
     target-branch: main
     labels:
       - dependencies
       - security
+      - bun
     ignore:
+      # Block React 19 - project pinned to React 18
       - dependency-name: react
-        versions: ['>=19']
+        versions: ['>=19.0.0']
       - dependency-name: react-dom
-        versions: ['>=19']
-    reviewers: []
+        versions: ['>=19.0.0']
+      # Block major versions of critical packages until verified
+      - dependency-name: "@supabase/supabase-js"
+        versions: ['>=3.0.0']
+      - dependency-name: "@solana/web3.js"
+        versions: ['>=2.0.0']
+      - dependency-name: zod
+        versions: ['>=4.0.0']
+    reviewers:
+      - dave1211
     versioning-strategy: increase-if-necessary
+    commit-message:
+      prefix: "deps(bun):"
+      include: "scope"
+
+  # ===== Android Gradle Dependencies =====
+  - package-ecosystem: gradle
+    directory: "android"
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "04:00"
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - android
+    versioning-strategy: increase-if-necessary
+    commit-message:
+      prefix: "deps(android):"
+
+  # ===== GitHub Actions (Critical for CI) =====
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "05:00"
+    open-pull-requests-limit: 3
+    labels:
+      - github-actions
+      - ci
+    commit-message:
+      prefix: "ci:"
+
+# ===== CRITICAL DEPENDENCY POLICY =====
+# This project must use EXACTLY ONE package manager: Bun (bun.lockb)
+# If npm (package-lock.json) or yarn (yarn.lock) files appear, CI will FAIL
+#
+# Rules for dependency updates:
+# 1. Never merge breaking changes without full compatibility verification
+# 2. React must stay at 18.x (blocking >=19)
+# 3. Node version must stay at 22 for CI/local dev
+# 4. Java version must stay at 21 for Android builds
+# 5. No silent dependency downgrades
+# 6. Security patches MUST be reviewed for legitimacy
+

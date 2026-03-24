@@ -30,7 +30,7 @@ export function useSniperMode() {
         });
       }
     }
-  }, [enabled, previews, simConfig]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enabled, previews, simConfig, trades]);
 
   useEffect(() => {
     if (!priceData) return;
