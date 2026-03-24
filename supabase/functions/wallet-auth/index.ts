@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import nacl from "npm:tweetnacl@1.0.3";
-import bs58 from "npm:bs58@5.0.0";
+import bs58 from "npm:bs58@6.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
