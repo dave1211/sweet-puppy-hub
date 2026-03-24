@@ -79,11 +79,17 @@ function resolveSolflareProvider(win: WalletWindow): SolanaWallet | null {
   return null;
 }
 
+function resolveBackpackProvider(win: WalletWindow): SolanaWallet | null {
+  if (win.backpack) return win.backpack;
+  return null;
+}
+
 function getWalletProvider(p: WalletProviderType): SolanaWallet | null {
   if (!p) return null;
   const win = window as unknown as WalletWindow;
   if (p === "phantom") return resolvePhantomProvider(win);
   if (p === "solflare") return resolveSolflareProvider(win);
+  if (p === "backpack") return resolveBackpackProvider(win);
   return null;
 }
 
