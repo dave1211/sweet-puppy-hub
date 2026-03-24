@@ -45,7 +45,7 @@ export function WalletConnectButton() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem disabled className="text-[10px] font-mono text-muted-foreground">
-            {provider === "phantom" ? "👻" : "🔆"} {provider?.toUpperCase()}
+            {provider === "phantom" ? "👻" : provider === "backpack" ? "🎒" : "🔆"} {provider?.toUpperCase()}
           </DropdownMenuItem>
           <DropdownMenuItem disabled className="text-[9px] font-mono text-muted-foreground truncate">
             {walletAddress}
