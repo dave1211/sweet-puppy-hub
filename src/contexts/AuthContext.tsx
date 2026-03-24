@@ -7,6 +7,8 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isGuest: boolean;
+  enterGuestMode: () => void;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithWallet: (
@@ -49,6 +51,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
+
+  const enterGuestMode = () => setIsGuest(true);
 
   const checkAdmin = async (userId: string) => {
     try {
@@ -188,10 +193,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setIsAdmin(false);
+    setIsGuest(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, isAdmin, signUp, signIn, signInWithWallet, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, isAdmin, isGuest, enterGuestMode, signUp, signIn, signInWithWallet, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -106,7 +106,7 @@ async function requestWalletChallenge(walletAddress: string): Promise<WalletChal
 }
 
 export default function AuthPage() {
-  const { user, isLoading, signIn, signUp, signInWithWallet } = useAuth();
+  const { user, isLoading, isGuest, enterGuestMode, signIn, signUp, signInWithWallet } = useAuth();
   const { connect, walletAddress, isConnected, provider, getWalletObject } = useWallet();
   const [showEmail, setShowEmail] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -130,7 +130,7 @@ export default function AuthPage() {
     );
   }
 
-  if (user) return <Navigate to="/" replace />;
+  if (user || isGuest) return <Navigate to="/" replace />;
 
   const handleWalletAuth = async (providerType: "phantom" | "solflare" | "backpack") => {
     setSubmitting(true);
@@ -308,6 +308,15 @@ export default function AuthPage() {
               </div>
             )}
           </div>
+
+          {/* Guest mode */}
+          <Button
+            onClick={enterGuestMode}
+            variant="ghost"
+            className="w-full font-mono text-xs text-muted-foreground hover:text-foreground border border-dashed border-border"
+          >
+            BROWSE AS GUEST (READ-ONLY)
+          </Button>
 
           {/* Divider */}
           <div className="flex items-center gap-3">
