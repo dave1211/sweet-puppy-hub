@@ -41,6 +41,8 @@ interface WalletAuthFailure {
 }
 
 type WalletAuthResponse = WalletAuthSuccess | WalletAuthFailure;
+const walletAuthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wallet-auth`;
+const walletAuthKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -105,29 +107,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       console.info("[WalletAuth] verify request", { walletAddress });
 
-      const res = await supabase.functions.invoke<WalletAuthResponse>("wallet-auth", {
-        body: {
+      if (!walletAuthKey) {
+        return { error: new Error("Wallet auth key is missing") };
+      }
+
+      const response = await fetch(walletAuthUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          apikey: walletAuthKey,
+          authorization: `Bearer ${walletAuthKey}`,
+        },
+        body: JSON.stringify({
           action: "verify",
           walletAddress,
           signature,
           message,
           challengeToken,
-        },
+        }),
       });
 
-      if (res.error) {
-        console.error("[WalletAuth] verify transport failure", {
+      let payload: WalletAuthResponse | null = null;
+      try {
+        payload = (await response.json()) as WalletAuthResponse;
+      } catch {
+        console.error("[WalletAuth] verify invalid json", {
           walletAddress,
-          message: res.error.message,
+          status: response.status,
         });
-        return { error: new Error(res.error.message || "Wallet auth failed") };
+        return { error: new Error("Wallet auth returned invalid response") };
       }
 
-      const payload = res.data;
-      if (!payload || !payload.ok || !payload.data?.session) {
+      console.info("[WalletAuth] verify response", {
+        walletAddress,
+        status: response.status,
+        ok: response.ok,
+        payloadOk: Boolean(payload && payload.ok),
+      });
+
+      if (!response.ok || !payload || !payload.ok || !payload.data?.session) {
         const messageFromPayload = payload && "error" in payload ? payload.error?.message : undefined;
         console.error("[WalletAuth] verify logical failure", {
           walletAddress,
+          status: response.status,
           payload,
         });
         return { error: new Error(messageFromPayload || "Wallet auth failed") };
