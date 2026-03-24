@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/contexts/WalletContext";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,14 +10,57 @@ import { toast } from "sonner";
 import { Loader2, Lock, Mail, Wallet, ChevronDown, ChevronUp } from "lucide-react";
 import bs58 from "@/lib/bs58Shim";
 
-interface SolanaWalletWindow extends Window {
-  solana?: { isConnected?: boolean; publicKey?: { toString(): string } };
-  solflare?: { isConnected?: boolean; publicKey?: { toString(): string } };
+interface WalletChallengeSuccess {
+  ok: true;
+  data: {
+    nonce: string;
+    challengeToken: string;
+    expiresAt: number;
+  };
+}
+
+interface WalletChallengeFailure {
+  ok: false;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+}
+
+type WalletChallengeResponse = WalletChallengeSuccess | WalletChallengeFailure;
+
+async function requestWalletChallenge(walletAddress: string): Promise<WalletChallengeSuccess["data"]> {
+  console.info("[WalletAuth] challenge start", { walletAddress });
+
+  const { data, error } = await supabase.functions.invoke<WalletChallengeResponse>("wallet-auth", {
+    body: {
+      action: "challenge",
+      walletAddress,
+    },
+  });
+
+  if (error) {
+    console.error("[WalletAuth] challenge failure", { message: error.message });
+    throw new Error(error.message || "Failed to get wallet challenge");
+  }
+
+  if (!data || !data.ok || !data.data?.nonce || !data.data?.challengeToken) {
+    const message = data && "error" in data ? data.error?.message : "Failed to get wallet challenge";
+    console.error("[WalletAuth] challenge invalid payload", { data });
+    throw new Error(message || "Failed to get wallet challenge");
+  }
+
+  console.info("[WalletAuth] challenge success", {
+    walletAddress,
+    expiresAt: data.data.expiresAt,
+  });
+
+  return data.data;
 }
 
 export default function AuthPage() {
   const { user, isLoading, signIn, signUp, signInWithWallet } = useAuth();
-  const { connect, walletAddress, isConnected, getWalletObject } = useWallet();
+  const { connect, walletAddress, isConnected, provider, getWalletObject } = useWallet();
   const [showEmail, setShowEmail] = useState(false);
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -37,58 +81,52 @@ export default function AuthPage() {
   const handleWalletAuth = async (providerType: "phantom" | "solflare") => {
     setSubmitting(true);
     setConnectingProvider(providerType);
+
     try {
-      // First connect wallet if not connected
-      if (!isConnected) {
-        connect(providerType);
-        // Wait for wallet connection
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error("Wallet connection timeout")), 30000);
-          const check = setInterval(() => {
-            const win = window as unknown as SolanaWalletWindow;
-            const wallet = providerType === "phantom" ? win.solana : win.solflare;
-            if (wallet?.isConnected && wallet?.publicKey) {
-              clearInterval(check);
-              clearTimeout(timeout);
-              resolve();
-            }
-          }, 500);
-        });
+      console.info("[WalletAuth] connect start", { provider: providerType });
+
+      let address = walletAddress;
+      if (!isConnected || !walletAddress || provider !== providerType) {
+        address = await connect(providerType);
       }
 
       const wallet = getWalletObject();
-      if (!wallet?.publicKey) {
-        toast.error("Wallet not connected");
-        setSubmitting(false);
-        setConnectingProvider(null);
-        return;
+
+      if (!address || !wallet?.publicKey) {
+        throw new Error("Wallet not connected");
       }
 
-      const addr = wallet.publicKey.toString();
-      const message = `Sign in to Tanner Terminal\nWallet: ${addr}\nTimestamp: ${Date.now()}`;
+      if (!wallet.signMessage) {
+        throw new Error("Connected wallet does not support message signing");
+      }
+
+      const challenge = await requestWalletChallenge(address);
+
+      const message = `Sign in to Tanner Terminal\nWallet: ${address}\nNonce: ${challenge.nonce}\nTimestamp: ${Date.now()}`;
       const messageBytes = new TextEncoder().encode(message);
 
+      console.info("[WalletAuth] sign start", { walletAddress: address });
       const { signature } = await wallet.signMessage(messageBytes);
+      console.info("[WalletAuth] sign success", { walletAddress: address });
+
       const signatureB58 = bs58.encode(signature);
 
-      const { error } = await signInWithWallet(addr, signatureB58, message);
+      const { error } = await signInWithWallet(address, signatureB58, message, challenge.challengeToken);
       if (error) {
+        console.error("[WalletAuth] auth failure", { walletAddress: address, error: error.message });
         toast.error(error.message);
       } else {
         toast.success("Signed in with wallet");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Wallet auth failed";
-      if (msg.includes("timeout")) {
-        toast.error("Wallet connection timed out");
-      } else if (msg.includes("rejected") || msg.includes("denied")) {
-        toast.error("Signature rejected");
-      } else {
-        toast.error(msg);
-      }
+      const normalizedMessage = /rejected|denied/i.test(msg) ? "Signature rejected by wallet" : msg;
+      console.error("[WalletAuth] sign/auth failure", { provider: providerType, error: msg });
+      toast.error(normalizedMessage);
+    } finally {
+      setSubmitting(false);
+      setConnectingProvider(null);
     }
-    setSubmitting(false);
-    setConnectingProvider(null);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
@@ -124,7 +162,7 @@ export default function AuthPage() {
             <Button
               onClick={() => handleWalletAuth("phantom")}
               disabled={submitting}
-              className="w-full font-mono text-sm bg-[hsl(270,60%,50%)] hover:bg-[hsl(270,60%,45%)] text-white"
+              className="w-full font-mono text-sm"
             >
               {connectingProvider === "phantom" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT PHANTOM
