@@ -30,6 +30,10 @@ const WalletDetailPage = lazy(() => import("./pages/WalletDetailPage"));
 const LaunchpadPage = lazy(() => import("./pages/LaunchpadPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
 const MemeGeneratorPage = lazy(() => import("./pages/MemeGeneratorPage"));
+const ClaimSolPage = lazy(() => import("./pages/ClaimSolPage"));
+const SolBurnPage = lazy(() => import("./pages/SolBurnPage"));
+const XRPLPage = lazy(() => import("./pages/XRPLPage"));
+const TokenHoldingsPage = lazy(() => import("./pages/TokenHoldingsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -69,6 +73,10 @@ function App() {
                     <Route path="strategies" element={<StrategiesPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="launchpad" element={<LaunchpadPage />} />
+                    <Route path="claim-sol" element={<ClaimSolPage />} />
+                    <Route path="sol-burn" element={<SolBurnPage />} />
+                    <Route path="holdings" element={<TokenHoldingsPage />} />
+                    <Route path="xrpl" element={<XRPLPage />} />
                     <Route path="about" element={<AboutPage />} />
                     <Route path="memes" element={<MemeGeneratorPage />} />
                     <Route path="token/:id" element={<TokenDetailPage />} />
