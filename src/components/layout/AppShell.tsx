@@ -1,9 +1,11 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import { AppTopbar } from "./AppTopbar";
 import { AppSidebar } from "./AppSidebar";
 import { BottomStrip } from "./BottomStrip";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Eye } from "lucide-react";
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
