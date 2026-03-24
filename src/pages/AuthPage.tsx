@@ -13,9 +13,10 @@ interface WalletWindow extends Window {
   solana?: { isPhantom?: boolean; providers?: Array<{ isPhantom?: boolean; isSolflare?: boolean }> };
   phantom?: { solana?: { isPhantom?: boolean } };
   solflare?: unknown;
+  backpack?: unknown;
 }
 
-function detectWallets(): { phantom: boolean; solflare: boolean } {
+function detectWallets(): { phantom: boolean; solflare: boolean; backpack: boolean } {
   const win = window as unknown as WalletWindow;
   const hasPhantom = !!(
     win.phantom?.solana?.isPhantom ||
@@ -27,7 +28,8 @@ function detectWallets(): { phantom: boolean; solflare: boolean } {
     (win.solana && "isSolflare" in win.solana && win.solana.isSolflare) ||
     win.solana?.providers?.some((p) => p?.isSolflare)
   );
-  return { phantom: hasPhantom, solflare: hasSolflare };
+  const hasBackpack = !!win.backpack;
+  return { phantom: hasPhantom, solflare: hasSolflare, backpack: hasBackpack };
 }
 
 const walletAuthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wallet-auth`;
@@ -111,8 +113,8 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [connectingProvider, setConnectingProvider] = useState<"phantom" | "solflare" | null>(null);
-  const [detected, setDetected] = useState<{ phantom: boolean; solflare: boolean }>({ phantom: true, solflare: true });
+  const [connectingProvider, setConnectingProvider] = useState<"phantom" | "solflare" | "backpack" | null>(null);
+  const [detected, setDetected] = useState<{ phantom: boolean; solflare: boolean; backpack: boolean }>({ phantom: true, solflare: true, backpack: true });
 
   useEffect(() => {
     // Wallet extensions inject after DOMContentLoaded; give them a moment
@@ -130,7 +132,7 @@ export default function AuthPage() {
 
   if (user) return <Navigate to="/" replace />;
 
-  const handleWalletAuth = async (providerType: "phantom" | "solflare") => {
+  const handleWalletAuth = async (providerType: "phantom" | "solflare" | "backpack") => {
     setSubmitting(true);
     setConnectingProvider(providerType);
 
@@ -259,6 +261,37 @@ export default function AuthPage() {
                     { label: "Chrome / Brave / Edge", href: "https://chromewebstore.google.com/detail/solflare-wallet/bhhhlbepdkbapadjdcopmkialjkijhep" },
                     { label: "Firefox", href: "https://addons.mozilla.org/en-US/firefox/addon/solflare-wallet/" },
                     { label: "iOS / Android", href: "https://solflare.com/download" },
+                  ].map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[8px] font-mono text-primary/80 hover:text-primary underline underline-offset-2 transition-colors"
+                    >
+                      <ExternalLink className="h-2 w-2 shrink-0" />
+                      {link.label}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Button
+              onClick={() => handleWalletAuth("backpack")}
+              disabled={submitting}
+              variant="outline"
+              className="w-full font-mono text-sm border-terminal-cyan/30 text-terminal-cyan hover:bg-terminal-cyan/10"
+            >
+              {connectingProvider === "backpack" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
+              CONNECT BACKPACK
+            </Button>
+            {!detected.backpack && (
+              <div className="flex flex-col items-center gap-0.5 py-0.5">
+                <span className="text-[9px] font-mono text-terminal-amber">Backpack not detected — Install:</span>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {[
+                    { label: "Chrome / Brave / Edge", href: "https://chromewebstore.google.com/detail/backpack/aflkmfhebedbjioipglgcbcmnbpgliof" },
+                    { label: "iOS / Android", href: "https://backpack.app/download" },
                   ].map((link) => (
                     <a
                       key={link.label}

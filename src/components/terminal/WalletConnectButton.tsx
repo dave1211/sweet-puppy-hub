@@ -8,7 +8,7 @@ export function WalletConnectButton() {
   const { isConnected, walletAddress, provider, balanceSOL, isLoading, connect, disconnect, refreshBalance } = useWallet();
   const [open, setOpen] = useState(false);
 
-  const handleConnect = async (providerType: "phantom" | "solflare") => {
+  const handleConnect = async (providerType: "phantom" | "solflare" | "backpack") => {
     setOpen(false);
     try {
       await connect(providerType);
@@ -45,7 +45,7 @@ export function WalletConnectButton() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem disabled className="text-[10px] font-mono text-muted-foreground">
-            {provider === "phantom" ? "👻" : "🔆"} {provider?.toUpperCase()}
+            {provider === "phantom" ? "👻" : provider === "backpack" ? "🎒" : "🔆"} {provider?.toUpperCase()}
           </DropdownMenuItem>
           <DropdownMenuItem disabled className="text-[9px] font-mono text-muted-foreground truncate">
             {walletAddress}
@@ -91,6 +91,9 @@ export function WalletConnectButton() {
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => { void handleConnect("solflare"); }} className="text-[10px] font-mono">
           🔆 Solflare
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { void handleConnect("backpack"); }} className="text-[10px] font-mono">
+          🎒 Backpack
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled className="text-[8px] font-mono text-muted-foreground/60">

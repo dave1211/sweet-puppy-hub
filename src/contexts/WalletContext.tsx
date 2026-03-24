@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 
-type WalletProviderType = "phantom" | "solflare" | null;
+type WalletProviderType = "phantom" | "solflare" | "backpack" | null;
 
 interface WalletPublicKey {
   toString: () => string;
@@ -48,6 +48,7 @@ interface WalletWindow extends Window {
   solana?: (SolanaWallet & { providers?: SolanaWallet[] }) | undefined;
   phantom?: { solana?: SolanaWallet };
   solflare?: SolanaWallet;
+  backpack?: SolanaWallet;
 }
 
 function resolvePhantomProvider(win: WalletWindow): SolanaWallet | null {
@@ -78,11 +79,17 @@ function resolveSolflareProvider(win: WalletWindow): SolanaWallet | null {
   return null;
 }
 
+function resolveBackpackProvider(win: WalletWindow): SolanaWallet | null {
+  if (win.backpack) return win.backpack;
+  return null;
+}
+
 function getWalletProvider(p: WalletProviderType): SolanaWallet | null {
   if (!p) return null;
   const win = window as unknown as WalletWindow;
   if (p === "phantom") return resolvePhantomProvider(win);
   if (p === "solflare") return resolveSolflareProvider(win);
+  if (p === "backpack") return resolveBackpackProvider(win);
   return null;
 }
 
