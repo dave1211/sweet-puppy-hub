@@ -45,6 +45,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <PriceTickerBar />
       <BottomStrip />
     </div>
   );
