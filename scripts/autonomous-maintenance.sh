@@ -54,14 +54,12 @@ fi
 # ── APPROVED FIX 3: Deno lint auto-fix (approved paths only) ──
 echo -e "${BLUE}── Fix Category: Deno Lint (supabase/functions/) ──${NC}"
 if command -v deno &>/dev/null && [ -d "supabase/functions" ]; then
-  if deno lint supabase/functions/ 2>/dev/null; then
+  if deno lint supabase/functions/ >/dev/null 2>&1; then
     echo -e "${GREEN}✓${NC} Deno lint clean — no fixes needed"
+  elif deno lint --fix supabase/functions/ >/dev/null 2>&1; then
+    fix_applied "Auto-fixed Deno lint issues in supabase/functions/"
   else
-    if deno lint --fix supabase/functions/ 2>/dev/null; then
-      fix_applied "Auto-fixed Deno lint issues in supabase/functions/"
-    else
-      fix_skipped "Deno lint issues" "Auto-fix could not resolve all issues"
-    fi
+    fix_skipped "Deno lint issues" "Auto-fix could not resolve all issues"
   fi
 else
   echo -e "${YELLOW}⏭${NC}  Deno not available or no functions directory — skipping"
