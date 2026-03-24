@@ -75,15 +75,29 @@ jobs:
           export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
           sdkmanager --list | sed -n '1,200p'
 
-      - name: Install Android SDK (34 with fallback to 33)
+      - name: Install Android SDK (34 with conditional fallback to 33)
         shell: bash
         run: |
           set -euxo pipefail
           export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
-          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || \
-          sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
+          # Try to install Android 34; capture output to decide whether to fall back
+          set +e
+          SDKMANAGER_OUTPUT=$(sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" 2>&1)
+          SDKMANAGER_STATUS=$?
+          echo "${SDKMANAGER_OUTPUT}"
+          set -e
+
+          if [ "${SDKMANAGER_STATUS}" -ne 0 ]; then
+            if echo "${SDKMANAGER_OUTPUT}" | grep -q "Failed to find package"; then
+              echo "Android 34 packages not available; falling back to Android 33..." >&2
+              sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+            else
+              echo "sdkmanager failed installing Android 34 for an unexpected reason; not falling back." >&2
+              exit "${SDKMANAGER_STATUS}"
+            fi
+          fi
       - name: Verify SDK
         shell: bash
         run: |
