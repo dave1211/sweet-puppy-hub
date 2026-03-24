@@ -30,6 +30,10 @@ const WalletDetailPage = lazy(() => import("./pages/WalletDetailPage"));
 const LaunchpadPage = lazy(() => import("./pages/LaunchpadPage"));
 const AboutPage = lazy(() => import("./pages/AboutPage"));
 const MemeGeneratorPage = lazy(() => import("./pages/MemeGeneratorPage"));
+const ClaimSolPage = lazy(() => import("./pages/ClaimSolPage"));
+const SolBurnPage = lazy(() => import("./pages/SolBurnPage"));
+const XRPLPage = lazy(() => import("./pages/XRPLPage"));
+const TokenHoldingsPage = lazy(() => import("./pages/TokenHoldingsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
