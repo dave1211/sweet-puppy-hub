@@ -219,6 +219,17 @@ export default function AuthPage() {
               {connectingProvider === "phantom" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT PHANTOM
             </Button>
+            {!detected.phantom && (
+              <a
+                href="https://phantom.app/download"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 text-[9px] font-mono text-terminal-amber hover:text-primary transition-colors py-0.5"
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Phantom not detected — Install for Chrome, Brave, Firefox, Edge & mobile
+              </a>
+            )}
             <Button
               onClick={() => handleWalletAuth("solflare")}
               disabled={submitting}
@@ -228,6 +239,17 @@ export default function AuthPage() {
               {connectingProvider === "solflare" ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Wallet className="h-4 w-4 mr-2" />}
               CONNECT SOLFLARE
             </Button>
+            {!detected.solflare && (
+              <a
+                href="https://solflare.com/download"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 text-[9px] font-mono text-terminal-amber hover:text-primary transition-colors py-0.5"
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                Solflare not detected — Install extension
+              </a>
+            )}
           </div>
 
           {/* Divider */}
