@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/contexts/WalletContext";
@@ -6,8 +6,29 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Loader2, Lock, Mail, Wallet, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Lock, Mail, Wallet, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
 import bs58 from "@/lib/bs58Shim";
+
+interface WalletWindow extends Window {
+  solana?: { isPhantom?: boolean; providers?: Array<{ isPhantom?: boolean; isSolflare?: boolean }> };
+  phantom?: { solana?: { isPhantom?: boolean } };
+  solflare?: unknown;
+}
+
+function detectWallets(): { phantom: boolean; solflare: boolean } {
+  const win = window as unknown as WalletWindow;
+  const hasPhantom = !!(
+    win.phantom?.solana?.isPhantom ||
+    win.solana?.isPhantom ||
+    win.solana?.providers?.some((p) => p?.isPhantom)
+  );
+  const hasSolflare = !!(
+    win.solflare ||
+    (win.solana && "isSolflare" in win.solana && win.solana.isSolflare) ||
+    win.solana?.providers?.some((p) => p?.isSolflare)
+  );
+  return { phantom: hasPhantom, solflare: hasSolflare };
+}
 
 const walletAuthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wallet-auth`;
 const walletAuthKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
