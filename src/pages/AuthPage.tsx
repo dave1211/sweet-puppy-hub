@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/contexts/WalletContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, Lock, Mail, Wallet, ChevronDown, ChevronUp } from "lucide-react";
 import bs58 from "@/lib/bs58Shim";
+
+const walletAuthUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/wallet-auth`;
+const walletAuthKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 interface WalletChallengeSuccess {
   ok: true;
@@ -32,21 +34,43 @@ type WalletChallengeResponse = WalletChallengeSuccess | WalletChallengeFailure;
 async function requestWalletChallenge(walletAddress: string): Promise<WalletChallengeSuccess["data"]> {
   console.info("[WalletAuth] challenge start", { walletAddress });
 
-  const { data, error } = await supabase.functions.invoke<WalletChallengeResponse>("wallet-auth", {
-    body: {
-      action: "challenge",
-      walletAddress,
-    },
-  });
-
-  if (error) {
-    console.error("[WalletAuth] challenge failure", { message: error.message });
-    throw new Error(error.message || "Failed to get wallet challenge");
+  if (!walletAuthKey) {
+    throw new Error("Wallet auth key is missing");
   }
 
-  if (!data || !data.ok || !data.data?.nonce || !data.data?.challengeToken) {
+  const response = await fetch(walletAuthUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: walletAuthKey,
+      authorization: `Bearer ${walletAuthKey}`,
+    },
+    body: JSON.stringify({
+      action: "challenge",
+      walletAddress,
+    }),
+  });
+
+  let data: WalletChallengeResponse | null = null;
+  try {
+    data = (await response.json()) as WalletChallengeResponse;
+  } catch {
+    console.error("[WalletAuth] challenge invalid json", { status: response.status });
+    throw new Error("Wallet auth challenge returned invalid response");
+  }
+
+  console.info("[WalletAuth] challenge response", {
+    status: response.status,
+    ok: response.ok,
+    payloadOk: Boolean(data && data.ok),
+  });
+
+  if (!response.ok || !data || !data.ok || !data.data?.nonce || !data.data?.challengeToken) {
     const message = data && "error" in data ? data.error?.message : "Failed to get wallet challenge";
-    console.error("[WalletAuth] challenge invalid payload", { data });
+    console.error("[WalletAuth] challenge failure", {
+      status: response.status,
+      payload: data,
+    });
     throw new Error(message || "Failed to get wallet challenge");
   }
 
