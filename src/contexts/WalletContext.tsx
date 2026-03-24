@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 
-type WalletProviderType = "phantom" | "solflare" | null;
+type WalletProviderType = "phantom" | "solflare" | "backpack" | null;
 
 interface WalletPublicKey {
   toString: () => string;
