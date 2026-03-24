@@ -31,45 +31,67 @@ jobs:
           java-version: 17
 
       - uses: android-actions/setup-android@v3
-        with:
-          packages: ''
 
-      - name: Fallback install Android cmdline-tools if sdkmanager missing
-        run: |
-          if ! command -v sdkmanager >/dev/null 2>&1; then
-            mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
-            cd "${ANDROID_SDK_ROOT}/cmdline-tools"
-            rm -rf latest
-            curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
-            mkdir -p latest
-            unzip -q tools.zip -d latest
-            rm tools.zip
-            # Fix structure: Google puts all files in a folder called 'cmdline-tools', move up
-            if [ -d latest/cmdline-tools ]; then
-              mv latest/cmdline-tools/* latest/
-              rmdir latest/cmdline-tools
-            fi
-          fi
+      - name: Ensure sdkmanager exists (install cmdline-tools if missing)
         shell: bash
-
-      - name: Ensure Android SDK tools are on PATH
         run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          mkdir -p "${ANDROID_SDK_ROOT}/cmdline-tools"
+          if command -v sdkmanager >/dev/null 2>&1; then exit 0; fi
+          cd "${ANDROID_SDK_ROOT}/cmdline-tools"
+          rm -rf latest latest.tmp tools.zip
+          curl -fsSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o tools.zip
+          mkdir -p latest.tmp
+          unzip -q tools.zip -d latest.tmp
+          rm tools.zip
+          if [ -d latest.tmp/cmdline-tools ]; then
+            mv latest.tmp/cmdline-tools/* latest.tmp/
+            rmdir latest.tmp/cmdline-tools
+          fi
+          mv latest.tmp latest
+
+      - name: Add Android tools to PATH
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
           echo "${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "${ANDROID_SDK_ROOT}/platform-tools" >> "$GITHUB_PATH"
 
-      - name: Verify sdkmanager installation
-        run: |
-          command -v sdkmanager
-          sdkmanager --version
-
       - name: Accept Android licenses
-        run: yes | sdkmanager --licenses
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
+          yes | sdkmanager --licenses
 
       - name: Show available Android SDK packages
-        run: sdkmanager --list | sed -n '1,200p'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
+          sdkmanager --list | sed -n '1,200p'
 
-      - name: Install Android SDK packages
-        run: sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+      - name: Install Android SDK (34 with fallback to 33)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
+          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0" || \
+          sdkmanager --install "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+
+      - name: Verify SDK
+        shell: bash
+        run: |
+          set -euxo pipefail
+          export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          export PATH="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin:${ANDROID_SDK_ROOT}/platform-tools:${PATH}"
+          command -v sdkmanager
+          sdkmanager --version
 
       - name: Install deps
         run: npm ci
