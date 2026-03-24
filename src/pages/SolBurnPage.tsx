@@ -11,7 +11,7 @@ export default function SolBurnPage() {
       <div>
         <h1 className="text-base sm:text-lg font-mono font-bold text-foreground flex items-center gap-2">
           <Flame className="h-5 w-5 text-terminal-red" />
-          SOL BURN
+          BURNING SOL
         </h1>
         <p className="text-[10px] sm:text-xs font-mono text-muted-foreground">
           Burn dust tokens, close empty accounts, reclaim SOL rent

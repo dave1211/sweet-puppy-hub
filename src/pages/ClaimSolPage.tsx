@@ -3,6 +3,7 @@ import { PanelShell } from "@/components/shared/PanelShell";
 import { useWallet } from "@/contexts/WalletContext";
 import { useWalletTokens } from "@/hooks/useWalletTokens";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 
 export default function ClaimSolPage() {
   const { isConnected, walletAddress, balanceSOL, connect } = useWallet();
@@ -14,7 +15,7 @@ export default function ClaimSolPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-base sm:text-lg font-mono font-bold text-foreground">CLAIM YOUR SOL</h1>
+        <h1 className="text-base sm:text-lg font-mono font-bold text-foreground">YOUR SOL CLAIM</h1>
         <p className="text-[10px] sm:text-xs font-mono text-muted-foreground">
           Reclaim SOL locked in empty token accounts & dust positions
         </p>
@@ -25,17 +26,13 @@ export default function ClaimSolPage() {
           <div className="py-8 text-center space-y-3">
             <Wallet className="h-8 w-8 text-muted-foreground mx-auto" />
             <p className="text-xs font-mono text-muted-foreground">Connect your Phantom wallet to scan for reclaimable SOL</p>
-            <Button
-              onClick={() => connect("phantom")}
-              className="font-mono text-xs"
-            >
+            <Button onClick={() => connect("phantom")} className="font-mono text-xs">
               👻 Connect Phantom
             </Button>
           </div>
         </PanelShell>
       ) : (
         <>
-          {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-lg border border-border bg-card p-3">
               <p className="text-[9px] font-mono text-muted-foreground mb-1">WALLET</p>
@@ -55,34 +52,24 @@ export default function ClaimSolPage() {
             </div>
           </div>
 
-          {/* How it works */}
           <PanelShell title="How It Works" subtitle="3 easy steps">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 py-2">
-              <div className="flex items-start gap-2">
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-mono font-bold text-primary shrink-0">1</div>
-                <div>
-                  <p className="text-[10px] font-mono font-medium text-foreground">Scan Wallet</p>
-                  <p className="text-[9px] text-muted-foreground">We detect empty & dust SPL token accounts</p>
+              {[
+                { step: "1", title: "Scan Wallet", desc: "We detect empty & dust SPL token accounts" },
+                { step: "2", title: "Burn & Close", desc: "Burn dust tokens and close accounts in one tx" },
+                { step: "3", title: "Reclaim SOL", desc: "~0.002 SOL rent returned per closed account" },
+              ].map((s) => (
+                <div key={s.step} className="flex items-start gap-2">
+                  <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-mono font-bold text-primary shrink-0">{s.step}</div>
+                  <div>
+                    <p className="text-[10px] font-mono font-medium text-foreground">{s.title}</p>
+                    <p className="text-[9px] text-muted-foreground">{s.desc}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-mono font-bold text-primary shrink-0">2</div>
-                <div>
-                  <p className="text-[10px] font-mono font-medium text-foreground">Burn & Close</p>
-                  <p className="text-[9px] text-muted-foreground">Burn dust tokens and close accounts in one tx</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-mono font-bold text-primary shrink-0">3</div>
-                <div>
-                  <p className="text-[10px] font-mono font-medium text-foreground">Reclaim SOL</p>
-                  <p className="text-[9px] text-muted-foreground">~0.002 SOL rent returned per closed account</p>
-                </div>
-              </div>
+              ))}
             </div>
           </PanelShell>
 
-          {/* Dust accounts list */}
           <PanelShell title="Reclaimable Accounts" subtitle={`${dustAccounts.length} found`}>
             {dustAccounts.length === 0 ? (
               <div className="py-6 text-center">
@@ -110,19 +97,18 @@ export default function ClaimSolPage() {
             )}
           </PanelShell>
 
-          {/* CTA to Burn Incinerator */}
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Coins className="h-5 w-5 text-primary" />
                 <div>
                   <p className="text-xs font-mono font-bold text-foreground">Ready to reclaim?</p>
-                  <p className="text-[10px] font-mono text-muted-foreground">Use the SOL Burn page to close accounts and reclaim rent</p>
+                  <p className="text-[10px] font-mono text-muted-foreground">Use Burning SOL to close accounts and reclaim rent</p>
                 </div>
               </div>
-              <a href="/sol-burn" className="flex items-center gap-1 text-[10px] font-mono text-primary hover:underline">
+              <Link to="/sol-burn" className="flex items-center gap-1 text-[10px] font-mono text-primary hover:underline">
                 GO TO BURN <ArrowRight className="h-3 w-3" />
-              </a>
+              </Link>
             </div>
           </div>
         </>
