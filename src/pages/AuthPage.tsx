@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/contexts/WalletContext";
@@ -162,62 +162,11 @@ export default function AuthPage() {
             </Button>
           ))}
 
-          <div className="relative py-2">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-[9px] uppercase">
-              <span className="bg-card px-2 text-muted-foreground font-mono">or sign in with</span>
-            </div>
-          </div>
-
-          {/* Google & Apple — direct Supabase OAuth, no Lovable */}
-          <div className="grid grid-cols-2 gap-2">
-            <GoogleAppleButton provider="google" />
-            <GoogleAppleButton provider="apple" />
-          </div>
-
           <p className="text-[8px] font-mono text-muted-foreground text-center pt-2">
             No data leaves Tanner Terminal. All auth is internal.
           </p>
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function GoogleAppleButton({ provider }: { provider: "google" | "apple" }) {
-  const { signInWithOAuthProvider } = useAuth();
-  const [loading, setLoading] = useState(false);
-
-  const handleClick = async () => {
-    setLoading(true);
-    try {
-      const { error } = await signInWithOAuthProvider(provider);
-      if (error) {
-        toast.error(error.message);
-      }
-    } catch {
-      toast.error(`${provider} sign-in failed`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={() => void handleClick()}
-      disabled={loading}
-      className="font-mono text-xs"
-    >
-      {loading ? (
-        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-      ) : (
-        <span className="mr-1">{provider === "google" ? "🔵" : "🍎"}</span>
-      )}
-      {provider === "google" ? "Google" : "Apple"}
-    </Button>
   );
 }
