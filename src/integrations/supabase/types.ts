@@ -266,12 +266,14 @@ export type Database = {
       invite_codes: {
         Row: {
           active: boolean
+          allocated_to: string | null
           code: string
           created_at: string
           created_by: string | null
           current_uses: number
           expires_at: string | null
           id: string
+          label: string | null
           max_uses: number
           metadata: Json | null
           used_at: string | null
@@ -279,12 +281,14 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          allocated_to?: string | null
           code: string
           created_at?: string
           created_by?: string | null
           current_uses?: number
           expires_at?: string | null
           id?: string
+          label?: string | null
           max_uses?: number
           metadata?: Json | null
           used_at?: string | null
@@ -292,12 +296,14 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          allocated_to?: string | null
           code?: string
           created_at?: string
           created_by?: string | null
           current_uses?: number
           expires_at?: string | null
           id?: string
+          label?: string | null
           max_uses?: number
           metadata?: Json | null
           used_at?: string | null
