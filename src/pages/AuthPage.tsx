@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWallet } from "@/contexts/WalletContext";
+import { lovable } from "@/integrations/lovable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -199,6 +200,24 @@ export default function AuthPage() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setSubmitting(true);
+    try {
+      const { error } = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/auth`,
+      });
+
+      if (error) {
+        toast.error(error.message || "Google login failed");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Google login failed";
+      toast.error(msg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
       <Card className="w-full max-w-sm border-border bg-card">
@@ -323,6 +342,23 @@ export default function AuthPage() {
             <div className="flex-1 h-px bg-border" />
             <span className="text-[10px] font-mono text-muted-foreground">OR</span>
             <div className="flex-1 h-px bg-border" />
+          </div>
+
+          {/* Social login */}
+          <div className="space-y-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleGoogleLogin()}
+              disabled={submitting}
+              className="w-full font-mono text-sm"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              CONTINUE WITH GOOGLE
+            </Button>
+            <p className="text-[9px] font-mono text-muted-foreground text-center">
+              GitHub sign-in isn&apos;t enabled in this build yet.
+            </p>
           </div>
 
           {/* Secondary: Email fallback (collapsed) */}
