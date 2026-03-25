@@ -303,6 +303,20 @@ export default function WarRoomPage() {
           </Card>
         </TabsContent>
 
+        {/* Invite Codes */}
+        <TabsContent value="invites">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <Key className="h-4 w-4 text-terminal-amber" /> INVITE CODES
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <InviteCodeManager />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         {/* Controls / Kill Switches */}
         <TabsContent value="controls">
           <Card className="border-border bg-card">
