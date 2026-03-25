@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import {
   DollarSign, Users, TrendingUp, Activity, Crosshair, Bell,
   ShieldAlert, Rocket, BarChart3, Crown, Brain, Send, Loader2,
-  Bot, User as UserIcon, Zap, Eye, Flame, Power
+  Bot, User as UserIcon, Zap, Eye, Flame, Power, Key
 } from "lucide-react";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
