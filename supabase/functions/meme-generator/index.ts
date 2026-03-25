@@ -15,10 +15,9 @@ async function requireAuth(req: Request) {
     Deno.env.get("SUPABASE_ANON_KEY")!,
     { global: { headers: { Authorization: authHeader } } }
   );
-  const token = authHeader.replace("Bearer ", "");
-  const { data, error } = await supabase.auth.getClaims(token);
-  if (error || !data?.claims) return null;
-  return data.claims.sub as string;
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  return user.id;
 }
 
 serve(async (req) => {
@@ -65,14 +64,48 @@ serve(async (req) => {
     if (cleanBottom) fullPrompt += `. Bottom text overlay: "${cleanBottom}"`;
     fullPrompt += ". High quality, shareable, social media ready.";
 
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    // Use Lovable AI for image generation
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    let imageUrl: string | null = null;
 
-    // Generate with Lovable AI proxy
-    await fetch(`${SUPABASE_URL}/functions/v1/meme-generator-ai`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: fullPrompt }),
-    }).catch(() => null);
+    if (LOVABLE_API_KEY) {
+      try {
+        const aiRes = await fetch("https://api.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3.1-flash-image-preview",
+            messages: [
+              {
+                role: "user",
+                content: `Generate a meme image: ${fullPrompt}`,
+              },
+            ],
+          }),
+        });
+
+        if (aiRes.ok) {
+          const aiData = await aiRes.json();
+          const content = aiData?.choices?.[0]?.message?.content;
+          // Check if AI returned an image URL or base64
+          if (typeof content === "string" && (content.startsWith("http") || content.startsWith("data:image"))) {
+            imageUrl = content;
+          }
+          // Check for image parts in multimodal response
+          if (Array.isArray(content)) {
+            const imgPart = content.find((p: { type: string; image_url?: { url: string } }) => p.type === "image_url");
+            if (imgPart?.image_url?.url) {
+              imageUrl = imgPart.image_url.url;
+            }
+          }
+        }
+      } catch (e) {
+        console.error("AI image generation failed:", e);
+      }
+    }
 
     const memeData = {
       id: crypto.randomUUID(),
@@ -81,6 +114,7 @@ serve(async (req) => {
       topText: cleanTop || null,
       bottomText: cleanBottom || null,
       fullPrompt,
+      imageUrl,
       createdAt: new Date().toISOString(),
     };
 

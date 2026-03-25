@@ -4,6 +4,7 @@ import { Sparkles, Download, Share2, RefreshCw, Loader2, Image as ImageIcon, Typ
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const STYLES = [
   { id: "dank", label: "Dank", emoji: "🔥" },
@@ -38,6 +39,7 @@ interface GeneratedMeme {
   bottomText: string | null;
   createdAt: string;
   bgColor: string;
+  imageUrl?: string | null;
 }
 
 export default function MemeGeneratorPage() {
@@ -58,15 +60,17 @@ export default function MemeGeneratorPage() {
     setIsGenerating(true);
 
     try {
-      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
       const res = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/meme-generator`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/meme-generator`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({ prompt: prompt || `${topText} - ${bottomText}`, style, topText, bottomText }),
         }
@@ -104,27 +108,34 @@ export default function MemeGeneratorPage() {
 
   const downloadMeme = useCallback(() => {
     if (!selectedMeme) return;
+
+    // If we have an AI-generated image URL, download that directly
+    if (selectedMeme.imageUrl) {
+      const link = document.createElement("a");
+      link.download = `meme-${selectedMeme.id.slice(0, 8)}.png`;
+      link.href = selectedMeme.imageUrl;
+      link.click();
+      toast.success("Meme downloaded!");
+      return;
+    }
+
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     canvas.width = 800;
     canvas.height = 800;
 
-    // Background
     const gradient = ctx.createLinearGradient(0, 0, 800, 800);
     gradient.addColorStop(0, "#0a0e1a");
     gradient.addColorStop(1, "#111827");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 800, 800);
 
-    // Style-specific accent
     ctx.fillStyle = style === "crypto" ? "rgba(59, 130, 246, 0.1)" : "rgba(34, 197, 94, 0.1)";
     ctx.fillRect(0, 0, 800, 800);
 
-    // Top text
     if (selectedMeme.topText) {
       ctx.font = "bold 48px 'Impact', 'Arial Black', sans-serif";
       ctx.fillStyle = "#ffffff";
@@ -135,7 +146,6 @@ export default function MemeGeneratorPage() {
       ctx.fillText(selectedMeme.topText.toUpperCase(), 400, 80);
     }
 
-    // Center prompt
     ctx.font = "bold 32px 'Arial', sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.textAlign = "center";
@@ -154,7 +164,6 @@ export default function MemeGeneratorPage() {
     }
     ctx.fillText(line, 400, y);
 
-    // Bottom text
     if (selectedMeme.bottomText) {
       ctx.font = "bold 48px 'Impact', 'Arial Black', sans-serif";
       ctx.fillStyle = "#ffffff";
@@ -164,12 +173,10 @@ export default function MemeGeneratorPage() {
       ctx.fillText(selectedMeme.bottomText.toUpperCase(), 400, 740);
     }
 
-    // Watermark
     ctx.font = "12px monospace";
     ctx.fillStyle = "rgba(255,255,255,0.2)";
     ctx.fillText("TANNER TERMINAL", 400, 785);
 
-    // Download
     const link = document.createElement("a");
     link.download = `meme-${selectedMeme.id.slice(0, 8)}.png`;
     link.href = canvas.toDataURL("image/png");
@@ -196,7 +203,7 @@ export default function MemeGeneratorPage() {
           <p className="text-xs font-mono text-muted-foreground">Create & share crypto memes</p>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-mono text-primary bg-primary/10 px-2 py-1 rounded border border-primary/20">
-          <Sparkles className="h-3 w-3" /> MEME ENGINE
+          <Sparkles className="h-3 w-3" /> AI MEME ENGINE
         </div>
       </div>
 
@@ -234,27 +241,9 @@ export default function MemeGeneratorPage() {
               <Type className="h-3 w-3 text-muted-foreground/50" />
               <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Text</span>
             </div>
-            <Input
-              value={topText}
-              onChange={(e) => setTopText(e.target.value)}
-              placeholder="Top text…"
-              className="h-8 text-xs font-mono bg-background/50"
-              maxLength={80}
-            />
-            <Input
-              value={bottomText}
-              onChange={(e) => setBottomText(e.target.value)}
-              placeholder="Bottom text…"
-              className="h-8 text-xs font-mono bg-background/50"
-              maxLength={80}
-            />
-            <Input
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe your meme idea…"
-              className="h-8 text-xs font-mono bg-background/50"
-              maxLength={200}
-            />
+            <Input value={topText} onChange={(e) => setTopText(e.target.value)} placeholder="Top text…" className="h-8 text-xs font-mono bg-background/50" maxLength={80} />
+            <Input value={bottomText} onChange={(e) => setBottomText(e.target.value)} placeholder="Bottom text…" className="h-8 text-xs font-mono bg-background/50" maxLength={80} />
+            <Input value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="Describe your meme idea…" className="h-8 text-xs font-mono bg-background/50" maxLength={200} />
           </div>
 
           {/* Templates */}
@@ -274,17 +263,8 @@ export default function MemeGeneratorPage() {
             </div>
           </div>
 
-          {/* Generate button */}
-          <Button
-            onClick={generateMeme}
-            disabled={isGenerating}
-            className="w-full h-10 font-mono text-xs bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20"
-          >
-            {isGenerating ? (
-              <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Generating…</>
-            ) : (
-              <><Sparkles className="h-4 w-4 mr-2" /> GENERATE MEME</>
-            )}
+          <Button onClick={generateMeme} disabled={isGenerating} className="w-full h-10 font-mono text-xs bg-primary/10 text-primary border border-primary/30 hover:bg-primary/20">
+            {isGenerating ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Generating…</> : <><Sparkles className="h-4 w-4 mr-2" /> GENERATE MEME</>}
           </Button>
         </div>
 
@@ -295,39 +275,32 @@ export default function MemeGeneratorPage() {
               <div className="terminal-panel-header">
                 <span className="terminal-panel-title">Preview</span>
                 <div className="flex items-center gap-1">
-                  <button onClick={downloadMeme} className="p-1 hover:bg-muted/30 rounded transition-colors" title="Download">
-                    <Download className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  </button>
-                  <button onClick={shareMeme} className="p-1 hover:bg-muted/30 rounded transition-colors" title="Share">
-                    <Share2 className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  </button>
-                  <button onClick={generateMeme} className="p-1 hover:bg-muted/30 rounded transition-colors" title="Regenerate">
-                    <RefreshCw className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                  </button>
+                  <button onClick={downloadMeme} className="p-1 hover:bg-muted/30 rounded transition-colors" title="Download"><Download className="h-3 w-3 text-muted-foreground hover:text-foreground" /></button>
+                  <button onClick={shareMeme} className="p-1 hover:bg-muted/30 rounded transition-colors" title="Share"><Share2 className="h-3 w-3 text-muted-foreground hover:text-foreground" /></button>
+                  <button onClick={generateMeme} className="p-1 hover:bg-muted/30 rounded transition-colors" title="Regenerate"><RefreshCw className="h-3 w-3 text-muted-foreground hover:text-foreground" /></button>
                 </div>
               </div>
-              <div className={cn("aspect-square flex flex-col items-center justify-between p-8 bg-gradient-to-br", selectedMeme.bgColor)}>
-                {/* Top text */}
-                {selectedMeme.topText && (
-                  <p className="text-xl sm:text-2xl font-bold text-foreground uppercase text-center font-mono tracking-wider"
-                    style={{ textShadow: "2px 2px 0 hsl(var(--background)), -1px -1px 0 hsl(var(--background))" }}>
-                    {selectedMeme.topText}
-                  </p>
-                )}
-                {/* Center */}
-                <div className="flex-1 flex items-center justify-center">
-                  <p className="text-sm text-center text-muted-foreground/60 font-mono italic px-4">
-                    {selectedMeme.prompt}
-                  </p>
+              {selectedMeme.imageUrl ? (
+                <div className="aspect-square bg-background flex items-center justify-center">
+                  <img src={selectedMeme.imageUrl} alt={selectedMeme.prompt} className="max-w-full max-h-full object-contain" />
                 </div>
-                {/* Bottom text */}
-                {selectedMeme.bottomText && (
-                  <p className="text-xl sm:text-2xl font-bold text-foreground uppercase text-center font-mono tracking-wider"
-                    style={{ textShadow: "2px 2px 0 hsl(var(--background)), -1px -1px 0 hsl(var(--background))" }}>
-                    {selectedMeme.bottomText}
-                  </p>
-                )}
-              </div>
+              ) : (
+                <div className={cn("aspect-square flex flex-col items-center justify-between p-8 bg-gradient-to-br", selectedMeme.bgColor)}>
+                  {selectedMeme.topText && (
+                    <p className="text-xl sm:text-2xl font-bold text-foreground uppercase text-center font-mono tracking-wider" style={{ textShadow: "2px 2px 0 hsl(var(--background)), -1px -1px 0 hsl(var(--background))" }}>
+                      {selectedMeme.topText}
+                    </p>
+                  )}
+                  <div className="flex-1 flex items-center justify-center">
+                    <p className="text-sm text-center text-muted-foreground/60 font-mono italic px-4">{selectedMeme.prompt}</p>
+                  </div>
+                  {selectedMeme.bottomText && (
+                    <p className="text-xl sm:text-2xl font-bold text-foreground uppercase text-center font-mono tracking-wider" style={{ textShadow: "2px 2px 0 hsl(var(--background)), -1px -1px 0 hsl(var(--background))" }}>
+                      {selectedMeme.bottomText}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="px-3 py-1.5 border-t border-border/30 flex items-center justify-between">
                 <span className="text-[8px] font-mono text-muted-foreground/30">TANNER TERMINAL MEMES</span>
                 <span className="text-[8px] font-mono text-muted-foreground/30">{selectedMeme.style.toUpperCase()}</span>
@@ -341,7 +314,6 @@ export default function MemeGeneratorPage() {
             </div>
           )}
 
-          {/* History */}
           {memes.length > 1 && (
             <div className="terminal-panel p-3">
               <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider">Recent Memes</span>
@@ -351,11 +323,15 @@ export default function MemeGeneratorPage() {
                     key={m.id}
                     onClick={() => setSelectedMeme(m)}
                     className={cn(
-                      "aspect-square rounded border p-1.5 transition-colors flex flex-col items-center justify-center text-center",
+                      "aspect-square rounded border p-1.5 transition-colors flex flex-col items-center justify-center text-center overflow-hidden",
                       selectedMeme?.id === m.id ? "border-primary/40 bg-primary/5" : "border-border/30 bg-muted/10 hover:bg-muted/20"
                     )}
                   >
-                    <p className="text-[7px] font-mono text-foreground/60 line-clamp-2">{m.topText ?? m.prompt.slice(0, 20)}</p>
+                    {m.imageUrl ? (
+                      <img src={m.imageUrl} alt="" className="w-full h-full object-cover rounded" />
+                    ) : (
+                      <p className="text-[7px] font-mono text-foreground/60 line-clamp-2">{m.topText ?? m.prompt.slice(0, 20)}</p>
+                    )}
                   </button>
                 ))}
               </div>
@@ -364,7 +340,6 @@ export default function MemeGeneratorPage() {
         </div>
       </div>
 
-      {/* Hidden canvas for download */}
       <canvas ref={canvasRef} className="hidden" />
     </div>
   );
