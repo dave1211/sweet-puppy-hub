@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,12 +14,85 @@ const SYSTEM_PROGRAM = "11111111111111111111111111111111";
 const RENT_PROGRAM = "SysvarRent111111111111111111111111111111111";
 const TOKEN_METADATA_PROGRAM = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
 
+type Tier = "free" | "pro" | "elite";
+const TIER_SCORE: Record<Tier, number> = { free: 0, pro: 1, elite: 2 };
+const REQUIRED_TIER: Tier = "pro";
+
+async function requireAuth(req: Request): Promise<string | null> {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return null;
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } }
+  );
+
+  const token = authHeader.replace("Bearer ", "");
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims?.sub) return null;
+  return data.claims.sub as string;
+}
+
+function normalizeTier(value: unknown): Tier {
+  if (value === "elite") return "elite";
+  if (value === "pro") return "pro";
+  return "free";
+}
+
+async function resolveUserTier(userId: string): Promise<Tier> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) return "free";
+
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data: subscription } = await admin
+    .from("subscriptions")
+    .select("tier")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (subscription?.tier) return normalizeTier(subscription.tier);
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("tier")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return normalizeTier(profile?.tier);
+}
+
+function hasTier(userTier: Tier, requiredTier: Tier): boolean {
+  return TIER_SCORE[userTier] >= TIER_SCORE[requiredTier];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const userId = await requireAuth(req);
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const tier = await resolveUserTier(userId);
+    if (!hasTier(tier, REQUIRED_TIER)) {
+      return new Response(
+        JSON.stringify({ error: `Upgrade required: ${REQUIRED_TIER.toUpperCase()} tier needed` }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { action, ...params } = await req.json();
 
     if (action === "estimate") {
