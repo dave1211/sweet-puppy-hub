@@ -133,6 +133,8 @@ export default function SettingsPage() {
           </div>
         </PanelShell>
       ))}
+
+      <ReferralPanel />
     </div>
   );
 }
