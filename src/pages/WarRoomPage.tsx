@@ -187,6 +187,9 @@ export default function WarRoomPage() {
           <TabsTrigger value="insights" className="font-mono text-[10px]">INSIGHTS</TabsTrigger>
           <TabsTrigger value="funnel" className="font-mono text-[10px]">FUNNEL</TabsTrigger>
           <TabsTrigger value="advisor" className="font-mono text-[10px]">AI ADVISER</TabsTrigger>
+          <TabsTrigger value="invites" className="font-mono text-[10px]">
+            <Key className="h-3 w-3 mr-1" />INVITES
+          </TabsTrigger>
           <TabsTrigger value="controls" className="font-mono text-[10px]">
             <Power className="h-3 w-3 mr-1" />CONTROLS
           </TabsTrigger>
