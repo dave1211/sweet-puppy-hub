@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, BarChart3, Rocket, Crosshair, Wallet,
   Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings,
-  ChevronLeft, ChevronRight, Flame, Info, Sparkles, LogOut, Coins, Globe, Layers
+  ChevronLeft, ChevronRight, Flame, Info, Sparkles, LogOut, Coins, Globe, Layers,
+  Crown, Siren
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const NAV_SOLANA = [
   { label: "Portfolio", path: "/portfolio", icon: PieChart },
   { label: "Strategies", path: "/strategies", icon: Sliders },
   { label: "Launchpad", path: "/launchpad", icon: Flame },
+  { label: "Pricing", path: "/pricing", icon: Crown },
 ];
 
 const NAV_XRPL = [
@@ -35,6 +37,10 @@ const NAV_OTHER = [
   { label: "Meme Gen", path: "/memes", icon: Sparkles },
   { label: "About", path: "/about", icon: Info },
   { label: "Settings", path: "/settings", icon: Settings },
+];
+
+const NAV_ADMIN = [
+  { label: "War Room", path: "/war-room", icon: Siren },
 ];
 
 interface AppSidebarProps {
