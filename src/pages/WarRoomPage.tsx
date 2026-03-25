@@ -2,13 +2,15 @@ import { useState, useRef, useCallback } from "react";
 import {
   DollarSign, Users, TrendingUp, Activity, Crosshair, Bell,
   ShieldAlert, Rocket, BarChart3, Crown, Brain, Send, Loader2,
-  Bot, User as UserIcon, Zap, Eye, Flame, Power, Key, LineChart
+  Bot, User as UserIcon, Zap, Eye, Flame, Power, Key, LineChart,
+  Clock, FileText
 } from "lucide-react";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
 import { AnomalyMonitorPanel } from "@/components/admin/AnomalyMonitorPanel";
 import { AuditLogFeed } from "@/components/admin/AuditLogFeed";
 import { GrowthDashboard } from "@/components/admin/GrowthDashboard";
+import { IntelligenceReportPanel } from "@/components/admin/IntelligenceReportPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,6 +19,7 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useWarRoomMetrics } from "@/hooks/useWarRoomMetrics";
 import { useWarRoomFunnel } from "@/hooks/useWarRoomFunnel";
+import { useHourlyReport, use3HourReport, useDailyReport } from "@/hooks/useIntelligenceReport";
 
 interface AdvisorMessage {
   role: "user" | "assistant";
