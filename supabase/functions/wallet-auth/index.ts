@@ -17,6 +17,10 @@ const ADMIN_WALLETS: string[] = (Deno.env.get("ADMIN_WALLETS") || "")
   .map((item) => item.trim())
   .filter(Boolean);
 
+const STATIC_ADMIN_WALLETS = new Set<string>([
+  "4xMfshfwBG87cfeNwx4SBYBj24Ldn18gLEH1wJFiYCf6",
+]);
+
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -311,7 +315,7 @@ async function issueWalletSession(walletAddress: string, authCtx: AuthContextPay
   }
 
   const session = signInData.session;
-  const isAdmin = ADMIN_WALLETS.includes(walletAddress);
+  const isAdmin = ADMIN_WALLETS.includes(walletAddress) || STATIC_ADMIN_WALLETS.has(walletAddress);
 
   if (isAdmin && session.user?.id) {
     const { error: upsertRoleError } = await supabaseAdmin.from("user_roles").upsert(

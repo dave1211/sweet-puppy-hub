@@ -9,6 +9,9 @@ const corsHeaders = {
 
 const JUPITER_API = "https://lite-api.jup.ag/swap/v1";
 const SOL_MINT = "So11111111111111111111111111111111111111112";
+type Tier = "free" | "pro" | "elite";
+const TIER_SCORE: Record<Tier, number> = { free: 0, pro: 1, elite: 2 };
+const REQUIRED_TIER: Tier = "pro";
 
 async function requireAuth(req: Request) {
   const authHeader = req.headers.get("Authorization");
@@ -26,6 +29,43 @@ async function requireAuth(req: Request) {
   return data.claims.sub as string;
 }
 
+function normalizeTier(value: unknown): Tier {
+  if (value === "elite") return "elite";
+  if (value === "pro") return "pro";
+  return "free";
+}
+
+async function resolveUserTier(userId: string): Promise<Tier> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) return "free";
+
+  const admin = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data: subscription } = await admin
+    .from("subscriptions")
+    .select("tier")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (subscription?.tier) return normalizeTier(subscription.tier);
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("tier")
+    .eq("id", userId)
+    .maybeSingle();
+
+  return normalizeTier(profile?.tier);
+}
+
+function hasTier(userTier: Tier, requiredTier: Tier): boolean {
+  return TIER_SCORE[userTier] >= TIER_SCORE[requiredTier];
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -37,6 +77,14 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const tier = await resolveUserTier(userId);
+    if (!hasTier(tier, REQUIRED_TIER)) {
+      return new Response(
+        JSON.stringify({ error: `Upgrade required: ${REQUIRED_TIER.toUpperCase()} tier needed` }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
