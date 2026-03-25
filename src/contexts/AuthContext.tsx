@@ -104,9 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: new Error("Email signup is disabled. Use Phantom wallet authentication.") };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? new Error(error.message) : null };
+  const signIn = async (_email: string, _password: string) => {
+    return { error: new Error("Email login is disabled. Use Phantom wallet authentication.") };
   };
 
   const signInWithWallet = async (
