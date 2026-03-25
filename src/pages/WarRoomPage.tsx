@@ -174,6 +174,9 @@ export default function WarRoomPage() {
           <TabsTrigger value="audit" className="font-mono text-[10px]">
             <BarChart3 className="h-3 w-3 mr-1" />AUDIT LOG
           </TabsTrigger>
+          <TabsTrigger value="growth" className="font-mono text-[10px]">
+            <LineChart className="h-3 w-3 mr-1" />GROWTH
+          </TabsTrigger>
         </TabsList>
 
         {/* Insights */}
