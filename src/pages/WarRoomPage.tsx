@@ -36,6 +36,9 @@ const INSIGHTS = [
 export default function WarRoomPage() {
   const { data: metrics, isLoading: metricsLoading } = useWarRoomMetrics();
   const { data: funnel, isLoading: funnelLoading } = useWarRoomFunnel();
+  const { data: hourlyReport, isLoading: hourlyLoading } = useHourlyReport();
+  const { data: threeHourReport, isLoading: threeHourLoading } = use3HourReport();
+  const { data: dailyReport, isLoading: dailyLoading } = useDailyReport();
 
   const [advisorMessages, setAdvisorMessages] = useState<AdvisorMessage[]>([
     { role: "assistant", content: "Welcome to the **War Room**, commander. I'm your strategic AI adviser. Ask me about revenue, growth, user behavior, or system health." },
@@ -160,8 +163,17 @@ export default function WarRoomPage() {
         ))}
       </div>
 
-      <Tabs defaultValue="insights" className="space-y-3">
-        <TabsList className="bg-muted/30 border border-border">
+      <Tabs defaultValue="hourly" className="space-y-3">
+        <TabsList className="bg-muted/30 border border-border flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="hourly" className="font-mono text-[10px]">
+            <Clock className="h-3 w-3 mr-1" />HOURLY
+          </TabsTrigger>
+          <TabsTrigger value="3hour" className="font-mono text-[10px]">
+            <FileText className="h-3 w-3 mr-1" />3-HOUR INTEL
+          </TabsTrigger>
+          <TabsTrigger value="daily" className="font-mono text-[10px]">
+            <TrendingUp className="h-3 w-3 mr-1" />DAILY
+          </TabsTrigger>
           <TabsTrigger value="insights" className="font-mono text-[10px]">INSIGHTS</TabsTrigger>
           <TabsTrigger value="funnel" className="font-mono text-[10px]">FUNNEL</TabsTrigger>
           <TabsTrigger value="advisor" className="font-mono text-[10px]">AI ADVISER</TabsTrigger>
@@ -181,6 +193,35 @@ export default function WarRoomPage() {
             <LineChart className="h-3 w-3 mr-1" />GROWTH
           </TabsTrigger>
         </TabsList>
+
+        {/* Intelligence Reports */}
+        <TabsContent value="hourly">
+          <IntelligenceReportPanel
+            report={hourlyReport}
+            isLoading={hourlyLoading}
+            icon={<Clock className="h-4 w-4 text-terminal-cyan" />}
+            title="HOURLY REPORT"
+            accentColor="text-terminal-cyan"
+          />
+        </TabsContent>
+        <TabsContent value="3hour">
+          <IntelligenceReportPanel
+            report={threeHourReport}
+            isLoading={threeHourLoading}
+            icon={<FileText className="h-4 w-4 text-terminal-amber" />}
+            title="3-HOUR INTELLIGENCE"
+            accentColor="text-terminal-amber"
+          />
+        </TabsContent>
+        <TabsContent value="daily">
+          <IntelligenceReportPanel
+            report={dailyReport}
+            isLoading={dailyLoading}
+            icon={<TrendingUp className="h-4 w-4 text-terminal-green" />}
+            title="DAILY SUMMARY"
+            accentColor="text-terminal-green"
+          />
+        </TabsContent>
 
         {/* Insights */}
         <TabsContent value="insights" className="space-y-2">
