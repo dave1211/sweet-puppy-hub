@@ -104,6 +104,57 @@ export type Database = {
         }
         Relationships: []
       }
+      anomaly_events: {
+        Row: {
+          actor_id: string | null
+          actor_type: string | null
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          target_id: string | null
+          target_type: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type?: string | null
+          created_at?: string
+          description?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string | null
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          target_id?: string | null
+          target_type?: string | null
+        }
+        Relationships: []
+      }
       audit_logs: {
         Row: {
           action: string
@@ -209,6 +260,48 @@ export type Database = {
           metadata?: Json | null
           min_tier?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      invite_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          created_by: string | null
+          current_uses: number
+          expires_at: string | null
+          id: string
+          max_uses: number
+          metadata: Json | null
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          expires_at?: string | null
+          id?: string
+          max_uses?: number
+          metadata?: Json | null
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          current_uses?: number
+          expires_at?: string | null
+          id?: string
+          max_uses?: number
+          metadata?: Json | null
+          used_at?: string | null
+          used_by?: string | null
         }
         Relationships: []
       }
