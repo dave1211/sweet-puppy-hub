@@ -25,12 +25,19 @@ interface ChallengePayload {
   walletAddress: string;
   nonce: string;
   expiresAt: number;
+  deviceId: string;
 }
 
 interface ParsedSignInMessage {
   walletAddress: string;
   nonce: string;
   timestamp: number;
+}
+
+interface AuthContextPayload {
+  deviceId: string;
+  host: string;
+  userAgent: string;
 }
 
 type SupabaseAdminClient = ReturnType<typeof createClient>;
@@ -75,6 +82,18 @@ function normalizeWalletAddress(walletAddress: string): string {
 
 function isValidWalletAddress(walletAddress: string): boolean {
   return walletAddress.length >= 32 && walletAddress.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(walletAddress);
+}
+
+function normalizeDeviceId(deviceId: string): string {
+  return deviceId.trim();
+}
+
+function isValidDeviceId(deviceId: string): boolean {
+  return deviceId.length >= 8 && deviceId.length <= 128 && /^[a-zA-Z0-9_-]+$/.test(deviceId);
+}
+
+function normalizeHost(host: string): string {
+  return host.trim().slice(0, 255);
 }
 
 function randomNonce(): string {
@@ -147,7 +166,8 @@ async function verifyChallengeToken(token: string, secret: string): Promise<Chal
       !payload ||
       typeof payload.walletAddress !== "string" ||
       typeof payload.nonce !== "string" ||
-      typeof payload.expiresAt !== "number"
+      typeof payload.expiresAt !== "number" ||
+      typeof payload.deviceId !== "string"
     ) {
       return null;
     }
@@ -156,6 +176,7 @@ async function verifyChallengeToken(token: string, secret: string): Promise<Chal
       walletAddress: payload.walletAddress,
       nonce: payload.nonce,
       expiresAt: payload.expiresAt,
+      deviceId: payload.deviceId,
     };
   } catch {
     return null;
@@ -211,12 +232,34 @@ async function findUserByEmail(supabaseAdmin: SupabaseAdminClient, email: string
   return null;
 }
 
-async function issueWalletSession(walletAddress: string): Promise<Response> {
+async function logAuthEvent(
+  eventType: string,
+  eventData: Record<string, unknown>,
+  userId?: string | null,
+  sessionId?: string | null,
+): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRole) return;
+
+  try {
+    const admin = createClient(supabaseUrl, serviceRole);
+    await admin.from("usage_events").insert({
+      event_type: eventType,
+      event_data: eventData,
+      user_id: userId ?? null,
+      session_id: sessionId ?? null,
+    });
+  } catch (error) {
+    console.error("[wallet-auth] log event failed", { eventType, error });
+  }
+}
+
+async function issueWalletSession(walletAddress: string, authCtx: AuthContextPayload): Promise<Response> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
   if (!supabaseUrl || !serviceRole) {
-    console.error("[wallet-auth] missing backend configuration");
     return errorResponse(500, "CONFIGURATION_ERROR", "Authentication backend is not configured");
   }
 
@@ -232,11 +275,14 @@ async function issueWalletSession(walletAddress: string): Promise<Response> {
       user_metadata: {
         ...(existingUser.user_metadata ?? {}),
         wallet_address: walletAddress,
+        last_device_id: authCtx.deviceId,
+        last_auth_host: authCtx.host,
+        last_auth_user_agent: authCtx.userAgent,
       },
     });
 
     if (updateUserError) {
-      console.error("[wallet-auth] updateUser error", updateUserError);
+      await logAuthEvent("wallet_auth_failed", { code: "AUTH_UPDATE_FAILED", walletAddress, host: authCtx.host }, null, authCtx.deviceId);
       return errorResponse(500, "AUTH_UPDATE_FAILED", "Authentication system unavailable");
     }
   } else {
@@ -244,18 +290,23 @@ async function issueWalletSession(walletAddress: string): Promise<Response> {
       email,
       password,
       email_confirm: true,
-      user_metadata: { wallet_address: walletAddress },
+      user_metadata: {
+        wallet_address: walletAddress,
+        last_device_id: authCtx.deviceId,
+        last_auth_host: authCtx.host,
+        last_auth_user_agent: authCtx.userAgent,
+      },
     });
 
     if (createError || !newUser?.user?.id) {
-      console.error("[wallet-auth] createUser error", createError);
+      await logAuthEvent("wallet_auth_failed", { code: "AUTH_CREATE_FAILED", walletAddress, host: authCtx.host }, null, authCtx.deviceId);
       return errorResponse(500, "AUTH_CREATE_FAILED", "Failed to create wallet account");
     }
   }
 
   const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({ email, password });
   if (signInError || !signInData?.session) {
-    console.error("[wallet-auth] signInWithPassword error", signInError);
+    await logAuthEvent("wallet_auth_failed", { code: "AUTH_FAILED", walletAddress, host: authCtx.host }, null, authCtx.deviceId);
     return errorResponse(401, "AUTH_FAILED", "Failed to authenticate wallet");
   }
 
@@ -273,12 +324,20 @@ async function issueWalletSession(walletAddress: string): Promise<Response> {
     );
 
     if (upsertRoleError) {
-      console.error("[wallet-auth] upsert admin role error", upsertRoleError);
+      await logAuthEvent("wallet_auth_failed", { code: "ROLE_ASSIGN_FAILED", walletAddress, host: authCtx.host }, session.user.id, authCtx.deviceId);
       return errorResponse(500, "ROLE_ASSIGN_FAILED", "Failed to assign wallet role");
     }
   }
 
-  console.info("[wallet-auth] verify success", { walletAddress, userId: session.user.id });
+  await logAuthEvent(
+    "wallet_auth_success",
+    {
+      walletAddress,
+      host: authCtx.host,
+    },
+    session.user.id,
+    authCtx.deviceId,
+  );
 
   return successResponse({
     session: {
@@ -314,15 +373,29 @@ Deno.serve(async (req) => {
       return errorResponse(500, "CONFIGURATION_ERROR", "Wallet auth secret is not configured");
     }
 
+    if (action === "blocked_redirect") {
+      const deviceId = normalizeDeviceId(typeof body.deviceId === "string" ? body.deviceId : "");
+      const host = normalizeHost(typeof body.host === "string" ? body.host : "");
+      const reason = typeof body.reason === "string" ? body.reason : "unknown";
+      await logAuthEvent("blocked_redirect_attempt", { reason, host }, null, deviceId || null);
+      return successResponse({ logged: true });
+    }
+
     if (action === "challenge") {
       const walletAddressRaw = typeof body.walletAddress === "string" ? body.walletAddress : "";
       const walletAddress = normalizeWalletAddress(walletAddressRaw);
+      const deviceId = normalizeDeviceId(typeof body.deviceId === "string" ? body.deviceId : "");
 
       if (!isValidWalletAddress(walletAddress)) {
         return errorResponse(400, "INVALID_WALLET", "Invalid wallet address");
       }
 
-      if (!checkRateLimit(`challenge:${walletAddress}`)) {
+      if (!isValidDeviceId(deviceId)) {
+        return errorResponse(400, "INVALID_DEVICE", "Invalid device identifier");
+      }
+
+      if (!checkRateLimit(`challenge:${walletAddress}:${deviceId}`)) {
+        await logAuthEvent("wallet_auth_failed", { code: "RATE_LIMITED_CHALLENGE", walletAddress }, null, deviceId);
         return errorResponse(429, "RATE_LIMITED", "Too many challenge requests. Try again later.");
       }
 
@@ -333,11 +406,10 @@ Deno.serve(async (req) => {
           walletAddress,
           nonce,
           expiresAt,
+          deviceId,
         },
         challengeSecret,
       );
-
-      console.info("[wallet-auth] challenge issued", { walletAddress, expiresAt });
 
       return successResponse({
         walletAddress,
@@ -353,52 +425,71 @@ Deno.serve(async (req) => {
       const message = typeof body.message === "string" ? body.message : "";
       const challengeToken = typeof body.challengeToken === "string" ? body.challengeToken.trim() : "";
       const walletAddress = normalizeWalletAddress(walletAddressRaw);
+      const deviceId = normalizeDeviceId(typeof body.deviceId === "string" ? body.deviceId : "");
+      const host = normalizeHost(typeof body.host === "string" ? body.host : "");
+      const userAgent = typeof body.userAgent === "string" ? body.userAgent.slice(0, 512) : "unknown";
+
+      const fail = async (status: number, code: string, messageText: string, invalidSig = false) => {
+        if (invalidSig) {
+          await logAuthEvent("invalid_signature_attempt", { code, walletAddress, host }, null, deviceId || null);
+        }
+        await logAuthEvent("wallet_auth_failed", { code, walletAddress, host }, null, deviceId || null);
+        return errorResponse(status, code, messageText);
+      };
 
       if (!isValidWalletAddress(walletAddress)) {
-        return errorResponse(400, "INVALID_WALLET", "Invalid wallet address");
+        return await fail(400, "INVALID_WALLET", "Invalid wallet address");
+      }
+
+      if (!isValidDeviceId(deviceId)) {
+        return await fail(400, "INVALID_DEVICE", "Invalid device identifier");
       }
 
       if (!signature || signature.length < 64 || signature.length > 256) {
-        return errorResponse(400, "INVALID_SIGNATURE", "Invalid signature");
+        return await fail(400, "INVALID_SIGNATURE", "Invalid signature", true);
       }
 
       if (!message || message.length < 10 || message.length > 1024) {
-        return errorResponse(400, "INVALID_MESSAGE", "Invalid sign-in message");
+        return await fail(400, "INVALID_MESSAGE", "Invalid sign-in message");
       }
 
       if (!challengeToken) {
-        return errorResponse(400, "MISSING_CHALLENGE", "Missing challenge token");
+        return await fail(400, "MISSING_CHALLENGE", "Missing challenge token");
       }
 
-      if (!checkRateLimit(`verify:${walletAddress}`)) {
-        return errorResponse(429, "RATE_LIMITED", "Too many verification attempts. Try again later.");
+      if (!checkRateLimit(`verify:${walletAddress}:${deviceId}`)) {
+        return await fail(429, "RATE_LIMITED", "Too many verification attempts. Try again later.");
       }
 
       const challengePayload = await verifyChallengeToken(challengeToken, challengeSecret);
       if (!challengePayload) {
-        return errorResponse(401, "INVALID_CHALLENGE", "Challenge token is invalid or tampered");
+        return await fail(401, "INVALID_CHALLENGE", "Challenge token is invalid or tampered");
       }
 
       if (challengePayload.expiresAt < Date.now()) {
-        return errorResponse(401, "EXPIRED_CHALLENGE", "Challenge token expired");
+        return await fail(401, "EXPIRED_CHALLENGE", "Challenge token expired");
       }
 
       const parsedMessage = parseSignInMessage(message);
       if (!parsedMessage) {
-        return errorResponse(400, "INVALID_MESSAGE_FORMAT", "Invalid sign-in message format");
+        return await fail(400, "INVALID_MESSAGE_FORMAT", "Invalid sign-in message format");
       }
 
       if (parsedMessage.walletAddress !== walletAddress || challengePayload.walletAddress !== walletAddress) {
-        return errorResponse(401, "WALLET_MISMATCH", "Wallet mismatch in sign-in request");
+        return await fail(401, "WALLET_MISMATCH", "Wallet mismatch in sign-in request");
       }
 
       if (parsedMessage.nonce !== challengePayload.nonce) {
-        return errorResponse(401, "NONCE_MISMATCH", "Nonce mismatch in sign-in request");
+        return await fail(401, "NONCE_MISMATCH", "Nonce mismatch in sign-in request");
+      }
+
+      if (challengePayload.deviceId !== deviceId) {
+        return await fail(401, "DEVICE_MISMATCH", "Device mismatch in sign-in request");
       }
 
       const now = Date.now();
       if (Math.abs(now - parsedMessage.timestamp) > CHALLENGE_TTL_MS) {
-        return errorResponse(401, "MESSAGE_EXPIRED", "Signed message expired");
+        return await fail(401, "MESSAGE_EXPIRED", "Signed message expired");
       }
 
       let signatureBytes: Uint8Array;
@@ -408,16 +499,16 @@ Deno.serve(async (req) => {
         signatureBytes = bs58.decode(signature);
         publicKeyBytes = bs58.decode(walletAddress);
       } catch {
-        return errorResponse(400, "INVALID_SIGNATURE_ENCODING", "Signature or wallet encoding is invalid");
+        return await fail(400, "INVALID_SIGNATURE_ENCODING", "Signature or wallet encoding is invalid", true);
       }
 
       const messageBytes = new TextEncoder().encode(message);
       const signatureValid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes);
       if (!signatureValid) {
-        return errorResponse(401, "SIGNATURE_VERIFICATION_FAILED", "Signature verification failed");
+        return await fail(401, "SIGNATURE_VERIFICATION_FAILED", "Signature verification failed", true);
       }
 
-      return await issueWalletSession(walletAddress);
+      return await issueWalletSession(walletAddress, { deviceId, host, userAgent });
     }
 
     return errorResponse(400, "INVALID_ACTION", "Invalid action. Use challenge or verify.");

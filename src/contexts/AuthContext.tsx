@@ -15,7 +15,8 @@ interface AuthContextType {
     walletAddress: string,
     signature: string,
     message: string,
-    challengeToken: string
+    challengeToken: string,
+    deviceId?: string
   ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
@@ -70,8 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Set up listener FIRST — it fires INITIAL_SESSION on subscribe,
-    // so we don't need a separate getSession() call (avoids race).
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.info("[Auth] onAuthStateChange", { event, userId: session?.user?.id ?? null });
@@ -79,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         setIsLoading(false);
         if (session?.user?.id) {
-          // Defer admin check to avoid Supabase deadlock in callback
           setTimeout(() => checkAdmin(session.user.id), 0);
         } else {
           setIsAdmin(false);
@@ -87,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Fallback: if INITIAL_SESSION doesn't fire within 3s, force ready state
     const timeout = setTimeout(() => {
       setIsLoading((prev) => {
         if (prev) {
@@ -103,25 +100,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
-    return { error: error ? new Error(error.message) : null };
+  const signUp = async (_email: string, _password: string) => {
+    return { error: new Error("Email signup is disabled. Use Phantom wallet authentication.") };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ? new Error(error.message) : null };
+  const signIn = async (_email: string, _password: string) => {
+    return { error: new Error("Email login is disabled. Use Phantom wallet authentication.") };
   };
 
   const signInWithWallet = async (
     walletAddress: string,
     signature: string,
     message: string,
-    challengeToken: string
+    challengeToken: string,
+    deviceId?: string
   ) => {
     try {
-      console.info("[WalletAuth] verify request", { walletAddress });
-
       if (!walletAuthKey) {
         return { error: new Error("Wallet auth key is missing") };
       }
@@ -139,6 +133,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           signature,
           message,
           challengeToken,
+          deviceId,
+          host: window.location.hostname,
+          userAgent: navigator.userAgent,
         }),
       });
 
@@ -146,27 +143,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         payload = (await response.json()) as WalletAuthResponse;
       } catch {
-        console.error("[WalletAuth] verify invalid json", {
-          walletAddress,
-          status: response.status,
-        });
         return { error: new Error("Wallet auth returned invalid response") };
       }
 
-      console.info("[WalletAuth] verify response", {
-        walletAddress,
-        status: response.status,
-        ok: response.ok,
-        payloadOk: Boolean(payload && payload.ok),
-      });
-
       if (!response.ok || !payload || !payload.ok || !payload.data?.session) {
         const messageFromPayload = payload && "error" in payload ? payload.error?.message : undefined;
-        console.error("[WalletAuth] verify logical failure", {
-          walletAddress,
-          status: response.status,
-          payload,
-        });
         return { error: new Error(messageFromPayload || "Wallet auth failed") };
       }
 
@@ -181,21 +162,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (setErr) {
-        console.error("[WalletAuth] session set failure", {
-          walletAddress,
-          message: setErr.message,
-        });
         return { error: new Error(setErr.message) };
       }
 
-      console.info("[WalletAuth] session success", { walletAddress });
       return { error: null };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Wallet auth failed";
-      console.error("[WalletAuth] verify unexpected failure", {
-        walletAddress,
-        error: msg,
-      });
       return { error: new Error(msg) };
     }
   };
