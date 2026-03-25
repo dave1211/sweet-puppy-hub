@@ -167,6 +167,12 @@ export default function WarRoomPage() {
           <TabsTrigger value="controls" className="font-mono text-[10px]">
             <Power className="h-3 w-3 mr-1" />CONTROLS
           </TabsTrigger>
+          <TabsTrigger value="anomalies" className="font-mono text-[10px]">
+            <ShieldAlert className="h-3 w-3 mr-1" />ANOMALIES
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="font-mono text-[10px]">
+            <BarChart3 className="h-3 w-3 mr-1" />AUDIT LOG
+          </TabsTrigger>
         </TabsList>
 
         {/* Insights */}
