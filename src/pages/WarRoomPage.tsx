@@ -2,9 +2,10 @@ import { useState, useRef, useCallback } from "react";
 import {
   DollarSign, Users, TrendingUp, Activity, Crosshair, Bell,
   ShieldAlert, Rocket, BarChart3, Crown, Brain, Send, Loader2,
-  Bot, User as UserIcon, Zap, Eye, Flame, Power
+  Bot, User as UserIcon, Zap, Eye, Flame, Power, Key
 } from "lucide-react";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
+import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -186,6 +187,9 @@ export default function WarRoomPage() {
           <TabsTrigger value="insights" className="font-mono text-[10px]">INSIGHTS</TabsTrigger>
           <TabsTrigger value="funnel" className="font-mono text-[10px]">FUNNEL</TabsTrigger>
           <TabsTrigger value="advisor" className="font-mono text-[10px]">AI ADVISER</TabsTrigger>
+          <TabsTrigger value="invites" className="font-mono text-[10px]">
+            <Key className="h-3 w-3 mr-1" />INVITES
+          </TabsTrigger>
           <TabsTrigger value="controls" className="font-mono text-[10px]">
             <Power className="h-3 w-3 mr-1" />CONTROLS
           </TabsTrigger>
@@ -295,6 +299,20 @@ export default function WarRoomPage() {
                   </button>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Invite Codes */}
+        <TabsContent value="invites">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <Key className="h-4 w-4 text-terminal-amber" /> INVITE CODES
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <InviteCodeManager />
             </CardContent>
           </Card>
         </TabsContent>
