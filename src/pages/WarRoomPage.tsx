@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
+import { AnomalyMonitorPanel } from "@/components/admin/AnomalyMonitorPanel";
+import { AuditLogFeed } from "@/components/admin/AuditLogFeed";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -165,6 +167,12 @@ export default function WarRoomPage() {
           <TabsTrigger value="controls" className="font-mono text-[10px]">
             <Power className="h-3 w-3 mr-1" />CONTROLS
           </TabsTrigger>
+          <TabsTrigger value="anomalies" className="font-mono text-[10px]">
+            <ShieldAlert className="h-3 w-3 mr-1" />ANOMALIES
+          </TabsTrigger>
+          <TabsTrigger value="audit" className="font-mono text-[10px]">
+            <BarChart3 className="h-3 w-3 mr-1" />AUDIT LOG
+          </TabsTrigger>
         </TabsList>
 
         {/* Insights */}
@@ -301,6 +309,34 @@ export default function WarRoomPage() {
             </CardHeader>
             <CardContent>
               <KillSwitchPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Anomaly Monitor */}
+        <TabsContent value="anomalies">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-terminal-amber" /> ANOMALY MONITOR
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AnomalyMonitorPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Audit Log */}
+        <TabsContent value="audit">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-terminal-cyan" /> AUDIT LOG
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AuditLogFeed />
             </CardContent>
           </Card>
         </TabsContent>
