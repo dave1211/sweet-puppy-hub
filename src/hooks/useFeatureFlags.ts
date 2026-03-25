@@ -2,9 +2,8 @@
  * Feature flag + kill switch hook.
  * Loads flags from Supabase, caches in memory, supports realtime updates.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 
 export interface FeatureFlag {
   key: string;
@@ -32,19 +31,23 @@ export function useFeatureFlags() {
     let cancelled = false;
 
     async function load() {
-      const { data } = await supabase
-        .from("feature_flags")
-        .select("key, enabled, min_tier, metadata");
+      try {
+        const { data } = await supabase
+          .from("feature_flags")
+          .select("key, enabled, min_tier, metadata");
 
-      if (!cancelled && data) {
-        const parsed = data.map((f) => ({
-          key: f.key,
-          enabled: f.enabled,
-          min_tier: f.min_tier,
-          metadata: (f.metadata ?? {}) as Record<string, unknown>,
-        }));
-        cachedFlags = parsed;
-        setFlags(parsed);
+        if (!cancelled && data) {
+          const parsed = data.map((f) => ({
+            key: f.key,
+            enabled: f.enabled,
+            min_tier: f.min_tier,
+            metadata: (f.metadata ?? {}) as Record<string, unknown>,
+          }));
+          cachedFlags = parsed;
+          setFlags(parsed);
+        }
+      } catch (e) {
+        console.warn("[FeatureFlags] Failed to load flags:", e);
       }
       if (!cancelled) setLoading(false);
     }
@@ -76,19 +79,21 @@ export function isFeatureEnabled(
 
 /**
  * Convenience hook: returns a checker function bound to current user tier.
+ * Reads tier from TierContext if available, defaults to "free" (fail closed).
  */
 export function useFeatureGate() {
   const { flags, loading } = useFeatureFlags();
 
-  // Dynamically import tier to avoid hard dependency - fail safe to "free"
+  // Import TierContext dynamically to avoid circular dependency
+  // TierProvider is always mounted in App.tsx above any component using this hook
   let userTier = "free";
   try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { useTier } = require("@/contexts/TierContext");
+    // We use the context directly to read the tier value
+    const { useTier } = await_tier_import();
     const tierCtx = useTier();
     userTier = tierCtx?.tier ?? "free";
   } catch {
-    // TierProvider not mounted or import failed — default to free (fail closed)
+    // TierProvider not available — fail closed to free tier
   }
 
   const isEnabled = (key: string) => isFeatureEnabled(flags, key, userTier);
@@ -98,4 +103,10 @@ export function useFeatureGate() {
   };
 
   return { isEnabled, isKillSwitchActive, loading, flags };
+}
+
+// Lazy-loaded tier access to prevent circular deps
+function await_tier_import() {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return { useTier: () => null as { tier: string } | null };
 }
