@@ -79,7 +79,7 @@ function AppInner() {
                   <Route path="/pricing" element={<Pricing />} />
 
                   {/* Protected app shell */}
-                  <Route path="/" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+                  <Route path="/" element={<ProtectedRoute><AlphaGate><AppShell /></AlphaGate></ProtectedRoute>}>
                     <Route index element={<DashboardHome />} />
                     <Route path="live-pairs" element={<LivePairsPage />} />
                     <Route path="new-launches" element={<NewLaunchesPage />} />
