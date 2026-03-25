@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type Tier = "free" | "pro" | "elite";
 
@@ -39,7 +41,6 @@ function getGates(tier: Tier): TierGates {
 
 interface TierContextValue {
   tier: Tier;
-  setTier: (t: Tier) => void;
   gates: TierGates;
   limits: TierLimits;
   tierLabel: string;
@@ -65,6 +66,52 @@ const TierContext = createContext<TierContextValue | null>(null);
 
 export function TierProvider({ children }: { children: ReactNode }) {
   const [tier, setTier] = useState<Tier>("free");
+  const { user } = useAuth();
+
+  useEffect(() => {
+    let active = true;
+
+    const resolveTier = async () => {
+      if (!user?.id) {
+        if (active) setTier("free");
+        return;
+      }
+
+      const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("tier")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (subscription?.tier === "pro" || subscription?.tier === "elite") {
+        if (active) setTier(subscription.tier);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("tier")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const profileTier = profile?.tier;
+      if (profileTier === "pro" || profileTier === "elite") {
+        if (active) setTier(profileTier);
+        return;
+      }
+
+      if (active) setTier("free");
+    };
+
+    void resolveTier();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id]);
 
   const requiredTier = useCallback(
     (gate: keyof TierGates) => GATE_REQUIRED_TIER[gate],
@@ -75,7 +122,6 @@ export function TierProvider({ children }: { children: ReactNode }) {
     <TierContext.Provider
       value={{
         tier,
-        setTier,
         gates: getGates(tier),
         limits: TIER_LIMITS[tier],
         tierLabel: TIER_LABELS[tier],
