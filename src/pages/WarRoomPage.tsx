@@ -2,12 +2,13 @@ import { useState, useRef, useCallback } from "react";
 import {
   DollarSign, Users, TrendingUp, Activity, Crosshair, Bell,
   ShieldAlert, Rocket, BarChart3, Crown, Brain, Send, Loader2,
-  Bot, User as UserIcon, Zap, Eye, Flame, Power, Key
+  Bot, User as UserIcon, Zap, Eye, Flame, Power, Key, LineChart
 } from "lucide-react";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
 import { AnomalyMonitorPanel } from "@/components/admin/AnomalyMonitorPanel";
 import { AuditLogFeed } from "@/components/admin/AuditLogFeed";
+import { GrowthDashboard } from "@/components/admin/GrowthDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -173,6 +174,9 @@ export default function WarRoomPage() {
           <TabsTrigger value="audit" className="font-mono text-[10px]">
             <BarChart3 className="h-3 w-3 mr-1" />AUDIT LOG
           </TabsTrigger>
+          <TabsTrigger value="growth" className="font-mono text-[10px]">
+            <LineChart className="h-3 w-3 mr-1" />GROWTH
+          </TabsTrigger>
         </TabsList>
 
         {/* Insights */}
@@ -337,6 +341,20 @@ export default function WarRoomPage() {
             </CardHeader>
             <CardContent>
               <AuditLogFeed />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Growth Dashboard */}
+        <TabsContent value="growth">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <LineChart className="h-4 w-4 text-primary" /> GROWTH METRICS
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GrowthDashboard />
             </CardContent>
           </Card>
         </TabsContent>

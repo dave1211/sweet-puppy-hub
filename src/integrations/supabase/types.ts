@@ -263,6 +263,48 @@ export type Database = {
         }
         Relationships: []
       }
+      growth_metrics: {
+        Row: {
+          active_users: number | null
+          churn: number | null
+          created_at: string | null
+          date: string
+          dau_over_mau: number | null
+          id: string
+          referral_signups: number | null
+          revenue_usd: number | null
+          signups: number | null
+          upgrades: number | null
+          wallet_connects: number | null
+        }
+        Insert: {
+          active_users?: number | null
+          churn?: number | null
+          created_at?: string | null
+          date: string
+          dau_over_mau?: number | null
+          id?: string
+          referral_signups?: number | null
+          revenue_usd?: number | null
+          signups?: number | null
+          upgrades?: number | null
+          wallet_connects?: number | null
+        }
+        Update: {
+          active_users?: number | null
+          churn?: number | null
+          created_at?: string | null
+          date?: string
+          dau_over_mau?: number | null
+          id?: string
+          referral_signups?: number | null
+          revenue_usd?: number | null
+          signups?: number | null
+          upgrades?: number | null
+          wallet_connects?: number | null
+        }
+        Relationships: []
+      }
       invite_codes: {
         Row: {
           active: boolean
@@ -484,6 +526,36 @@ export type Database = {
           tier?: string
           updated_at?: string
           wallet_address?: string | null
+        }
+        Relationships: []
+      }
+      referral_invites: {
+        Row: {
+          created_at: string | null
+          id: string
+          invite_code: string
+          inviter_id: string
+          tier: string | null
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          invite_code: string
+          inviter_id: string
+          tier?: string | null
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          invite_code?: string
+          inviter_id?: string
+          tier?: string | null
+          used_at?: string | null
+          used_by?: string | null
         }
         Relationships: []
       }
