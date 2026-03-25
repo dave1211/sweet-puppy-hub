@@ -9,38 +9,16 @@ import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
-
-// Mock metrics — replace with real Supabase queries
-const METRICS = {
-  revenue: { total: "$12,847", change: "+18.3%", period: "30d" },
-  users: { total: "2,341", change: "+124", period: "7d" },
-  activeUsers: { total: "892", change: "+12%", period: "24h" },
-  launches: { total: "47", change: "+8", period: "7d" },
-  sniperUsage: { total: "1,204", change: "+34%", period: "7d" },
-  alertsFired: { total: "3,891", change: "+22%", period: "7d" },
-  conversionRate: { total: "4.2%", change: "+0.3%", period: "30d" },
-  churnRate: { total: "2.1%", change: "-0.4%", period: "30d" },
-};
+import { useWarRoomMetrics } from "@/hooks/useWarRoomMetrics";
+import { useWarRoomFunnel } from "@/hooks/useWarRoomFunnel";
 
 interface AdvisorMessage {
   role: "user" | "assistant";
   content: string;
 }
-
-const ADVISOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-advisor`;
-
-const STAT_CARDS = [
-  { icon: DollarSign, label: "Revenue", value: METRICS.revenue.total, change: METRICS.revenue.change, color: "text-terminal-green" },
-  { icon: Users, label: "Total Users", value: METRICS.users.total, change: METRICS.users.change, color: "text-terminal-cyan" },
-  { icon: Activity, label: "Active (24h)", value: METRICS.activeUsers.total, change: METRICS.activeUsers.change, color: "text-primary" },
-  { icon: Crosshair, label: "Sniper Uses", value: METRICS.sniperUsage.total, change: METRICS.sniperUsage.change, color: "text-terminal-amber" },
-  { icon: Rocket, label: "Launches", value: METRICS.launches.total, change: METRICS.launches.change, color: "text-terminal-green" },
-  { icon: Bell, label: "Alerts Fired", value: METRICS.alertsFired.total, change: METRICS.alertsFired.change, color: "text-primary" },
-  { icon: TrendingUp, label: "Conversion", value: METRICS.conversionRate.total, change: METRICS.conversionRate.change, color: "text-terminal-green" },
-  { icon: ShieldAlert, label: "Churn Rate", value: METRICS.churnRate.total, change: METRICS.churnRate.change, color: "text-terminal-red" },
-];
 
 const INSIGHTS = [
   { type: "revenue", title: "Pro upgrades spiked after sniper launch", desc: "32 new Pro subs in the last 48h — directly correlated with Sniper Mode usage.", icon: Crown, color: "text-terminal-green" },
@@ -49,17 +27,10 @@ const INSIGHTS = [
   { type: "opportunity", title: "Elite tier underperforming", desc: "Only 3% of Pro users upgrade to Elite. Consider adding an exclusive feature or trial.", icon: Zap, color: "text-terminal-amber" },
 ];
 
-const FUNNEL = [
-  { stage: "Visitors", count: 12450, pct: 100 },
-  { stage: "Sign Ups", count: 2341, pct: 18.8 },
-  { stage: "Wallet Connected", count: 1892, pct: 15.2 },
-  { stage: "First Signal Viewed", count: 1204, pct: 9.7 },
-  { stage: "Pro Upgrade", count: 312, pct: 2.5 },
-  { stage: "Elite Upgrade", count: 47, pct: 0.4 },
-];
-
 export default function WarRoomPage() {
-  const [timeFilter, setTimeFilter] = useState<"24h" | "7d" | "30d">("7d");
+  const { data: metrics, isLoading: metricsLoading } = useWarRoomMetrics();
+  const { data: funnel, isLoading: funnelLoading } = useWarRoomFunnel();
+
   const [advisorMessages, setAdvisorMessages] = useState<AdvisorMessage[]>([
     { role: "assistant", content: "Welcome to the **War Room**, commander. I'm your strategic AI adviser. Ask me about revenue, growth, user behavior, or system health." },
   ]);
@@ -77,7 +48,6 @@ export default function WarRoomPage() {
     setAdvisorMessages(all);
     setAdvisorStreaming(true);
 
-    // Use the same AI chat endpoint with owner context
     let content = "";
     try {
       const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
@@ -139,6 +109,17 @@ export default function WarRoomPage() {
     setAdvisorStreaming(false);
   }, [advisorInput, advisorStreaming, advisorMessages]);
 
+  const statCards = [
+    { icon: Users, label: "Total Users", value: metrics?.totalUsers ?? 0, change: `+${metrics?.newUsers7d ?? 0} (7d)`, color: "text-terminal-cyan" },
+    { icon: Activity, label: "Active (24h)", value: metrics?.activeUsers24h ?? 0, change: "", color: "text-primary" },
+    { icon: Crown, label: "Premium", value: metrics?.premiumUsers ?? 0, change: "", color: "text-terminal-green" },
+    { icon: Crosshair, label: "Sniper Uses", value: metrics?.sniperUses7d ?? 0, change: "7d", color: "text-terminal-amber" },
+    { icon: Rocket, label: "Launches", value: metrics?.totalLaunches ?? 0, change: `+${metrics?.recentLaunches7d ?? 0} (7d)`, color: "text-terminal-green" },
+    { icon: Bell, label: "Alerts (7d)", value: metrics?.alertsFired7d ?? 0, change: "", color: "text-primary" },
+    { icon: TrendingUp, label: "Upgrade Clicks", value: metrics?.upgradeClicks7d ?? 0, change: "7d", color: "text-terminal-cyan" },
+    { icon: DollarSign, label: "Upgrades Done", value: metrics?.upgradeCompleted7d ?? 0, change: "7d", color: "text-terminal-green" },
+  ];
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -147,36 +128,27 @@ export default function WarRoomPage() {
           <h1 className="text-base sm:text-lg font-mono font-bold text-foreground flex items-center gap-2">
             <ShieldAlert className="h-5 w-5 text-terminal-amber" /> WAR ROOM
           </h1>
-          <p className="text-[10px] font-mono text-muted-foreground">Owner intelligence dashboard — live metrics & AI adviser</p>
-        </div>
-        <div className="flex items-center gap-1">
-          {(["24h", "7d", "30d"] as const).map(t => (
-            <Button
-              key={t}
-              variant={timeFilter === t ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTimeFilter(t)}
-              className="font-mono text-[10px] h-7 px-3"
-            >
-              {t.toUpperCase()}
-            </Button>
-          ))}
+          <p className="text-[10px] font-mono text-muted-foreground">Owner intelligence dashboard — live metrics</p>
         </div>
       </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {STAT_CARDS.map(s => (
+        {statCards.map(s => (
           <Card key={s.label} className="border-border bg-card">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-2">
                 <s.icon className={cn("h-4 w-4", s.color)} />
                 <span className="text-[10px] font-mono text-muted-foreground">{s.label}</span>
               </div>
-              <p className="text-lg font-mono font-bold text-foreground">{s.value}</p>
-              <p className={cn("text-[10px] font-mono", s.change.startsWith("+") || s.change.startsWith("-0") ? "text-terminal-green" : "text-terminal-red")}>
-                {s.change}
-              </p>
+              {metricsLoading ? (
+                <Skeleton className="h-6 w-16" />
+              ) : (
+                <>
+                  <p className="text-lg font-mono font-bold text-foreground">{s.value.toLocaleString()}</p>
+                  {s.change && <p className="text-[10px] font-mono text-terminal-green">{s.change}</p>}
+                </>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -219,20 +191,24 @@ export default function WarRoomPage() {
               <CardTitle className="text-sm font-mono">Conversion Funnel</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {FUNNEL.map((stage, i) => (
-                <div key={stage.stage} className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-foreground">{stage.stage}</span>
-                    <span className="text-[10px] font-mono text-muted-foreground">{stage.count.toLocaleString()} ({stage.pct}%)</span>
+              {funnelLoading ? (
+                Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)
+              ) : (
+                (funnel ?? []).map((stage, i) => (
+                  <div key={stage.stage} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono text-foreground">{stage.stage}</span>
+                      <span className="text-[10px] font-mono text-muted-foreground">{stage.count.toLocaleString()} ({stage.pct}%)</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn("h-full rounded-full transition-all", i === 0 ? "bg-primary" : i < 2 ? "bg-terminal-cyan" : "bg-terminal-green")}
+                        style={{ width: `${Math.max(stage.pct, 1)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={cn("h-full rounded-full transition-all", i === 0 ? "bg-primary" : i < 3 ? "bg-terminal-cyan" : "bg-terminal-green")}
-                      style={{ width: `${stage.pct}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -286,8 +262,6 @@ export default function WarRoomPage() {
                   {advisorStreaming ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
                 </Button>
               </form>
-
-              {/* Quick prompts */}
               <div className="flex flex-wrap gap-1">
                 {["What matters now?", "Revenue insights", "Growth opportunities", "Churn risks"].map(q => (
                   <button
