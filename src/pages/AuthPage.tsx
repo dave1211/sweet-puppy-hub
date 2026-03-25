@@ -200,23 +200,26 @@ export default function AuthPage() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleOAuthLogin = async (provider: "google" | "apple") => {
     setSubmitting(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/auth`,
+      const { error } = await lovable.auth.signInWithOAuth(provider, {
+        redirect_uri: window.location.origin,
       });
 
       if (error) {
-        toast.error(error.message || "Google login failed");
+        toast.error(error.message || `${provider} login failed`);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Google login failed";
+      const msg = err instanceof Error ? err.message : `${provider} login failed`;
       toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleGoogleLogin = () => handleOAuthLogin("google");
+  const handleAppleLogin = () => handleOAuthLogin("apple");
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4">
@@ -356,9 +359,16 @@ export default function AuthPage() {
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               CONTINUE WITH GOOGLE
             </Button>
-            <p className="text-[9px] font-mono text-muted-foreground text-center">
-              GitHub sign-in isn&apos;t enabled in this build yet.
-            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleAppleLogin()}
+              disabled={submitting}
+              className="w-full font-mono text-sm border-foreground/20 text-foreground hover:bg-foreground/10"
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              CONTINUE WITH APPLE
+            </Button>
           </div>
 
           {/* Secondary: Email fallback (collapsed) */}
