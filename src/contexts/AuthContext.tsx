@@ -9,8 +9,6 @@ interface AuthContextType {
   isAdmin: boolean;
   isGuest: boolean;
   enterGuestMode: () => void;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithWallet: (
     walletAddress: string,
     signature: string,
@@ -18,6 +16,7 @@ interface AuthContextType {
     challengeToken: string,
     deviceId?: string
   ) => Promise<{ error: Error | null }>;
+  signInWithOAuthProvider: (provider: "google" | "apple") => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -37,10 +36,7 @@ interface WalletAuthSuccess {
 
 interface WalletAuthFailure {
   ok: false;
-  error?: {
-    code?: string;
-    message?: string;
-  };
+  error?: { code?: string; message?: string };
 }
 
 type WalletAuthResponse = WalletAuthSuccess | WalletAuthFailure;
@@ -87,9 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const timeout = setTimeout(() => {
       setIsLoading((prev) => {
-        if (prev) {
-          console.warn("[Auth] Timed out waiting for INITIAL_SESSION, forcing ready");
-        }
+        if (prev) console.warn("[Auth] Timed out waiting for INITIAL_SESSION, forcing ready");
         return false;
       });
     }, 3000);
@@ -100,14 +94,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signUp = async (_email: string, _password: string) => {
-    return { error: new Error("Email signup is disabled. Use Phantom wallet authentication.") };
-  };
-
-  const signIn = async (_email: string, _password: string) => {
-    return { error: new Error("Email login is disabled. Use Phantom wallet authentication.") };
-  };
-
   const signInWithWallet = async (
     walletAddress: string,
     signature: string,
@@ -116,9 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     deviceId?: string
   ) => {
     try {
-      if (!walletAuthKey) {
-        return { error: new Error("Wallet auth key is missing") };
-      }
+      if (!walletAuthKey) return { error: new Error("Wallet auth key is missing") };
 
       const response = await fetch(walletAuthUrl, {
         method: "POST",
@@ -140,9 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       let payload: WalletAuthResponse | null = null;
-      try {
-        payload = (await response.json()) as WalletAuthResponse;
-      } catch {
+      try { payload = (await response.json()) as WalletAuthResponse; } catch {
         return { error: new Error("Wallet auth returned invalid response") };
       }
 
@@ -152,22 +134,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { session: walletSession } = payload.data;
-      if (!walletSession?.access_token) {
-        return { error: new Error("No session returned") };
-      }
+      if (!walletSession?.access_token) return { error: new Error("No session returned") };
 
       const { error: setErr } = await supabase.auth.setSession({
         access_token: walletSession.access_token,
         refresh_token: walletSession.refresh_token,
       });
 
-      if (setErr) {
-        return { error: new Error(setErr.message) };
-      }
-
+      if (setErr) return { error: new Error(setErr.message) };
       return { error: null };
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Wallet auth failed";
+      return { error: new Error(msg) };
+    }
+  };
+
+  const signInWithOAuthProvider = async (provider: "google" | "apple") => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) return { error: new Error(error.message) };
+      return { error: null };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : `${provider} sign-in failed`;
       return { error: new Error(msg) };
     }
   };
@@ -179,7 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, isAdmin, isGuest, enterGuestMode, signUp, signIn, signInWithWallet, signOut }}>
+    <AuthContext.Provider value={{
+      user, session, isLoading, isAdmin, isGuest,
+      enterGuestMode, signInWithWallet, signInWithOAuthProvider, signOut,
+    }}>
       {children}
     </AuthContext.Provider>
   );
