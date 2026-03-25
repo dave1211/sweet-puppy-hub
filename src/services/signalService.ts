@@ -93,11 +93,11 @@ export async function trackUsageEvent(
   eventType: string,
   eventData?: Record<string, unknown>
 ) {
-  const { error } = await supabase.from("usage_events").insert({
+  const { error } = await supabase.from("usage_events").insert([{
     event_type: eventType,
     event_data: eventData ?? {},
     user_id: (await supabase.auth.getUser()).data.user?.id,
-  });
+  }] as any);
 
   if (error) console.warn("[trackUsageEvent]", error.message);
 }
