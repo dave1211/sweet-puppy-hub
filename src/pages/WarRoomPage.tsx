@@ -2,8 +2,9 @@ import { useState, useRef, useCallback } from "react";
 import {
   DollarSign, Users, TrendingUp, Activity, Crosshair, Bell,
   ShieldAlert, Rocket, BarChart3, Crown, Brain, Send, Loader2,
-  Bot, User as UserIcon, Zap, Eye, Flame
+  Bot, User as UserIcon, Zap, Eye, Flame, Power
 } from "lucide-react";
+import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
