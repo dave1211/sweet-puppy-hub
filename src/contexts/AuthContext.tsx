@@ -16,7 +16,6 @@ interface AuthContextType {
     challengeToken: string,
     deviceId?: string
   ) => Promise<{ error: Error | null }>;
-  signInWithOAuthProvider: (provider: "google" | "apple") => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -149,22 +148,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithOAuthProvider = async (provider: "google" | "apple") => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: window.location.origin,
-        },
-      });
-      if (error) return { error: new Error(error.message) };
-      return { error: null };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : `${provider} sign-in failed`;
-      return { error: new Error(msg) };
-    }
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setIsAdmin(false);
@@ -174,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, isLoading, isAdmin, isGuest,
-      enterGuestMode, signInWithWallet, signInWithOAuthProvider, signOut,
+      enterGuestMode, signInWithWallet, signOut,
     }}>
       {children}
     </AuthContext.Provider>
