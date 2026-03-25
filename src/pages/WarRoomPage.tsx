@@ -2,12 +2,13 @@ import { useState, useRef, useCallback } from "react";
 import {
   DollarSign, Users, TrendingUp, Activity, Crosshair, Bell,
   ShieldAlert, Rocket, BarChart3, Crown, Brain, Send, Loader2,
-  Bot, User as UserIcon, Zap, Eye, Flame, Power, Key
+  Bot, User as UserIcon, Zap, Eye, Flame, Power, Key, LineChart
 } from "lucide-react";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
 import { AnomalyMonitorPanel } from "@/components/admin/AnomalyMonitorPanel";
 import { AuditLogFeed } from "@/components/admin/AuditLogFeed";
+import { GrowthDashboard } from "@/components/admin/GrowthDashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
