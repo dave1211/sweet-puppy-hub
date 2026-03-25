@@ -312,6 +312,34 @@ export default function WarRoomPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Anomaly Monitor */}
+        <TabsContent value="anomalies">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-terminal-amber" /> ANOMALY MONITOR
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AnomalyMonitorPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Audit Log */}
+        <TabsContent value="audit">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <BarChart3 className="h-4 w-4 text-terminal-cyan" /> AUDIT LOG
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AuditLogFeed />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
