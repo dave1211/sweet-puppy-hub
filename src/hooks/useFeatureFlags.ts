@@ -79,9 +79,17 @@ export function isFeatureEnabled(
  */
 export function useFeatureGate() {
   const { flags, loading } = useFeatureFlags();
-  const { user } = useAuth();
-  // We don't have tier on auth context directly, default to free
-  const userTier = "free"; // TODO: read from profile/subscription
+
+  // Dynamically import tier to avoid hard dependency - fail safe to "free"
+  let userTier = "free";
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { useTier } = require("@/contexts/TierContext");
+    const tierCtx = useTier();
+    userTier = tierCtx?.tier ?? "free";
+  } catch {
+    // TierProvider not mounted or import failed — default to free (fail closed)
+  }
 
   const isEnabled = (key: string) => isFeatureEnabled(flags, key, userTier);
   const isKillSwitchActive = (key: string) => {
