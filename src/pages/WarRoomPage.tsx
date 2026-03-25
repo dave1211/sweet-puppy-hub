@@ -344,6 +344,20 @@ export default function WarRoomPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Growth Dashboard */}
+        <TabsContent value="growth">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <LineChart className="h-4 w-4 text-primary" /> GROWTH METRICS
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GrowthDashboard />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );

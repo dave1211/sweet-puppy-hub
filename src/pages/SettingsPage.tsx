@@ -3,6 +3,7 @@ import { PanelShell } from "@/components/shared/PanelShell";
 import { cn } from "@/lib/utils";
 import { Save, Check } from "lucide-react";
 import { toast } from "sonner";
+import { ReferralPanel } from "@/components/terminal/ReferralPanel";
 
 const STORAGE_KEY = "tanner_terminal_settings";
 
