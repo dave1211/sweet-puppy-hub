@@ -5,6 +5,7 @@ import {
   Bot, User as UserIcon, Zap, Eye, Flame, Power
 } from "lucide-react";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
+import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
