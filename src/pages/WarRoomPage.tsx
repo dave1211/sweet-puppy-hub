@@ -6,6 +6,8 @@ import {
 } from "lucide-react";
 import { KillSwitchPanel } from "@/components/admin/KillSwitchPanel";
 import { InviteCodeManager } from "@/components/admin/InviteCodeManager";
+import { AnomalyMonitorPanel } from "@/components/admin/AnomalyMonitorPanel";
+import { AuditLogFeed } from "@/components/admin/AuditLogFeed";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
