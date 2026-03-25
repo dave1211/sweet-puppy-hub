@@ -7,12 +7,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { AdminRoute } from "@/components/layout/AdminRoute";
 import { AppShell } from "@/components/layout/AppShell";
+import { AIChatWidget } from "@/components/chat/AIChatWidget";
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 // Lazy-loaded pages for code splitting
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const DashboardHome = lazy(() => import("./pages/DashboardHome"));
 const LivePairsPage = lazy(() => import("./pages/LivePairsPage"));
@@ -36,6 +39,8 @@ const ClaimSolPage = lazy(() => import("./pages/ClaimSolPage"));
 const SolBurnPage = lazy(() => import("./pages/SolBurnPage"));
 const XRPLPage = lazy(() => import("./pages/XRPLPage"));
 const TokenHoldingsPage = lazy(() => import("./pages/TokenHoldingsPage"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const WarRoomPage = lazy(() => import("./pages/WarRoomPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -66,7 +71,12 @@ function AppInner() {
             <BrowserRouter>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
+                  {/* Public routes */}
+                  <Route path="/landing" element={<LandingPage />} />
                   <Route path="/auth" element={<AuthPage />} />
+                  <Route path="/pricing" element={<Pricing />} />
+
+                  {/* Protected app shell */}
                   <Route path="/" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
                     <Route index element={<DashboardHome />} />
                     <Route path="live-pairs" element={<LivePairsPage />} />
@@ -90,10 +100,17 @@ function AppInner() {
                     <Route path="memes" element={<MemeGeneratorPage />} />
                     <Route path="token/:id" element={<TokenDetailPage />} />
                     <Route path="wallet/:id" element={<WalletDetailPage />} />
+
+                    {/* Admin-only routes */}
+                    <Route path="war-room" element={<AdminRoute><WarRoomPage /></AdminRoute>} />
                   </Route>
+
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
+
+              {/* Floating AI chat — visible on all authenticated routes */}
+              <AIChatWidget />
             </BrowserRouter>
           </WalletProvider>
         </AuthProvider>

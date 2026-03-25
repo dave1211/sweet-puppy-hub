@@ -1,7 +1,8 @@
 import {
   LayoutDashboard, BarChart3, Rocket, Crosshair, Wallet,
   Users, Brain, ShieldAlert, Star, Bell, PieChart, Sliders, Settings,
-  ChevronLeft, ChevronRight, Flame, Info, Sparkles, LogOut, Coins, Globe, Layers
+  ChevronLeft, ChevronRight, Flame, Info, Sparkles, LogOut, Coins, Globe, Layers,
+  Crown, Siren
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const NAV_SOLANA = [
   { label: "Portfolio", path: "/portfolio", icon: PieChart },
   { label: "Strategies", path: "/strategies", icon: Sliders },
   { label: "Launchpad", path: "/launchpad", icon: Flame },
+  { label: "Pricing", path: "/pricing", icon: Crown },
 ];
 
 const NAV_XRPL = [
@@ -35,6 +37,10 @@ const NAV_OTHER = [
   { label: "Meme Gen", path: "/memes", icon: Sparkles },
   { label: "About", path: "/about", icon: Info },
   { label: "Settings", path: "/settings", icon: Settings },
+];
+
+const NAV_ADMIN = [
+  { label: "War Room", path: "/war-room", icon: Siren },
 ];
 
 interface AppSidebarProps {
@@ -92,6 +98,24 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
             </NavLink>
           );
         })}
+        {isAdmin && (
+          <>
+            {!collapsed && <div className="border-t border-terminal-amber/20 my-1.5" />}
+            {!collapsed && <p className="text-[8px] font-mono text-terminal-amber/60 tracking-widest px-2.5 pt-1 pb-0.5">ADMIN</p>}
+            {NAV_ADMIN.map((item) => {
+              const active = location.pathname === item.path;
+              return (
+                <NavLink key={item.path} to={item.path} onClick={onNavigate}
+                  className={cn("flex items-center gap-3 px-2.5 py-2 rounded-md text-xs font-mono transition-all duration-150",
+                    active ? "bg-terminal-amber/10 text-terminal-amber" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}>
+                  <item.icon className={cn("h-4 w-4 shrink-0", active && "text-terminal-amber")} />
+                  {!collapsed && <span className="truncate tracking-wide text-[11px]">{item.label.toUpperCase()}</span>}
+                </NavLink>
+              );
+            })}
+          </>
+        )}
       </div>
       <div className="border-t border-border">
         {user && isAdmin && !collapsed && (
