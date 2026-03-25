@@ -7,6 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
+import { AlphaGate } from "@/components/layout/AlphaGate";
+import { useFeatureFlags, isFeatureEnabled } from "@/hooks/useFeatureFlags";
 import { AdminRoute } from "@/components/layout/AdminRoute";
 import { AppShell } from "@/components/layout/AppShell";
 import { AIChatWidget } from "@/components/chat/AIChatWidget";

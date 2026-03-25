@@ -298,6 +298,20 @@ export default function WarRoomPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Controls / Kill Switches */}
+        <TabsContent value="controls">
+          <Card className="border-border bg-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <Power className="h-4 w-4 text-terminal-red" /> PLATFORM CONTROLS
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <KillSwitchPanel />
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
     </div>
   );
