@@ -7,11 +7,11 @@ const tiers: { value: Tier; label: string; color: string }[] = [
 ];
 
 export function TierSelector() {
-  const { tier, setTier } = useTier();
+  const { tier } = useTier();
   return (
     <div className="flex items-center gap-1">
       {tiers.map((t) => (
-        <button key={t.value} onClick={() => setTier(t.value)} className={`text-[9px] font-mono font-bold px-2 py-1 rounded border transition-colors ${tier === t.value ? `${t.color} bg-primary/10` : "border-border text-muted-foreground/50 hover:text-muted-foreground"}`}>{t.label}</button>
+        <span key={t.value} className={`text-[9px] font-mono font-bold px-2 py-1 rounded border transition-colors ${tier === t.value ? `${t.color} bg-primary/10` : "border-border text-muted-foreground/40"}`}>{t.label}</span>
       ))}
     </div>
   );
