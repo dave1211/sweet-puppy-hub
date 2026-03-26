@@ -328,6 +328,18 @@ export default function AuthPage() {
   const { connect, disconnect, walletAddress, isConnected, provider, getWalletObject } = useWallet();
   const deviceId = useDeviceId();
 
+  // Log auth entry for diagnostics
+  useEffect(() => {
+    console.info("[AuthPage] Mounted", {
+      route: window.location.pathname,
+      origin: window.location.origin,
+      referrer: document.referrer,
+      hasUser: !!user,
+      isGuest,
+      isLoading,
+    });
+  }, []);
+
   const initialWallets = useMemo(() => getAvailableWallets(), []);
   const [availableWallets, setAvailableWallets] = useState(initialWallets);
   const [machine, dispatch] = useReducer(authReducer, {
@@ -336,6 +348,18 @@ export default function AuthPage() {
     errorMessage: null,
     errorCode: null,
   });
+
+  // Block external redirects during wallet auth (prevents Google/Lovable OAuth intercepts)
+  useEffect(() => {
+    const blockExternalNav = (e: BeforeUnloadEvent) => {
+      if (isBusyState(machine.status)) {
+        e.preventDefault();
+        console.warn("[AuthPage] Blocked external navigation during wallet auth", { status: machine.status });
+      }
+    };
+    window.addEventListener("beforeunload", blockExternalNav);
+    return () => window.removeEventListener("beforeunload", blockExternalNav);
+  }, [machine.status]);
 
   const attemptRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -760,6 +784,24 @@ export default function AuthPage() {
           <p className="text-[8px] font-mono text-muted-foreground text-center pt-2">
             No data leaves Tanner Terminal. All auth is internal.
           </p>
+
+          {/* Auth diagnostics panel — visible in dev/debug */}
+          <details className="mt-3 text-[8px] font-mono text-muted-foreground/60">
+            <summary className="cursor-pointer hover:text-muted-foreground">Auth diagnostics</summary>
+            <div className="mt-1 space-y-0.5 bg-muted/10 rounded p-2 border border-border/30">
+              <p>Route: {window.location.pathname}</p>
+              <p>Origin: {window.location.origin}</p>
+              <p>State: <span className="text-foreground">{machine.status}</span></p>
+              <p>Active wallet: {machine.activeWallet ?? "none"}</p>
+              <p>Provider detected: {availableWallets.map(w => w.type).join(", ") || "none"}</p>
+              <p>Wallet connected: {isConnected ? "yes" : "no"}</p>
+              <p>Wallet address: {walletAddress ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : "none"}</p>
+              <p>Supabase user: {user ? "yes" : "no"}</p>
+              <p>Guest mode: {isGuest ? "yes" : "no"}</p>
+              <p>Error code: {machine.errorCode ?? "none"}</p>
+              <p>Error: {machine.errorMessage ?? "none"}</p>
+            </div>
+          </details>
         </CardContent>
       </Card>
     </div>
