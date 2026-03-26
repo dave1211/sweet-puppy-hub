@@ -1,10 +1,10 @@
 /**
  * Feature flag + kill switch hook.
- * Loads flags from Supabase, caches in memory, supports realtime updates.
+ * Loads flags from Supabase, caches in memory.
  */
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useTier } from "@/contexts/TierContext";
 
 export interface FeatureFlag {
   key: string;
@@ -32,19 +32,23 @@ export function useFeatureFlags() {
     let cancelled = false;
 
     async function load() {
-      const { data } = await supabase
-        .from("feature_flags")
-        .select("key, enabled, min_tier, metadata");
+      try {
+        const { data } = await supabase
+          .from("feature_flags")
+          .select("key, enabled, min_tier, metadata");
 
-      if (!cancelled && data) {
-        const parsed = data.map((f) => ({
-          key: f.key,
-          enabled: f.enabled,
-          min_tier: f.min_tier,
-          metadata: (f.metadata ?? {}) as Record<string, unknown>,
-        }));
-        cachedFlags = parsed;
-        setFlags(parsed);
+        if (!cancelled && data) {
+          const parsed = data.map((f) => ({
+            key: f.key,
+            enabled: f.enabled,
+            min_tier: f.min_tier,
+            metadata: (f.metadata ?? {}) as Record<string, unknown>,
+          }));
+          cachedFlags = parsed;
+          setFlags(parsed);
+        }
+      } catch (e) {
+        console.warn("[FeatureFlags] Failed to load:", e);
       }
       if (!cancelled) setLoading(false);
     }
@@ -66,7 +70,7 @@ export function isFeatureEnabled(
   userTier = "free"
 ): boolean {
   const flag = flags.find((f) => f.key === key);
-  if (!flag) return false; // fail closed
+  if (!flag) return false;
   if (!flag.enabled) return false;
 
   const requiredLevel = TIER_ORDER[flag.min_tier ?? "free"] ?? 0;
@@ -79,11 +83,9 @@ export function isFeatureEnabled(
  */
 export function useFeatureGate() {
   const { flags, loading } = useFeatureFlags();
-  const { user } = useAuth();
-  // We don't have tier on auth context directly, default to free
-  const userTier = "free"; // TODO: read from profile/subscription
+  const { tier } = useTier();
 
-  const isEnabled = (key: string) => isFeatureEnabled(flags, key, userTier);
+  const isEnabled = (key: string) => isFeatureEnabled(flags, key, tier);
   const isKillSwitchActive = (key: string) => {
     const flag = flags.find((f) => f.key === key);
     return flag ? !flag.enabled && flag.metadata?.kill_switch === true : false;
