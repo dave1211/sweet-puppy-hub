@@ -44,11 +44,31 @@ async function requestWalletChallenge(walletAddress: string, deviceId: string): 
 
 type WalletType = "phantom" | "solflare" | "backpack";
 
-const WALLET_OPTIONS: { type: WalletType; label: string; icon: string }[] = [
+const ALL_WALLET_OPTIONS: { type: WalletType; label: string; icon: string }[] = [
   { type: "phantom", label: "Phantom", icon: "👻" },
   { type: "solflare", label: "Solflare", icon: "🔆" },
   { type: "backpack", label: "Backpack", icon: "🎒" },
 ];
+
+function getAvailableWallets() {
+  const isMobile = /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (!isMobile) return ALL_WALLET_OPTIONS;
+
+  // On mobile, only show wallets that are actually injected in this browser
+  const win = window as unknown as Record<string, unknown>;
+  const available = ALL_WALLET_OPTIONS.filter(({ type }) => {
+    if (type === "phantom") {
+      return !!(win.phantom as Record<string, unknown>)?.solana || (win.solana as Record<string, unknown>)?.isPhantom;
+    }
+    if (type === "solflare") {
+      return !!win.solflare || (win.solana as Record<string, unknown>)?.isSolflare;
+    }
+    if (type === "backpack") return !!win.backpack;
+    return false;
+  });
+
+  return available.length > 0 ? available : ALL_WALLET_OPTIONS;
+}
 
 export default function AuthPage() {
   const { user, isLoading, isGuest, signInWithWallet } = useAuth();
@@ -144,7 +164,7 @@ export default function AuthPage() {
           )}
 
           {/* Wallet buttons */}
-          {WALLET_OPTIONS.map(({ type, label, icon }) => (
+          {getAvailableWallets().map(({ type, label, icon }) => (
             <Button
               key={type}
               type="button"
