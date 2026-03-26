@@ -36,7 +36,7 @@ interface WalletState {
   disconnect: () => void;
   refreshBalance: () => Promise<void>;
   signAndSendTransaction: (tx: unknown) => Promise<{ signature: string }>;
-  getWalletObject: () => SolanaWallet | null;
+  getWalletObject: (providerOverride?: WalletProviderType) => SolanaWallet | null;
 }
 
 const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
@@ -297,8 +297,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     [provider, isConnected]
   );
 
-  const getWalletObject = useCallback(() => {
-    return getWalletProvider(provider);
+  const getWalletObject = useCallback((providerOverride?: WalletProviderType) => {
+    return getWalletProvider(providerOverride ?? provider);
   }, [provider]);
 
   return (
