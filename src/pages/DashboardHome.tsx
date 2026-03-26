@@ -22,7 +22,6 @@ import { useWallet } from "@/contexts/WalletContext";
 import { ACTIVE_CHAINS } from "@/lib/multichain";
 import { DashboardAlertStrip } from "@/components/alerts/DashboardAlertStrip";
 import { useChainHealthMonitor } from "@/hooks/useChainHealthMonitor";
-import { ACTIVE_CHAINS } from "@/lib/multichain";
 
 /* ───── Quick-action button ───── */
 function QuickAction({ to, icon: Icon, label, accent }: {
