@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Public market data endpoint — no auth required
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Public on-chain balance endpoint — no auth required
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
