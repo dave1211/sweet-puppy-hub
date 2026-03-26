@@ -29,8 +29,9 @@ const NAV_SOLANA = [
   { label: "Pricing", path: "/pricing", icon: Crown },
 ];
 
-const NAV_XRPL = [
-  { label: "XRPL Ledger", path: "/xrpl", icon: Globe },
+const NAV_MULTICHAIN = [
+  { label: "Multi-Chain Hub", path: "/multichain", icon: Globe },
+  { label: "XRPL Ledger", path: "/xrpl", icon: Layers },
 ];
 
 const NAV_OTHER = [
@@ -72,8 +73,8 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           );
         })}
         {!collapsed && <div className="border-t border-border/30 my-1.5" />}
-        {!collapsed && <p className="text-[8px] font-mono text-muted-foreground/50 tracking-widest px-2.5 pt-1 pb-0.5">XRPL</p>}
-        {NAV_XRPL.map((item) => {
+        {!collapsed && <p className="text-[8px] font-mono text-muted-foreground/50 tracking-widest px-2.5 pt-1 pb-0.5">MULTI-CHAIN</p>}
+        {NAV_MULTICHAIN.map((item) => {
           const active = location.pathname === item.path;
           return (
             <NavLink key={item.path} to={item.path} onClick={onNavigate}
