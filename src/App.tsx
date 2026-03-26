@@ -45,6 +45,7 @@ const XRPLPage = lazy(() => import("./pages/XRPLPage"));
 const TokenHoldingsPage = lazy(() => import("./pages/TokenHoldingsPage"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const WarRoomPage = lazy(() => import("./pages/WarRoomPage"));
+const MultiChainHubPage = lazy(() => import("./pages/MultiChainHubPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -116,6 +117,7 @@ function AppInner() {
                       <Route path="sol-burn" element={<SolBurnPage />} />
                       <Route path="holdings" element={<TokenHoldingsPage />} />
                       <Route path="xrpl" element={<XRPLPage />} />
+                      <Route path="multichain" element={<MultiChainHubPage />} />
                       <Route path="about" element={<AboutPage />} />
                       <Route path="memes" element={<MemeGeneratorPage />} />
                       <Route path="token/:id" element={<TokenDetailPage />} />
