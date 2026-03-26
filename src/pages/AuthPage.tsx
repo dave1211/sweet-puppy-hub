@@ -328,6 +328,18 @@ export default function AuthPage() {
   const { connect, disconnect, walletAddress, isConnected, provider, getWalletObject } = useWallet();
   const deviceId = useDeviceId();
 
+  // Log auth entry for diagnostics
+  useEffect(() => {
+    console.info("[AuthPage] Mounted", {
+      route: window.location.pathname,
+      origin: window.location.origin,
+      referrer: document.referrer,
+      hasUser: !!user,
+      isGuest,
+      isLoading,
+    });
+  }, []);
+
   const initialWallets = useMemo(() => getAvailableWallets(), []);
   const [availableWallets, setAvailableWallets] = useState(initialWallets);
   const [machine, dispatch] = useReducer(authReducer, {
