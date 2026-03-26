@@ -386,7 +386,7 @@ export default function AuthPage() {
   }, [refreshWalletDetection]);
 
   useEffect(() => {
-    if (isBusyState(machine.status) || isFailureState(machine.status)) return;
+    if (!["wallet_detected", "wallet_not_detected"].includes(machine.status)) return;
     dispatch({
       type: "SET_STATUS",
       status: availableWallets.length ? "wallet_detected" : "wallet_not_detected",
