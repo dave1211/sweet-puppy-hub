@@ -164,7 +164,7 @@ export default function AuthPage() {
           )}
 
           {/* Wallet buttons */}
-          {WALLET_OPTIONS.map(({ type, label, icon }) => (
+          {getAvailableWallets().map(({ type, label, icon }) => (
             <Button
               key={type}
               type="button"
