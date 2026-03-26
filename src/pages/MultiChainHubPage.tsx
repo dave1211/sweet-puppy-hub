@@ -1,20 +1,35 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import {
   Globe, Wifi, WifiOff, Shield, TrendingUp, ArrowRightLeft,
-  Plus, X, Loader2, RefreshCw, Eye
+  Plus, X, Loader2, RefreshCw, Eye, ExternalLink, Activity
 } from "lucide-react";
 import { ACTIVE_CHAINS, COMPLIANCE_CHAINS, getChainConfig } from "@/lib/multichain";
-import type { ChainId, ChainBalance } from "@/lib/multichain";
+import type { ChainId, ChainBalance, ChainConfig } from "@/lib/multichain";
 import { useMultiChainPortfolio, useMultiChainWallets, useChainStatus } from "@/hooks/useMultiChain";
 import { useWallet } from "@/contexts/WalletContext";
 import { PanelShell } from "@/components/shared/PanelShell";
 import { StatusChip } from "@/components/shared/StatusChip";
 import { WidgetErrorBoundary } from "@/components/shared/WidgetErrorBoundary";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
+
+// Lazy-load bridge panel — never blocks hub boot
+const BridgePanel = lazy(() =>
+  import("@/components/bridge/XRPBridgePanel").then(m => ({ default: m.XRPBridgePanel }))
+);
+
+type FilterKey = "all" | "compliance" | ChainId;
+
+const FILTER_OPTIONS: { key: FilterKey; label: string; icon?: string }[] = [
+  { key: "all", label: "ALL" },
+  { key: "compliance", label: "COMPLIANCE" },
+  ...ACTIVE_CHAINS.map(c => ({ key: c.id as FilterKey, label: c.symbol, icon: c.icon })),
+];
+
+/* ───── small sub-components ───── */
 
 function NetworkStatusDot({ chainId }: { chainId: ChainId }) {
   const { data: status, isLoading } = useChainStatus(chainId);
@@ -24,8 +39,29 @@ function NetworkStatusDot({ chainId }: { chainId: ChainId }) {
     : <WifiOff className="h-3 w-3 text-destructive" />;
 }
 
-function ChainBalanceCard({ chain, balance }: { chain: typeof ACTIVE_CHAINS[number]; balance?: ChainBalance }) {
+function ExplorerLink({ config, address }: { config: ChainConfig; address?: string }) {
+  if (!address) return null;
+  const url = `${config.explorerUrl}${config.explorerAddressPath}${address}`;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1 text-[9px] font-mono text-primary/70 hover:text-primary transition-colors"
+    >
+      <ExternalLink className="h-2.5 w-2.5" /> Explorer
+    </a>
+  );
+}
+
+function ChainBalanceCard({ chain, balance, address }: {
+  chain: ChainConfig;
+  balance?: ChainBalance;
+  address?: string;
+}) {
   const hasBalance = balance && balance.nativeBalance > 0;
+  const caps = chain.capabilities;
+
   return (
     <div className="rounded-lg border border-border/50 bg-card/30 p-4 space-y-2">
       <div className="flex items-center justify-between">
@@ -36,13 +72,12 @@ function ChainBalanceCard({ chain, balance }: { chain: typeof ACTIVE_CHAINS[numb
             <p className="text-[9px] font-mono text-muted-foreground">{chain.symbol}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {chain.isCompliance && (
-            <Shield className="h-3 w-3 text-terminal-cyan" />
-          )}
+        <div className="flex items-center gap-1.5">
+          {chain.isCompliance && <Shield className="h-3 w-3 text-terminal-cyan" />}
           <NetworkStatusDot chainId={chain.id} />
         </div>
       </div>
+
       {hasBalance ? (
         <div className="space-y-1">
           <p className="text-sm font-mono font-bold text-foreground tabular-nums">
@@ -53,15 +88,27 @@ function ChainBalanceCard({ chain, balance }: { chain: typeof ACTIVE_CHAINS[numb
               ≈ ${balance.nativeValueUSD.toLocaleString(undefined, { maximumFractionDigits: 2 })}
             </p>
           )}
-          {balance.tokens.length > 0 && (
+          {caps.supportsTokens && balance.tokens.length > 0 && (
             <p className="text-[9px] font-mono text-muted-foreground">
               +{balance.tokens.length} token{balance.tokens.length !== 1 ? "s" : ""}
             </p>
           )}
         </div>
       ) : (
-        <p className="text-[10px] font-mono text-muted-foreground/50">No wallet connected</p>
+        <p className="text-[10px] font-mono text-muted-foreground/50">
+          {address ? "Loading…" : "No wallet connected"}
+        </p>
       )}
+
+      {/* Capability badges + explorer */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="flex gap-1">
+          {caps.supportsTokens && <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-muted/30 text-muted-foreground">TOKENS</span>}
+          {caps.supportsHistory && <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-muted/30 text-muted-foreground">HISTORY</span>}
+          {caps.supportsTransfers && <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-muted/30 text-muted-foreground">TX</span>}
+        </div>
+        <ExplorerLink config={chain} address={address} />
+      </div>
     </div>
   );
 }
@@ -115,10 +162,12 @@ function WalletAddressInput({ chainId, currentAddress, onSet }: {
   );
 }
 
+/* ───── main page ───── */
+
 export default function MultiChainHubPage() {
   const { wallets, setWallet } = useMultiChainWallets();
   const { walletAddress: solanaWallet } = useWallet();
-  const [complianceView, setComplianceView] = useState(false);
+  const [filter, setFilter] = useState<FilterKey>("all");
 
   // Auto-include connected Solana wallet
   const effectiveWallets = { ...wallets };
@@ -128,10 +177,15 @@ export default function MultiChainHubPage() {
 
   const { data: portfolio, isLoading, refetch } = useMultiChainPortfolio(effectiveWallets);
 
-  const displayChains = complianceView ? COMPLIANCE_CHAINS : ACTIVE_CHAINS;
+  // Derive visible chains from filter
+  const displayChains: ChainConfig[] =
+    filter === "all" ? ACTIVE_CHAINS
+    : filter === "compliance" ? COMPLIANCE_CHAINS
+    : ACTIVE_CHAINS.filter(c => c.id === filter);
 
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-base sm:text-lg font-mono font-bold text-foreground flex items-center gap-2">
@@ -142,27 +196,35 @@ export default function MultiChainHubPage() {
             Unified portfolio across {ACTIVE_CHAINS.length} networks
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <Shield className="h-3.5 w-3.5 text-terminal-cyan" />
-            <span className="text-[10px] font-mono text-muted-foreground">COMPLIANCE VIEW</span>
-            <Switch
-              checked={complianceView}
-              onCheckedChange={setComplianceView}
-              className="scale-75"
-            />
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 text-[9px] font-mono px-2"
-            onClick={() => refetch()}
-            disabled={isLoading}
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-[9px] font-mono px-2"
+          onClick={() => refetch()}
+          disabled={isLoading}
+        >
+          <RefreshCw className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
+          REFRESH
+        </Button>
+      </div>
+
+      {/* Network selector bar */}
+      <div className="flex flex-wrap gap-1.5">
+        {FILTER_OPTIONS.map(opt => (
+          <button
+            key={opt.key}
+            onClick={() => setFilter(opt.key)}
+            className={cn(
+              "px-2 py-1 rounded text-[9px] font-mono border transition-colors",
+              filter === opt.key
+                ? "bg-primary/15 border-primary/40 text-primary"
+                : "bg-card/30 border-border/40 text-muted-foreground hover:text-foreground hover:border-border"
+            )}
           >
-            <RefreshCw className={cn("h-3 w-3 mr-1", isLoading && "animate-spin")} />
-            REFRESH
-          </Button>
-        </div>
+            {opt.icon && <span className="mr-1">{opt.icon}</span>}
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {/* Total Portfolio Value */}
@@ -187,26 +249,35 @@ export default function MultiChainHubPage() {
         </PanelShell>
       </WidgetErrorBoundary>
 
+      {/* Main content tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="bg-card border border-border w-full justify-start">
           <TabsTrigger value="overview" className="text-[10px] font-mono">
             <TrendingUp className="h-3 w-3 mr-1" /> OVERVIEW
           </TabsTrigger>
+          <TabsTrigger value="activity" className="text-[10px] font-mono">
+            <Activity className="h-3 w-3 mr-1" /> ACTIVITY
+          </TabsTrigger>
           <TabsTrigger value="wallets" className="text-[10px] font-mono">
-            <Eye className="h-3 w-3 mr-1" /> MANAGE WALLETS
+            <Eye className="h-3 w-3 mr-1" /> WALLETS
           </TabsTrigger>
           <TabsTrigger value="bridge" className="text-[10px] font-mono">
             <ArrowRightLeft className="h-3 w-3 mr-1" /> BRIDGE
           </TabsTrigger>
         </TabsList>
 
+        {/* Overview tab */}
         <TabsContent value="overview" className="mt-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {displayChains.map(chain => {
               const balance = portfolio?.chains.find(c => c.chainId === chain.id);
               return (
                 <WidgetErrorBoundary key={chain.id} name={chain.name}>
-                  <ChainBalanceCard chain={chain} balance={balance} />
+                  <ChainBalanceCard
+                    chain={chain}
+                    balance={balance}
+                    address={effectiveWallets[chain.id]}
+                  />
                 </WidgetErrorBoundary>
               );
             })}
@@ -216,7 +287,7 @@ export default function MultiChainHubPage() {
           {portfolio?.chains.some(c => c.tokens.length > 0) && (
             <div className="mt-4 space-y-3">
               {portfolio.chains
-                .filter(c => c.tokens.length > 0)
+                .filter(c => c.tokens.length > 0 && displayChains.some(dc => dc.id === c.chainId))
                 .map(c => {
                   const config = getChainConfig(c.chainId);
                   return (
@@ -248,6 +319,18 @@ export default function MultiChainHubPage() {
           )}
         </TabsContent>
 
+        {/* Activity tab — shows per-chain network info */}
+        <TabsContent value="activity" className="mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {displayChains.map(chain => (
+              <WidgetErrorBoundary key={chain.id} name={`${chain.name} Status`}>
+                <ChainStatusCard chainId={chain.id} config={chain} address={effectiveWallets[chain.id]} />
+              </WidgetErrorBoundary>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Wallets tab */}
         <TabsContent value="wallets" className="mt-3">
           <PanelShell title="CHAIN WALLETS" subtitle="Add wallet addresses per chain">
             <div className="space-y-3 py-2">
@@ -270,22 +353,61 @@ export default function MultiChainHubPage() {
           </PanelShell>
         </TabsContent>
 
+        {/* Bridge tab — lazy loaded, fully isolated */}
         <TabsContent value="bridge" className="mt-3">
-          <PanelShell title="CROSS-CHAIN BRIDGE" subtitle="Coming soon — safe mode">
-            <div className="py-8 text-center space-y-3">
-              <ArrowRightLeft className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-              <p className="text-xs font-mono text-muted-foreground">
-                Cross-chain bridging is in development.
-              </p>
-              <p className="text-[10px] font-mono text-muted-foreground/60 max-w-md mx-auto">
-                Bridge architecture is ready. Provider integration will be enabled once verified
-                safe. No unaudited bridge logic will be activated.
-              </p>
-              <StatusChip variant="muted">SAFE MODE — NOT YET ACTIVE</StatusChip>
-            </div>
-          </PanelShell>
+          <WidgetErrorBoundary name="Bridge">
+            <Suspense fallback={
+              <PanelShell title="CROSS-CHAIN BRIDGE" subtitle="Loading…">
+                <div className="py-6 space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-3/4" />
+                </div>
+              </PanelShell>
+            }>
+              <BridgePanel />
+            </Suspense>
+          </WidgetErrorBoundary>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+/* ───── Chain status card for Activity tab ───── */
+
+function ChainStatusCard({ chainId, config, address }: { chainId: ChainId; config: ChainConfig; address?: string }) {
+  const { data: status, isLoading } = useChainStatus(chainId);
+
+  return (
+    <div className="rounded-lg border border-border/50 bg-card/30 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">{config.icon}</span>
+          <span className="text-xs font-mono font-bold text-foreground">{config.name}</span>
+        </div>
+        <StatusChip variant={status?.connected ? "success" : isLoading ? "muted" : "danger"}>
+          {isLoading ? "CHECKING" : status?.connected ? "ONLINE" : "OFFLINE"}
+        </StatusChip>
+      </div>
+      {status && (
+        <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+          <div>
+            <p className="text-muted-foreground">Block Height</p>
+            <p className="text-foreground tabular-nums">{status.blockHeight > 0 ? status.blockHeight.toLocaleString() : "—"}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Latency</p>
+            <p className="text-foreground tabular-nums">{status.latency >= 0 ? `${status.latency}ms` : "—"}</p>
+          </div>
+        </div>
+      )}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1">
+          {config.capabilities.supportsTokens && <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-muted/30 text-muted-foreground">TOKENS</span>}
+          {config.capabilities.supportsHistory && <span className="text-[8px] font-mono px-1 py-0.5 rounded bg-muted/30 text-muted-foreground">HISTORY</span>}
+        </div>
+        <ExplorerLink config={config} address={address} />
+      </div>
     </div>
   );
 }
