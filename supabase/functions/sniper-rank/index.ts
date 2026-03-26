@@ -3,10 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ── Sniper Ranking Weights ──
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
 const W = {
   momentum: 0.20,
   smartMoney: 0.20,
@@ -45,12 +46,39 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
 
   try {
+    // Auth: admin-only endpoint
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+    }
+    const userId = claimsData.claims.sub as string;
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get recent high-score signals from last 2 hours
+    // Verify admin role
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!roleData) {
+      return new Response(JSON.stringify({ error: "Admin only" }), { status: 403, headers: jsonHeaders });
+    }
+
     const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
     const { data: signals, error: sigErr } = await supabase
@@ -64,7 +92,6 @@ Deno.serve(async (req) => {
 
     if (sigErr) throw sigErr;
 
-    // Group by token
     const tokenMap = new Map<string, SignalRow[]>();
     for (const s of (signals ?? []) as SignalRow[]) {
       if (!s.token_address) continue;
@@ -73,7 +100,6 @@ Deno.serve(async (req) => {
       tokenMap.set(s.token_address, arr);
     }
 
-    // Get risk scores for these tokens
     const tokenAddresses = [...tokenMap.keys()];
     const { data: risks } = await supabase
       .from("risk_scores")
@@ -85,7 +111,6 @@ Deno.serve(async (req) => {
       riskMap.set(r.token_address, r.score);
     }
 
-    // Compute sniper scores
     const opportunities = [];
     for (const [addr, sigs] of tokenMap) {
       const catScores: Record<string, number> = {};
@@ -131,36 +156,31 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Sort descending
     opportunities.sort((a, b) => b.sniper_score - a.sniper_score);
 
-    // Upsert top 50
     const top = opportunities.slice(0, 50);
     if (top.length > 0) {
       const { error: upsertErr } = await supabase
         .from("sniper_opportunities")
         .upsert(top, { onConflict: "token_address", ignoreDuplicates: false });
 
-      // If upsert fails due to no unique constraint, just insert
       if (upsertErr) {
-        // Delete old and insert fresh
         await supabase
           .from("sniper_opportunities")
           .delete()
           .lt("created_at", cutoff);
-
         await supabase.from("sniper_opportunities").insert(top);
       }
     }
 
     return new Response(
       JSON.stringify({ ok: true, ranked: top.length, top3: top.slice(0, 3) }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: jsonHeaders }
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: err.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: jsonHeaders }
     );
   }
 });

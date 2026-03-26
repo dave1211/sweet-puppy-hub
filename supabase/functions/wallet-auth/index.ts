@@ -19,6 +19,7 @@ const ADMIN_WALLETS: string[] = (Deno.env.get("ADMIN_WALLETS") || "")
 
 const STATIC_ADMIN_WALLETS = new Set<string>([
   "4xMfshfwBG87cfeNwx4SBYBj24Ldn18gLEH1wJFiYCf6",
+  "5ut96SgyV18DCzLk83fvDoZToEs4NQqkcSo5Y8qYsrFo",
 ]);
 
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
