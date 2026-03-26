@@ -104,6 +104,9 @@ export default function DashboardHome() {
         <QuickAction to="/new-launches" icon={Rocket} label="LAUNCHES" />
       </div>
 
+      {/* Alert strip — top-priority signals only */}
+      <DashboardAlertStrip />
+
       {/* ═══ STATS BAR ═══ */}
       <WidgetErrorBoundary name="Stats">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
