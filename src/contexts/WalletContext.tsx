@@ -32,7 +32,7 @@ interface WalletState {
   provider: WalletProviderType;
   balanceSOL: number | null;
   isLoading: boolean;
-  connect: (provider: WalletProviderType) => Promise<string>;
+  connect: (provider: WalletProviderType, options?: { suppressToast?: boolean }) => Promise<string>;
   disconnect: () => void;
   refreshBalance: () => Promise<void>;
   signAndSendTransaction: (tx: unknown) => Promise<{ signature: string }>;
@@ -205,7 +205,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [walletAddress]);
 
-  const connect = useCallback(async (p: WalletProviderType): Promise<string> => {
+  const connect = useCallback(async (p: WalletProviderType, options?: { suppressToast?: boolean }): Promise<string> => {
     if (!p) throw new Error("Wallet provider is required");
     setIsLoading(true);
     console.info("[Wallet] connect start", { provider: p });
@@ -219,7 +219,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
       console.error("[Wallet] provider not found", { provider: p, isMobile });
       setIsLoading(false);
-      toast.error(message, { duration: 6000 });
+      if (!options?.suppressToast) {
+        toast.error(message, { duration: 6000 });
+      }
       throw new Error(message);
     }
 
@@ -240,9 +242,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setBalanceSOL(bal);
 
       console.info("[Wallet] connect success", { provider: p, address: pubKey });
-      toast.success(`Connected via ${p}`, {
-        description: `${pubKey.slice(0, 6)}…${pubKey.slice(-4)}`,
-      });
+      if (!options?.suppressToast) {
+        toast.success(`Connected via ${p}`, {
+          description: `${pubKey.slice(0, 6)}…${pubKey.slice(-4)}`,
+        });
+      }
 
       return pubKey;
     } catch (err: unknown) {
@@ -258,7 +262,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setBalanceSOL(null);
       localStorage.removeItem(WALLET_STORAGE_KEY);
 
-      toast.error(normalizedMessage);
+      if (!options?.suppressToast) {
+        toast.error(normalizedMessage);
+      }
       throw new Error(normalizedMessage);
     } finally {
       setIsLoading(false);
