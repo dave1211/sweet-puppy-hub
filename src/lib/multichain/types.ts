@@ -4,7 +4,7 @@
  * UI components NEVER import chain SDKs directly.
  */
 
-export type ChainId = "solana" | "bitcoin" | "ethereum" | "xrpl" | "stellar" | "quant";
+export type ChainId = "solana" | "bitcoin" | "ethereum" | "xrpl" | "stellar" | "quant" | "xdc" | "hedera" | "algorand" | "iota";
 
 export interface ChainCapabilities {
   supportsTokens: boolean;
