@@ -328,19 +328,6 @@ export default function AuthPage() {
   const { connect, disconnect, walletAddress, isConnected, provider, getWalletObject } = useWallet();
   const deviceId = useDeviceId();
 
-  // Block external redirects during wallet auth (prevents Google/Lovable OAuth intercepts)
-  useEffect(() => {
-    const blockExternalNav = (e: BeforeUnloadEvent) => {
-      // Only block if we're in the middle of wallet auth
-      if (isBusyState(machine.status)) {
-        e.preventDefault();
-        console.warn("[AuthPage] Blocked external navigation during wallet auth", { status: machine.status });
-      }
-    };
-    window.addEventListener("beforeunload", blockExternalNav);
-    return () => window.removeEventListener("beforeunload", blockExternalNav);
-  }, [machine.status]);
-
   const initialWallets = useMemo(() => getAvailableWallets(), []);
   const [availableWallets, setAvailableWallets] = useState(initialWallets);
   const [machine, dispatch] = useReducer(authReducer, {
@@ -349,6 +336,18 @@ export default function AuthPage() {
     errorMessage: null,
     errorCode: null,
   });
+
+  // Block external redirects during wallet auth (prevents Google/Lovable OAuth intercepts)
+  useEffect(() => {
+    const blockExternalNav = (e: BeforeUnloadEvent) => {
+      if (isBusyState(machine.status)) {
+        e.preventDefault();
+        console.warn("[AuthPage] Blocked external navigation during wallet auth", { status: machine.status });
+      }
+    };
+    window.addEventListener("beforeunload", blockExternalNav);
+    return () => window.removeEventListener("beforeunload", blockExternalNav);
+  }, [machine.status]);
 
   const attemptRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
