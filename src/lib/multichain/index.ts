@@ -9,6 +9,10 @@ import { EthereumAdapter } from "./adapters/ethereum";
 import { XRPLAdapter } from "./adapters/xrpl";
 import { StellarAdapter } from "./adapters/stellar";
 import { QuantAdapter } from "./adapters/quant";
+import { XDCAdapter } from "./adapters/xdc";
+import { HederaAdapter } from "./adapters/hedera";
+import { AlgorandAdapter } from "./adapters/algorand";
+import { IOTAAdapter } from "./adapters/iota";
 
 const adapters = new Map<ChainId, ChainAdapter>();
 
@@ -21,6 +25,10 @@ function getOrCreate(chainId: ChainId): ChainAdapter {
       case "xrpl": adapters.set(chainId, new XRPLAdapter()); break;
       case "stellar": adapters.set(chainId, new StellarAdapter()); break;
       case "quant": adapters.set(chainId, new QuantAdapter()); break;
+      case "xdc": adapters.set(chainId, new XDCAdapter()); break;
+      case "hedera": adapters.set(chainId, new HederaAdapter()); break;
+      case "algorand": adapters.set(chainId, new AlgorandAdapter()); break;
+      case "iota": adapters.set(chainId, new IOTAAdapter()); break;
     }
   }
   return adapters.get(chainId)!;
