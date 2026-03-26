@@ -14,13 +14,17 @@ const walletAuthKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 interface WalletChallengeSuccess {
   ok: true;
-  data: { nonce: string; challengeToken: string; expiresAt: number };
+  data: { nonce: string; challengeToken: string; issuedAt: number; expiresAt: number };
 }
 interface WalletChallengeFailure {
   ok: false;
   error?: { code?: string; message?: string };
 }
 type WalletChallengeResponse = WalletChallengeSuccess | WalletChallengeFailure;
+
+function isRetryableChallengeError(message: string): boolean {
+  return /signed message expired|message expired|challenge token expired|invalid challenge/i.test(message);
+}
 
 async function requestWalletChallenge(walletAddress: string, deviceId: string): Promise<WalletChallengeSuccess["data"]> {
   if (!walletAuthKey) throw new Error("Auth configuration missing");
@@ -35,7 +39,7 @@ async function requestWalletChallenge(walletAddress: string, deviceId: string): 
   });
   let data: WalletChallengeResponse | null = null;
   try { data = (await response.json()) as WalletChallengeResponse; } catch { throw new Error("Auth service returned invalid response"); }
-  if (!response.ok || !data || !data.ok || !data.data?.nonce || !data.data?.challengeToken) {
+  if (!response.ok || !data || !data.ok || !data.data?.nonce || !data.data?.challengeToken || !data.data?.issuedAt) {
     const message = data && "error" in data ? data.error?.message : "Failed to get challenge";
     throw new Error(message || "Failed to get challenge");
   }
@@ -100,18 +104,29 @@ export default function AuthPage() {
         address = await connect(walletType);
       }
 
-      const wallet = getWalletObject();
+      const wallet = getWalletObject(walletType);
       if (!address || !wallet?.publicKey) throw new Error("Wallet not connected");
       if (!wallet.signMessage) throw new Error(`${walletType} does not support message signing in this browser`);
 
-      const challenge = await requestWalletChallenge(address, deviceId);
-      const message = `Sign in to Tanner Terminal\nWallet: ${address}\nNonce: ${challenge.nonce}\nTimestamp: ${Date.now()}`;
-      const messageBytes = new TextEncoder().encode(message);
+      const attemptSignIn = async () => {
+        const challenge = await requestWalletChallenge(address, deviceId);
+        const message = `Sign in to Tanner Terminal\nWallet: ${address}\nNonce: ${challenge.nonce}\nTimestamp: ${challenge.issuedAt}`;
+        const messageBytes = new TextEncoder().encode(message);
+        const signed = await wallet.signMessage!(messageBytes);
+        const signatureBytes = signed instanceof Uint8Array ? signed : signed?.signature;
+        if (!signatureBytes?.length) throw new Error("Wallet did not return a valid signature");
 
-      const { signature } = await wallet.signMessage(messageBytes);
-      const signatureB58 = bs58.encode(signature);
+        const signatureB58 = bs58.encode(signatureBytes);
+        return signInWithWallet(address, signatureB58, message, challenge.challengeToken, deviceId);
+      };
 
-      const { error } = await signInWithWallet(address, signatureB58, message, challenge.challengeToken, deviceId);
+      let { error } = await attemptSignIn();
+
+      if (error && isRetryableChallengeError(error.message)) {
+        toast.info("Refreshing signature challenge…");
+        ({ error } = await attemptSignIn());
+      }
+
       if (error) {
         setAuthError(error.message);
         toast.error(error.message);
@@ -121,9 +136,12 @@ export default function AuthPage() {
       toast.success("Wallet authenticated");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Wallet authentication failed";
+      const unauthorizedMessage = /requested method and\/or account has not been authorized|not authorized by the user/i.test(message)
+        ? "Phantom needs a fresh approval. Tap Phantom and approve the signature request."
+        : null;
       const normalizedMessage = /rejected|denied/i.test(message)
         ? "Signature was rejected. Retry wallet authentication."
-        : message;
+        : unauthorizedMessage || message;
       setAuthError(normalizedMessage);
       toast.error(normalizedMessage);
     } finally {
