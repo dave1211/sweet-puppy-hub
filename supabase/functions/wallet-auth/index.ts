@@ -25,6 +25,27 @@ const STATIC_ADMIN_WALLETS = new Set<string>([
 const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const usedChallengeTokens = new Map<string, number>();
+
+const TELEMETRY_EVENTS = new Set<string>([
+  "provider_detected",
+  "connect_started",
+  "connect_success",
+  "challenge_created",
+  "sign_requested",
+  "sign_success",
+  "verify_success",
+  "role_assign_success",
+  "session_ready",
+  "app_boot_ready",
+  "wallet_not_detected",
+  "rejected_by_user",
+  "signature_expired",
+  "wallet_auth_failed",
+  "role_assignment_failed",
+  "session_restore_failed",
+  "app_boot_failed",
+]);
 
 interface ChallengePayload {
   walletAddress: string;
@@ -80,6 +101,25 @@ function checkRateLimit(key: string): boolean {
   if (entry.count >= RATE_LIMIT_MAX) return false;
   entry.count += 1;
   return true;
+}
+
+function cleanupUsedChallengeTokens(now: number): void {
+  for (const [token, expiresAt] of usedChallengeTokens.entries()) {
+    if (expiresAt <= now) {
+      usedChallengeTokens.delete(token);
+    }
+  }
+}
+
+function isChallengeTokenUsed(token: string): boolean {
+  const now = Date.now();
+  cleanupUsedChallengeTokens(now);
+  return usedChallengeTokens.has(token);
+}
+
+function markChallengeTokenUsed(token: string, expiresAt: number): void {
+  cleanupUsedChallengeTokens(Date.now());
+  usedChallengeTokens.set(token, expiresAt);
 }
 
 function normalizeWalletAddress(walletAddress: string): string {
@@ -266,15 +306,46 @@ async function logAuthEvent(
   }
 }
 
+async function upsertRoleWithRetry(
+  supabaseAdmin: SupabaseAdminClient,
+  userId: string,
+  role: "user" | "admin",
+  walletAddress: string,
+): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const { error } = await supabaseAdmin.from("user_roles").upsert(
+      {
+        user_id: userId,
+        role,
+        wallet_address: walletAddress,
+      },
+      { onConflict: "user_id,role" },
+    );
+
+    if (!error) return { ok: true };
+    if (attempt === 2) return { ok: false, error };
+
+    await new Promise((resolve) => setTimeout(resolve, 120 * attempt));
+  }
+
+  return { ok: false, error: new Error("Role upsert failed") };
+}
+
 async function issueWalletSession(walletAddress: string, authCtx: AuthContextPayload): Promise<Response> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY");
 
-  if (!supabaseUrl || !serviceRole) {
+  if (!supabaseUrl || !serviceRole || !publishableKey) {
     return errorResponse(500, "CONFIGURATION_ERROR", "Authentication backend is not configured");
   }
 
-  const supabaseAdmin = createClient(supabaseUrl, serviceRole);
+  const supabaseAdmin = createClient(supabaseUrl, serviceRole, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  const supabaseAuth = createClient(supabaseUrl, publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
   const email = `${walletAddress.toLowerCase()}@wallet.tanner.local`;
   const password = generateSecurePassword();
 
@@ -315,7 +386,7 @@ async function issueWalletSession(walletAddress: string, authCtx: AuthContextPay
     }
   }
 
-  const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+  const { data: signInData, error: signInError } = await supabaseAuth.auth.signInWithPassword({ email, password });
   if (signInError || !signInData?.session) {
     await logAuthEvent("wallet_auth_failed", { code: "AUTH_FAILED", walletAddress, host: authCtx.host }, null, authCtx.deviceId);
     return errorResponse(401, "AUTH_FAILED", "Failed to authenticate wallet");
@@ -324,19 +395,19 @@ async function issueWalletSession(walletAddress: string, authCtx: AuthContextPay
   const session = signInData.session;
   const isAdmin = ADMIN_WALLETS.includes(walletAddress) || STATIC_ADMIN_WALLETS.has(walletAddress);
 
-  if (isAdmin && session.user?.id) {
-    const { error: upsertRoleError } = await supabaseAdmin.from("user_roles").upsert(
-      {
-        user_id: session.user.id,
-        role: "admin",
-        wallet_address: walletAddress,
-      },
-      { onConflict: "user_id,role" },
-    );
-
-    if (upsertRoleError) {
-      await logAuthEvent("wallet_auth_failed", { code: "ROLE_ASSIGN_FAILED", walletAddress, host: authCtx.host }, session.user.id, authCtx.deviceId);
+  if (session.user?.id) {
+    const userRoleResult = await upsertRoleWithRetry(supabaseAdmin, session.user.id, "user", walletAddress);
+    if (!userRoleResult.ok) {
+      await logAuthEvent("wallet_auth_failed", { code: "ROLE_ASSIGN_FAILED", role: "user", walletAddress, host: authCtx.host }, session.user.id, authCtx.deviceId);
       return errorResponse(500, "ROLE_ASSIGN_FAILED", "Failed to assign wallet role");
+    }
+
+    if (isAdmin) {
+      const adminRoleResult = await upsertRoleWithRetry(supabaseAdmin, session.user.id, "admin", walletAddress);
+      if (!adminRoleResult.ok) {
+        await logAuthEvent("wallet_auth_failed", { code: "ROLE_ASSIGN_FAILED", role: "admin", walletAddress, host: authCtx.host }, session.user.id, authCtx.deviceId);
+        return errorResponse(500, "ROLE_ASSIGN_FAILED", "Failed to assign wallet role");
+      }
     }
   }
 
@@ -350,6 +421,13 @@ async function issueWalletSession(walletAddress: string, authCtx: AuthContextPay
     authCtx.deviceId,
   );
 
+  console.info("[wallet-auth] session_ready", {
+    walletAddress,
+    userId: session.user.id,
+    isAdmin,
+    deviceId: authCtx.deviceId,
+  });
+
   return successResponse({
     session: {
       access_token: session.access_token,
@@ -362,6 +440,7 @@ async function issueWalletSession(walletAddress: string, authCtx: AuthContextPay
       email: session.user.email,
       wallet_address: walletAddress,
       is_admin: isAdmin,
+      access_assigned: true,
     },
   });
 }
@@ -389,6 +468,32 @@ Deno.serve(async (req) => {
       const host = normalizeHost(typeof body.host === "string" ? body.host : "");
       const reason = typeof body.reason === "string" ? body.reason : "unknown";
       await logAuthEvent("blocked_redirect_attempt", { reason, host }, null, deviceId || null);
+      return successResponse({ logged: true });
+    }
+
+    if (action === "telemetry") {
+      const event = typeof body.event === "string" ? body.event.trim() : "";
+      const host = normalizeHost(typeof body.host === "string" ? body.host : "");
+      const deviceId = normalizeDeviceId(typeof body.deviceId === "string" ? body.deviceId : "");
+      const walletAddressRaw = typeof body.walletAddress === "string" ? body.walletAddress : "";
+      const walletAddress = walletAddressRaw ? normalizeWalletAddress(walletAddressRaw) : null;
+
+      if (!event || !TELEMETRY_EVENTS.has(event)) {
+        return errorResponse(400, "INVALID_TELEMETRY_EVENT", "Unsupported telemetry event");
+      }
+
+      if (deviceId && !isValidDeviceId(deviceId)) {
+        return errorResponse(400, "INVALID_DEVICE", "Invalid device identifier");
+      }
+
+      console.info("[wallet-auth][telemetry]", {
+        event,
+        host,
+        deviceId,
+        walletAddress,
+        metadata: body.metadata ?? null,
+      });
+
       return successResponse({ logged: true });
     }
 
@@ -423,6 +528,8 @@ Deno.serve(async (req) => {
         },
         challengeSecret,
       );
+
+      console.info("[wallet-auth] challenge_created", { walletAddress, deviceId });
 
       return successResponse({
         walletAddress,
@@ -484,6 +591,11 @@ Deno.serve(async (req) => {
         return await fail(401, "EXPIRED_CHALLENGE", "Challenge token expired");
       }
 
+      if (isChallengeTokenUsed(challengeToken)) {
+        return await fail(401, "CHALLENGE_ALREADY_USED", "Challenge already used. Request a new challenge.");
+      }
+      markChallengeTokenUsed(challengeToken, challengePayload.expiresAt);
+
       const parsedMessage = parseSignInMessage(message);
       if (!parsedMessage) {
         return await fail(400, "INVALID_MESSAGE_FORMAT", "Invalid sign-in message format");
@@ -501,7 +613,7 @@ Deno.serve(async (req) => {
         return await fail(401, "DEVICE_MISMATCH", "Device mismatch in sign-in request");
       }
 
-      if (Math.abs(parsedMessage.timestamp - challengePayload.issuedAt) > 30_000) {
+      if (parsedMessage.timestamp !== challengePayload.issuedAt) {
         return await fail(401, "MESSAGE_EXPIRED", "Signed message expired");
       }
 
@@ -520,6 +632,8 @@ Deno.serve(async (req) => {
       if (!signatureValid) {
         return await fail(401, "SIGNATURE_VERIFICATION_FAILED", "Signature verification failed", true);
       }
+
+      console.info("[wallet-auth] verify_success", { walletAddress, deviceId, host });
 
       return await issueWalletSession(walletAddress, { deviceId, host, userAgent });
     }
