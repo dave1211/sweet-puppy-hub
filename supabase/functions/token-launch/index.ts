@@ -28,10 +28,9 @@ async function requireAuth(req: Request): Promise<string | null> {
     { global: { headers: { Authorization: authHeader } } }
   );
 
-  const token = authHeader.replace("Bearer ", "");
-  const { data, error } = await supabase.auth.getClaims(token);
-  if (error || !data?.claims?.sub) return null;
-  return data.claims.sub as string;
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error || !user) return null;
+  return user.id;
 }
 
 function normalizeTier(value: unknown): Tier {
