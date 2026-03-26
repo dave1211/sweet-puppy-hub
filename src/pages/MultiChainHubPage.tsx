@@ -38,7 +38,7 @@ function ChainBalanceCard({ chain, balance }: { chain: typeof ACTIVE_CHAINS[numb
         </div>
         <div className="flex items-center gap-2">
           {chain.isCompliance && (
-            <Shield className="h-3 w-3 text-terminal-cyan" title="Compliance-aligned" />
+            <Shield className="h-3 w-3 text-terminal-cyan" />
           )}
           <NetworkStatusDot chainId={chain.id} />
         </div>
