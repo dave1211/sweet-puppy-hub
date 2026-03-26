@@ -128,24 +128,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [walletAddress]);
 
   // Auto-reconnect on page load if wallet was previously connected in this browser.
+  // Wrapped in try-catch to prevent "not authorized" errors on mobile wallet browsers (e.g. Phantom).
   useEffect(() => {
     const savedProvider = localStorage.getItem(WALLET_STORAGE_KEY) as WalletProviderType;
     if (!savedProvider) return;
 
-    const wallet = getWalletProvider(savedProvider);
-    console.info("[Wallet] Reconnect check", {
-      provider: savedProvider,
-      providerFound: Boolean(wallet),
-      walletConnected: wallet?.isConnected ?? false,
-    });
+    try {
+      const wallet = getWalletProvider(savedProvider);
+      console.info("[Wallet] Reconnect check", {
+        provider: savedProvider,
+        providerFound: Boolean(wallet),
+      });
 
-    if (wallet?.isConnected && wallet?.publicKey) {
-      const pubKey = wallet.publicKey.toString();
-      setWalletAddress(pubKey);
-      setProvider(savedProvider);
-      setIsConnected(true);
-      fetchSOLBalance(pubKey).then(setBalanceSOL);
-      return;
+      if (wallet?.isConnected && wallet?.publicKey) {
+        const pubKey = wallet.publicKey.toString();
+        setWalletAddress(pubKey);
+        setProvider(savedProvider);
+        setIsConnected(true);
+        fetchSOLBalance(pubKey).then(setBalanceSOL);
+        return;
+      }
+    } catch (err) {
+      console.warn("[Wallet] Auto-reconnect failed, clearing saved provider", err);
     }
 
     localStorage.removeItem(WALLET_STORAGE_KEY);
