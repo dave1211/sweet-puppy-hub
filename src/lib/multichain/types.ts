@@ -6,6 +6,13 @@
 
 export type ChainId = "solana" | "bitcoin" | "ethereum" | "xrpl" | "stellar" | "quant";
 
+export interface ChainCapabilities {
+  supportsTokens: boolean;
+  supportsTransfers: boolean;
+  supportsHistory: boolean;
+  supportsComplianceView: boolean;
+}
+
 export interface ChainConfig {
   id: ChainId;
   name: string;
@@ -14,8 +21,11 @@ export interface ChainConfig {
   color: string;
   decimals: number;
   explorerUrl: string;
-  isCompliance: boolean; // regulatory-friendly ecosystem
+  explorerAddressPath: string;
+  explorerTxPath: string;
+  isCompliance: boolean;
   status: "active" | "coming_soon";
+  capabilities: ChainCapabilities;
 }
 
 export interface ChainBalance {
