@@ -29,6 +29,7 @@ const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 interface ChallengePayload {
   walletAddress: string;
   nonce: string;
+  issuedAt: number;
   expiresAt: number;
   deviceId: string;
 }
@@ -177,9 +178,14 @@ async function verifyChallengeToken(token: string, secret: string): Promise<Chal
       return null;
     }
 
+    const issuedAt = typeof payload.issuedAt === "number"
+      ? payload.issuedAt
+      : payload.expiresAt - CHALLENGE_TTL_MS;
+
     return {
       walletAddress: payload.walletAddress,
       nonce: payload.nonce,
+      issuedAt,
       expiresAt: payload.expiresAt,
       deviceId: payload.deviceId,
     };
@@ -405,11 +411,13 @@ Deno.serve(async (req) => {
       }
 
       const nonce = randomNonce();
-      const expiresAt = Date.now() + CHALLENGE_TTL_MS;
+      const issuedAt = Date.now();
+      const expiresAt = issuedAt + CHALLENGE_TTL_MS;
       const challengeToken = await createChallengeToken(
         {
           walletAddress,
           nonce,
+          issuedAt,
           expiresAt,
           deviceId,
         },
@@ -419,6 +427,7 @@ Deno.serve(async (req) => {
       return successResponse({
         walletAddress,
         nonce,
+        issuedAt,
         challengeToken,
         expiresAt,
       });
@@ -492,8 +501,7 @@ Deno.serve(async (req) => {
         return await fail(401, "DEVICE_MISMATCH", "Device mismatch in sign-in request");
       }
 
-      const now = Date.now();
-      if (Math.abs(now - parsedMessage.timestamp) > CHALLENGE_TTL_MS) {
+      if (Math.abs(parsedMessage.timestamp - challengePayload.issuedAt) > 30_000) {
         return await fail(401, "MESSAGE_EXPIRED", "Signed message expired");
       }
 
