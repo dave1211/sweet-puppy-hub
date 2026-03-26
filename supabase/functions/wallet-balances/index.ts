@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,10 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+
 const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
 const TOKEN_PROGRAM_ID = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 
-// Well-known SPL token mints with metadata
 const KNOWN_TOKENS: Record<string, { symbol: string; name: string; decimals: number; icon: string }> = {
   "So11111111111111111111111111111111111111112": { symbol: "SOL", name: "Wrapped SOL", decimals: 9, icon: "◎" },
   "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263": { symbol: "BONK", name: "Bonk", decimals: 5, icon: "🦴" },
@@ -27,23 +28,38 @@ const KNOWN_TOKENS: Record<string, { symbol: string; name: string; decimals: num
   "WENWENvqqNya429ubCdR81ZmD69brwQaaBYY6p91oHk": { symbol: "WEN", name: "WEN", decimals: 5, icon: "📜" },
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Auth: require authenticated user
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+    }
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: jsonHeaders });
+    }
+
     const url = new URL(req.url);
     const address = url.searchParams.get("address");
 
     if (!address) {
       return new Response(
         JSON.stringify({ error: "address query parameter required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: jsonHeaders }
       );
     }
 
-    // Fetch SOL balance and token accounts in parallel
     const [solBalRes, tokenAccountsRes] = await Promise.all([
       fetch(SOLANA_RPC, {
         method: "POST",
@@ -120,23 +136,18 @@ serve(async (req) => {
       }
     }
 
-    // Sort by balance descending (approximate — without prices)
     tokenAccounts.sort((a, b) => b.balance - a.balance);
 
     return new Response(
-      JSON.stringify({
-        address,
-        solBalance,
-        tokens: tokenAccounts,
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ address, solBalance, tokens: tokenAccounts }),
+      { headers: jsonHeaders }
     );
   } catch (error: unknown) {
     console.error("Wallet balances error:", error);
     const message = error instanceof Error ? error.message : "Unknown error";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: jsonHeaders,
     });
   }
 });
