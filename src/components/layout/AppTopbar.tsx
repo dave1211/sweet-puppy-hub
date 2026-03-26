@@ -1,9 +1,8 @@
-import { Search, Bell, Settings, Zap, ChevronDown, Clock, Menu, X } from "lucide-react";
+import { Search, Settings, Zap, Clock, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { WalletConnectButton } from "@/components/terminal/WalletConnectButton";
-import { useAlerts } from "@/hooks/useAlerts";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { NotificationCenter } from "@/components/alerts/NotificationCenter";
 
 interface AppTopbarProps {
   onToggleSidebar?: () => void;
@@ -13,9 +12,7 @@ interface AppTopbarProps {
 export function AppTopbar({ onToggleSidebar, sidebarOpen }: AppTopbarProps) {
   const [search, setSearch] = useState("");
   const [time, setTime] = useState("");
-  const { alerts } = useAlerts();
   const navigate = useNavigate();
-  const activeAlerts = alerts.filter(a => a.enabled);
 
   useEffect(() => {
     const tick = () => setTime(new Date().toLocaleTimeString("en-US", { hour12: false }));
@@ -79,45 +76,8 @@ export function AppTopbar({ onToggleSidebar, sidebarOpen }: AppTopbarProps) {
             <span>{time}</span>
           </div>
 
-          {/* Notification bell */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <button className="relative p-1.5 rounded hover:bg-muted/50 transition-colors">
-                <Bell className="h-4 w-4 text-muted-foreground" />
-                {activeAlerts.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-destructive flex items-center justify-center">
-                    <span className="text-[7px] font-mono text-white font-bold">{activeAlerts.length}</span>
-                  </span>
-                )}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="w-72 p-0">
-              <div className="p-3 border-b border-border">
-                <p className="text-xs font-mono font-bold text-foreground">NOTIFICATIONS</p>
-                <p className="text-[10px] text-muted-foreground">{activeAlerts.length} active alert(s)</p>
-              </div>
-              <div className="max-h-48 overflow-y-auto">
-                {alerts.length === 0 ? (
-                  <p className="text-xs text-muted-foreground p-4 text-center">No alerts configured</p>
-                ) : (
-                  alerts.slice(0, 6).map(a => (
-                    <div key={a.id} className="px-3 py-2 border-b border-border/50 hover:bg-muted/20 transition-colors">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-medium text-foreground uppercase">{a.kind}</span>
-                        <span className={`text-[9px] font-mono ${a.enabled ? "text-terminal-green" : "text-muted-foreground"}`}>
-                          {a.enabled ? "ACTIVE" : "OFF"}
-                        </span>
-                      </div>
-                      <p className="text-[9px] font-mono text-muted-foreground truncate">{a.address.slice(0, 16)}… {a.direction} {a.threshold}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-              <Link to="/alerts" className="block p-2 text-center text-[10px] font-mono text-primary hover:bg-muted/20 border-t border-border">
-                Manage Alerts →
-              </Link>
-            </PopoverContent>
-          </Popover>
+          {/* Notification center */}
+          <NotificationCenter />
 
           <Link to="/settings" className="p-1.5 rounded hover:bg-muted/50 transition-colors">
             <Settings className="h-4 w-4 text-muted-foreground" />

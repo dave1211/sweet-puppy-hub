@@ -20,6 +20,8 @@ import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
 import { useSnipeHistory } from "@/hooks/useSnipeHistory";
 import { useWallet } from "@/contexts/WalletContext";
 import { ACTIVE_CHAINS } from "@/lib/multichain";
+import { DashboardAlertStrip } from "@/components/alerts/DashboardAlertStrip";
+import { useChainHealthMonitor } from "@/hooks/useChainHealthMonitor";
 
 /* ───── Quick-action button ───── */
 function QuickAction({ to, icon: Icon, label, accent }: {
@@ -66,6 +68,8 @@ export default function DashboardHome() {
   const liveTicks = useLivePriceTicks(15_000);
   const { wins, history } = useSnipeHistory();
   const { isConnected, walletAddress, balanceSOL } = useWallet();
+  // Start health monitor (non-blocking, delayed)
+  useChainHealthMonitor();
 
   const activeAlerts = alerts.filter(a => a.enabled).length;
   const topSignals = signals.filter(t => t.label === "HIGH SIGNAL").slice(0, 4);
@@ -99,6 +103,9 @@ export default function DashboardHome() {
         <QuickAction to="/risk-scanner" icon={ShieldAlert} label="RISK SCAN" />
         <QuickAction to="/new-launches" icon={Rocket} label="LAUNCHES" />
       </div>
+
+      {/* Alert strip — top-priority signals only */}
+      <DashboardAlertStrip />
 
       {/* ═══ STATS BAR ═══ */}
       <WidgetErrorBoundary name="Stats">
