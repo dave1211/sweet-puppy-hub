@@ -279,6 +279,41 @@ export default function TokenDetailPage() {
         ) : null}
         {activeTab === "Trade" && (
           <div className="space-y-4">
+            {/* Safety gate — BLOCKED */}
+            {safety && !safety.tradeAllowed && (
+              <div className="p-3 rounded bg-terminal-red/10 border border-terminal-red/30">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <ShieldAlert className="h-4 w-4 text-terminal-red" />
+                  <span className="text-[10px] font-mono font-bold text-terminal-red">TRADING BLOCKED BY SAFETY ENGINE</span>
+                </div>
+                {safety.blockReasons.map((r, i) => <p key={i} className="text-[9px] font-mono text-terminal-red/80 pl-5">{r}</p>)}
+                <p className="text-[8px] font-mono text-muted-foreground mt-2">This token has been blocked. No override available.</p>
+              </div>
+            )}
+
+            {/* Safety gate — WARNING: require acknowledgment */}
+            {safety && safety.tradeAllowed && safety.cautionState !== "safer" && (
+              <div className="p-3 rounded bg-terminal-amber/10 border border-terminal-amber/30">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <ShieldAlert className="h-4 w-4 text-terminal-amber" />
+                  <span className="text-[10px] font-mono font-bold text-terminal-amber">
+                    {CAUTION_LABELS[safety.cautionState]} — Safety Score: {safety.safetyScore}/100
+                  </span>
+                </div>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={riskAcknowledged}
+                    onChange={e => setRiskAcknowledged(e.target.checked)}
+                    className="mt-0.5 accent-terminal-amber"
+                  />
+                  <span className="text-[9px] font-mono text-terminal-amber/80">
+                    I understand the risks. {safety.flags.length} flag(s) detected. I accept responsibility for this trade.
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div>
                 <label className="text-[9px] font-mono text-muted-foreground uppercase block mb-1">Amount (SOL)</label>
@@ -299,8 +334,13 @@ export default function TokenDetailPage() {
                 </div>
               </div>
 
-              <button onClick={handleQuote} disabled={isQuoting} className="w-full py-2.5 rounded bg-primary/10 text-primary text-xs font-mono font-medium border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              <button
+                onClick={handleQuote}
+                disabled={isQuoting || (safety != null && !safety.tradeAllowed) || (safety != null && safety.cautionState !== "safer" && !riskAcknowledged)}
+                className="w-full py-2.5 rounded bg-primary/10 text-primary text-xs font-mono font-medium border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
                 {isQuoting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Getting Quote…</> : <><ArrowUpDown className="h-3.5 w-3.5" /> Get Jupiter Quote</>}
+              </button>
               </button>
 
               {swapError && (
