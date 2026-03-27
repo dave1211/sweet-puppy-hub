@@ -1,7 +1,26 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 
-type WalletProviderType = "phantom" | "solflare" | "backpack" | null;
+export type WalletProviderType = "phantom" | "solflare" | "backpack" | null;
+
+export type WalletEnvironment =
+  | "phantom_in_app"
+  | "other_wallet_browser"
+  | "mobile_browser"
+  | "desktop_browser"
+  | "preview_context";
+
+export interface WalletEnvironmentInfo {
+  environment: WalletEnvironment;
+  isPreview: boolean;
+  isMobile: boolean;
+  hasPhantom: boolean;
+  hasSolflare: boolean;
+  hasBackpack: boolean;
+  host: string;
+}
+
+type WalletProviderError = Error & { code?: string };
 
 interface WalletPublicKey {
   toString: () => string;
@@ -34,9 +53,12 @@ interface WalletState {
   isLoading: boolean;
   connect: (provider: WalletProviderType, options?: { suppressToast?: boolean }) => Promise<string>;
   disconnect: () => void;
+  clearWalletSessionState: () => void;
   refreshBalance: () => Promise<void>;
   signAndSendTransaction: (tx: unknown) => Promise<{ signature: string }>;
   getWalletObject: (providerOverride?: WalletProviderType) => SolanaWallet | null;
+  probeWalletProviders: () => WalletProviderType[];
+  detectWalletEnvironment: () => WalletEnvironmentInfo;
 }
 
 const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
@@ -49,6 +71,16 @@ interface WalletWindow extends Window {
   phantom?: { solana?: SolanaWallet };
   solflare?: SolanaWallet;
   backpack?: SolanaWallet;
+}
+
+function createWalletProviderError(message: string, code: string): WalletProviderError {
+  const error = new Error(message) as WalletProviderError;
+  error.code = code;
+  return error;
+}
+
+function isPreviewHost(host: string): boolean {
+  return host.includes("id-preview--") || host.endsWith(".lovable.app");
 }
 
 function resolvePhantomProvider(win: WalletWindow): SolanaWallet | null {
@@ -93,6 +125,48 @@ function getWalletProvider(p: WalletProviderType): SolanaWallet | null {
   return null;
 }
 
+function probeWalletProvidersInternal(): WalletProviderType[] {
+  const providers: WalletProviderType[] = [];
+  if (getWalletProvider("phantom")) providers.push("phantom");
+  if (getWalletProvider("solflare")) providers.push("solflare");
+  if (getWalletProvider("backpack")) providers.push("backpack");
+  return providers;
+}
+
+function detectWalletEnvironmentInternal(): WalletEnvironmentInfo {
+  const host = window.location.hostname;
+  const ua = navigator.userAgent;
+  const isMobile = /android|iphone|ipad|ipod/i.test(ua);
+  const isPreview = isPreviewHost(host);
+  const hasPhantom = Boolean(getWalletProvider("phantom"));
+  const hasSolflare = Boolean(getWalletProvider("solflare"));
+  const hasBackpack = Boolean(getWalletProvider("backpack"));
+  const hasAnyWallet = hasPhantom || hasSolflare || hasBackpack;
+
+  const phantomUA = /phantom/i.test(ua);
+  const walletUA = /solflare|backpack/i.test(ua);
+
+  const environment: WalletEnvironment = isPreview && !hasAnyWallet
+    ? "preview_context"
+    : phantomUA && hasPhantom
+      ? "phantom_in_app"
+      : walletUA && hasAnyWallet
+        ? "other_wallet_browser"
+        : isMobile
+          ? "mobile_browser"
+          : "desktop_browser";
+
+  return {
+    environment,
+    isPreview,
+    isMobile,
+    hasPhantom,
+    hasSolflare,
+    hasBackpack,
+    host,
+  };
+}
+
 async function fetchSOLBalance(address: string): Promise<number> {
   try {
     const res = await fetch(SOLANA_RPC, {
@@ -126,6 +200,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     const bal = await fetchSOLBalance(walletAddress);
     setBalanceSOL(bal);
   }, [walletAddress]);
+
+  const clearWalletSessionState = useCallback(() => {
+    setIsConnected(false);
+    setWalletAddress(null);
+    setProvider(null);
+    setBalanceSOL(null);
+    setIsLoading(false);
+    localStorage.removeItem(WALLET_STORAGE_KEY);
+  }, []);
 
   // Auto-reconnect on page load if wallet was previously connected in this browser.
   // Wrapped in try-catch to prevent "not authorized" errors on mobile wallet browsers (e.g. Phantom).
@@ -222,7 +305,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (!options?.suppressToast) {
         toast.error(message, { duration: 6000 });
       }
-      throw new Error(message);
+      throw createWalletProviderError(message, "WALLET_PROVIDER_MISSING");
     }
 
     try {
@@ -251,7 +334,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return pubKey;
     } catch (err: unknown) {
       const rawMessage = err instanceof Error ? err.message : "Wallet connection failed";
-      const normalizedMessage = /rejected|denied|cancel|4001|User rejected/i.test(rawMessage)
+      const rejectedByUser = /rejected|denied|cancel|4001|User rejected/i.test(rawMessage);
+      const normalizedMessage = rejectedByUser
         ? "Wallet connection was rejected by the user"
         : rawMessage;
 
@@ -265,7 +349,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       if (!options?.suppressToast) {
         toast.error(normalizedMessage);
       }
-      throw new Error(normalizedMessage);
+      throw createWalletProviderError(normalizedMessage, rejectedByUser ? "USER_REJECTED_CONNECT" : "WALLET_CONNECT_FAILED");
     } finally {
       setIsLoading(false);
     }
@@ -281,15 +365,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    setIsConnected(false);
-    setWalletAddress(null);
-    setProvider(null);
-    setBalanceSOL(null);
-    setIsLoading(false);
-    localStorage.removeItem(WALLET_STORAGE_KEY);
+    clearWalletSessionState();
     console.info("[Wallet] disconnect success");
     toast.info("Wallet disconnected");
-  }, [provider]);
+  }, [provider, clearWalletSessionState]);
 
   const signAndSendTransaction = useCallback(
     async (tx: unknown): Promise<{ signature: string }> => {
@@ -307,6 +386,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return getWalletProvider(providerOverride ?? provider);
   }, [provider]);
 
+  const probeWalletProviders = useCallback(() => {
+    return probeWalletProvidersInternal();
+  }, []);
+
+  const detectWalletEnvironment = useCallback(() => {
+    return detectWalletEnvironmentInternal();
+  }, []);
+
   return (
     <WalletContext.Provider
       value={{
@@ -317,9 +404,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isLoading,
         connect,
         disconnect,
+        clearWalletSessionState,
         refreshBalance,
         signAndSendTransaction,
         getWalletObject,
+        probeWalletProviders,
+        detectWalletEnvironment,
       }}
     >
       {children}

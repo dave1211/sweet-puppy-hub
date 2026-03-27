@@ -3,6 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 export type Tier = "free" | "pro" | "elite";
+type TierResolutionSource = "admin_role" | "subscription" | "profile" | "default";
+
+interface TierResolution {
+  tier: Tier;
+  source: TierResolutionSource;
+}
 
 export interface TierLimits {
   maxWallets: number;
@@ -45,6 +51,10 @@ interface TierContextValue {
   limits: TierLimits;
   tierLabel: string;
   requiredTier: (gate: keyof TierGates) => Tier;
+  resolvedFrom: TierResolutionSource;
+  lastResolvedAt: number | null;
+  isResolving: boolean;
+  refreshTier: () => Promise<void>;
 }
 
 const GATE_REQUIRED_TIER: Record<keyof TierGates, Tier> = {
@@ -66,10 +76,22 @@ const TierContext = createContext<TierContextValue | null>(null);
 
 export function TierProvider({ children }: { children: ReactNode }) {
   const [tier, setTier] = useState<Tier>("free");
+  const [resolvedFrom, setResolvedFrom] = useState<TierResolutionSource>("default");
+  const [lastResolvedAt, setLastResolvedAt] = useState<number | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
   const { user } = useAuth();
 
-  const resolveTierForUser = useCallback(async (userId: string): Promise<Tier> => {
+  const resolveTierForUser = useCallback(async (userId: string): Promise<TierResolution> => {
     try {
+      const { data: isAdmin, error: adminError } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+
+      if (!adminError && isAdmin) {
+        return { tier: "elite", source: "admin_role" };
+      }
+
       const { data: subscription } = await supabase
         .from("subscriptions")
         .select("tier")
@@ -80,7 +102,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (subscription?.tier === "pro" || subscription?.tier === "elite") {
-        return subscription.tier;
+        return { tier: subscription.tier, source: "subscription" };
       }
 
       const { data: profile } = await supabase
@@ -90,33 +112,55 @@ export function TierProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (profile?.tier === "pro" || profile?.tier === "elite") {
-        return profile.tier;
+        return { tier: profile.tier, source: "profile" };
       }
 
-      const { data: isAdmin } = await supabase.rpc("has_role", {
-        _user_id: userId,
-        _role: "admin",
-      });
-
-      if (isAdmin) return "elite";
+      return { tier: "free", source: "default" };
     } catch {
-      return "free";
+      return { tier: "free", source: "default" };
+    }
+  }, []);
+
+  const refreshTier = useCallback(async () => {
+    if (!user?.id) {
+      setTier("free");
+      setResolvedFrom("default");
+      setLastResolvedAt(Date.now());
+      return;
     }
 
-    return "free";
-  }, []);
+    setIsResolving(true);
+    try {
+      const resolved = await resolveTierForUser(user.id);
+      setTier(resolved.tier);
+      setResolvedFrom(resolved.source);
+      setLastResolvedAt(Date.now());
+    } finally {
+      setIsResolving(false);
+    }
+  }, [user?.id, resolveTierForUser]);
 
   useEffect(() => {
     let active = true;
 
     const applyTier = async () => {
       if (!user?.id) {
-        if (active) setTier("free");
+        if (active) {
+          setTier("free");
+          setResolvedFrom("default");
+          setLastResolvedAt(Date.now());
+        }
         return;
       }
 
-      const resolvedTier = await resolveTierForUser(user.id);
-      if (active) setTier(resolvedTier);
+      setIsResolving(true);
+      const resolved = await resolveTierForUser(user.id);
+      if (active) {
+        setTier(resolved.tier);
+        setResolvedFrom(resolved.source);
+        setLastResolvedAt(Date.now());
+      }
+      if (active) setIsResolving(false);
     };
 
     const onFocus = () => {
@@ -155,6 +199,10 @@ export function TierProvider({ children }: { children: ReactNode }) {
         limits: TIER_LIMITS[tier],
         tierLabel: TIER_LABELS[tier],
         requiredTier,
+        resolvedFrom,
+        lastResolvedAt,
+        isResolving,
+        refreshTier,
       }}
     >
       {children}
