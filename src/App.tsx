@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 // Lazy-loaded pages for code splitting
+const LandingPage = lazy(() => import("./pages/LandingPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const DashboardHome = lazy(() => import("./pages/DashboardHome"));
 const LivePairsPage = lazy(() => import("./pages/LivePairsPage"));
@@ -55,6 +56,8 @@ function PushNotificationInit() {
 }
 
 function AppInner() {
+  console.info("[AppInner] Initializing providers...");
+  
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -66,8 +69,14 @@ function AppInner() {
             <BrowserRouter>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
+                  {/* Public landing page */}
+                  <Route path="/" element={<LandingPage />} />
+                  
+                  {/* Auth page */}
                   <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
+                  
+                  {/* Protected dashboard and all internal routes */}
+                  <Route path="/dashboard" element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
                     <Route index element={<DashboardHome />} />
                     <Route path="live-pairs" element={<LivePairsPage />} />
                     <Route path="new-launches" element={<NewLaunchesPage />} />
@@ -91,6 +100,8 @@ function AppInner() {
                     <Route path="token/:id" element={<TokenDetailPage />} />
                     <Route path="wallet/:id" element={<WalletDetailPage />} />
                   </Route>
+                  
+                  {/* Fallback for old legacy routes at root - redirect to landing */}
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>
@@ -103,6 +114,7 @@ function AppInner() {
 }
 
 function App() {
+  console.info("[App] Starting error boundary...");
   return (
     <ErrorBoundary>
       <AppInner />

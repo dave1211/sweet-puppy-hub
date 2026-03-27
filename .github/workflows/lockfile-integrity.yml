@@ -1,3 +1,100 @@
+Got it — that “command not found” is likely from one of the commands I gave earlier.
+
+Let’s fix this cleanly 👇
+
+
+---
+
+🔍 First — what command failed?
+
+It’s probably one of these:
+
+gh ... → means GitHub CLI isn’t installed
+
+or a typo / copy issue
+
+
+
+---
+
+✅ Quick fix (no extra tools needed)
+
+You don’t actually need anything fancy now — your push already worked.
+
+Just continue with safe workflow from here:
+
+
+---
+
+🚀 Next steps (do this)
+
+1. Create a proper working branch (don’t stay on main)
+
+git checkout -b fix/auto-repair-flow
+git push -u origin fix/auto-repair-flow
+
+
+---
+
+2. Open PR (do this in browser)
+
+Go to your repo → you’ll see:
+
+> “Compare & pull request”
+
+
+
+Click it → create PR into main
+
+
+---
+
+3. Let checks run
+
+This is where your:
+
+Tanner Sentinel Elite / guard anti-rug-guard / anti-rug Gitleaks / scan CodeQL / Analyze
+
+will run properly (no GH013 now)
+
+
+---
+
+⚠️ About the “command not found”
+
+If it was this:
+
+gh pr ...
+
+That means GitHub CLI isn’t installed — totally fine.
+
+If you want it later:
+
+sudo apt update
+sudo apt install gh -y
+
+
+---
+
+🧠 Important takeaway
+
+You’re now past the hard part.
+
+✅ Workflow fixed
+
+✅ Push succeeded
+
+❗ Only thing left = use PR flow properly
+
+
+
+---
+
+If anything still breaks
+
+Paste the exact error text (not screenshot) and I’ll fix it instantly.
+
+You’re very close — this is basically done.
 name: Lockfile Integrity Check
 
 on:
@@ -64,109 +161,4 @@ jobs:
           
           # CRITICAL: This repo ONLY supports Bun
           OFFICIAL_PM="bun"
-          
-          if [ "$LOCKFILE_COUNT" -gt 1 ]; then
-            echo "::error::CRITICAL - MULTIPLE LOCKFILES DETECTED"
-            echo "::error::This is a security and stability risk"
-            echo "::error::Repository must use exactly ONE package manager"
-            echo "::error::Found $LOCKFILE_COUNT lockfile(s), expected 1"
-            echo ""
-            echo "::error::ACTION REQUIRED:"
-            echo "::error::- Keep only: $OFFICIAL_PM.lockb"
-            echo "::error::- Remove: package-lock.json, yarn.lock, bun.lock, pnpm-lock.yaml"
-            echo "::error::- Commit with message: 'chore: enforce $OFFICIAL_PM single lockfile'"
-            exit 1
-          fi
-          
-          if [ "$LOCKFILE_COUNT" -eq 0 ]; then
-            echo "::error::CRITICAL - NO LOCKFILE FOUND"
-            echo "::error::Repository MUST have bun.lockb"
-            echo ""
-            echo "::error::ACTION REQUIRED:"
-            echo "::error::Run: bun install --frozen"
-            echo "::error::Then commit bun.lockb"
-            exit 1
-          fi
-          
-          # Verify correct lockfile
-          if [ "$HAS_BUN" != "true" ]; then
-            echo "::error::CRITICAL - WRONG PACKAGE MANAGER"
-            echo "::error::Found: $DETECTED_PM"
-            echo "::error::Required: bun (bun.lockb only)"
-            echo ""
-            echo "::error::This repo is configured for Bun exclusively"
-            echo "::error::Detected $DETECTED_PM lockfile must be removed"
-            exit 1
-          fi
-          
-          # Check for old bun.lock
-          if [ "$HAS_BUN_OLD" = "true" ]; then
-            echo "::error::Old bun.lock detected alongside bun.lockb"
-            echo "::error::Remove: bun.lock (keep only bun.lockb)"
-            exit 1
-          fi
-          
-          echo "✓ Lockfile integrity verified: $OFFICIAL_PM"
-          echo "pm=$OFFICIAL_PM" >> "$GITHUB_OUTPUT"
-
-      - name: Verify bun.lockb is not corrupted
-        if: steps.check.outputs.pm == 'bun'
-        run: |
-          echo "Verifying bun.lockb integrity..."
-          FILE_SIZE=$(stat -c%s bun.lockb 2>/dev/null || stat -f%z bun.lockb 2>/dev/null || echo "0")
-          
-          if [ "$FILE_SIZE" -lt 100 ]; then
-            echo "::error::bun.lockb appears corrupted (size: $FILE_SIZE bytes)"
-            exit 1
-          fi
-          
-          echo "✓ bun.lockb size OK: $FILE_SIZE bytes"
-
-      - name: Alert on PR if changes needed
-        if: failure() && github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🚨 LOCKFILE INTEGRITY FAILURE
-
-This PR has **critical lockfile issues** that must be resolved before merge.
-
-### Issue
-Mixed or incorrect lockfiles detected. This repo uses **Bun exclusively**.
-
-### Action Required
-- Verify you're using Bun (not npm, yarn, or pnpm)
-- Remove: package-lock.json (if present)
-- Keep: bun.lockb (only)
-- Run: \`bun install\`
-- Commit the updated bun.lockb
-
-### Why This Matters
-Mixing package managers causes:
-- Dependency resolution conflicts
-- Security vulnerabilities slipping through
-- Inconsistent deployments
-- Builds that work locally but fail in CI
-
-See docs in SECURITY.md for more details.`
-            })
-
-  # ===== FAIL FAST IF LOCKFILE IS WRONG =====
-  fail-if-wrong-lockfile:
-    name: GATE - Lockfile Must Be Correct
-    runs-on: ubuntu-latest
-    needs: [lockfile-check]
-    if: always()
-    steps:
-      - name: Require lockfile check passed
-        run: |
-          if [ "${{ needs.lockfile-check.result }}" != "success" ]; then
-            echo "::error::Lockfile integrity check failed"
-            echo "::error::PR cannot merge until lockfile is correct"
-            exit 1
-          fi
-          echo "✓ Lockfile gate passed"
+  

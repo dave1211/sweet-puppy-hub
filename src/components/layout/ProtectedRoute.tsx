@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Loader2 } from "lucide-react";
 
 export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isGuest } = useAuth();
+  const { user, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -13,7 +13,10 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user && !isGuest) return <Navigate to="/auth" replace />;
+  if (!user) {
+    console.info("[ProtectedRoute] User not authenticated, redirecting to /auth");
+    return <Navigate to="/auth" replace />;
+  }
 
   return <>{children}</>;
 }
