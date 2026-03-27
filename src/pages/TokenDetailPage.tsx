@@ -141,8 +141,8 @@ export default function TokenDetailPage() {
       {/* Badges */}
       <div className="flex gap-1 sm:gap-1.5 flex-wrap">
         {signal && <StatusChip variant={signal.label === "HIGH SIGNAL" ? "success" : "info"} dot>{signal.label}</StatusChip>}
-        <StatusChip variant={rug.level === "low" ? "success" : rug.level === "watch" ? "warning" : "danger"}>{rug.label}</StatusChip>
-        {rug.flags.map(f => <StatusChip key={f.id} variant="warning">{f.label}</StatusChip>)}
+        {safety && <StatusChip variant={safety.cautionState === "safer" ? "success" : safety.cautionState === "caution" ? "warning" : "danger"}>{CAUTION_LABELS[safety.cautionState]}</StatusChip>}
+        {safety && safety.flags.filter(f => f.severity === "critical").map((f, i) => <StatusChip key={`flag-${i}`} variant="danger">{f.message.split(":")[0]}</StatusChip>)}
         {signal?.sniperType && <StatusChip variant="info">{signal.sniperType === "sniper" ? "Sniper" : "Early Accum."}</StatusChip>}
         {signal?.whaleCount && signal.whaleCount > 0 && <StatusChip variant="success">Whale ×{signal.whaleCount}</StatusChip>}
       </div>
@@ -196,8 +196,8 @@ export default function TokenDetailPage() {
           </div>
           <div className="terminal-panel p-3 sm:p-4">
             <p className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Safety Assessment</p>
-            <ScoreMeter value={Math.max(0, 100 - rug.flags.length * 25)} label="" size="md" />
-            <p className="text-[10px] text-muted-foreground mt-2">{rug.flags.length === 0 ? "No risk flags detected" : `${rug.flags.length} risk flag(s) identified`}</p>
+            <ScoreMeter value={safety?.safetyScore ?? 0} label="" size="md" />
+            <p className="text-[10px] text-muted-foreground mt-2">{safety ? `${CAUTION_LABELS[safety.cautionState]} — ${safety.confidence} confidence` : "Analyzing…"}</p>
           </div>
         </div>
       )}
@@ -215,7 +215,7 @@ export default function TokenDetailPage() {
         {activeTab === "Overview" && (
           <div className="space-y-3 text-xs sm:text-sm text-muted-foreground">
             <p>{token.name} ({token.symbol}) is traded on {token.dexId} with {formatVolume(token.liquidity)} liquidity and {formatVolume(token.volume24h)} daily volume.</p>
-            <p>The pair was created {pairAge(token.pairCreatedAt)} ago. Risk assessment: {rug.label}.</p>
+            <p>The pair was created {pairAge(token.pairCreatedAt)} ago. Safety: {safety ? CAUTION_LABELS[safety.cautionState] : "Analyzing…"}.</p>
             <a href={token.url} target="_blank" rel="noopener noreferrer" className="text-primary text-xs font-mono hover:underline block">View on DEX →</a>
           </div>
         )}
@@ -225,16 +225,46 @@ export default function TokenDetailPage() {
             <MiniChart baseValue={token.volume24h} change={0} height={80} type="bar" label="VOLUME" />
           </div>
         )}
-        {activeTab === "Risk Analysis" && (
+        {activeTab === "Risk Analysis" && safety && (
           <div className="space-y-3">
-            {rug.flags.length === 0 ? (
-              <p className="text-xs text-terminal-green">No risk flags detected for this token.</p>
-            ) : (
-              rug.flags.map(f => (
-                <div key={f.id} className="flex items-center gap-2 p-2 rounded bg-destructive/5 border border-destructive/10">
-                  <span className="text-xs font-mono text-foreground">{f.label}</span>
+            {/* Trade blocked banner */}
+            {!safety.tradeAllowed && (
+              <div className="p-2.5 rounded bg-terminal-red/10 border border-terminal-red/30">
+                <div className="flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4 text-terminal-red" />
+                  <span className="text-[10px] font-mono font-bold text-terminal-red">TRADING BLOCKED</span>
                 </div>
-              ))
+                {safety.blockReasons.map((r, i) => <p key={i} className="text-[9px] font-mono text-terminal-red/80 mt-1 pl-5">{r}</p>)}
+              </div>
+            )}
+
+            {/* Checks */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-mono text-muted-foreground font-bold">SECURITY CHECKS</p>
+              {safety.checks.map((check) => (
+                <div key={check.name} className="flex items-start justify-between text-[10px] font-mono gap-2">
+                  <div className="flex-1">
+                    <span className="text-muted-foreground">{check.name}</span>
+                    <p className="text-[8px] text-muted-foreground/60">{check.evidence}</p>
+                  </div>
+                  <span className={`shrink-0 ${CHECK_STATUS_COLORS[check.status]}`}>{CHECK_STATUS_LABELS[check.status]}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Flags */}
+            {safety.flags.length > 0 && (
+              <div className="space-y-1">
+                {safety.flags.map((flag, i) => (
+                  <div key={i} className={`flex items-start gap-2 p-2 rounded text-[9px] font-mono border ${
+                    flag.severity === "critical" ? "bg-terminal-red/10 border-terminal-red/20 text-terminal-red" :
+                    flag.severity === "warning" ? "bg-terminal-amber/10 border-terminal-amber/20 text-terminal-amber" :
+                    "bg-terminal-blue/10 border-terminal-blue/20 text-terminal-blue"
+                  }`}>
+                    <span>{flag.message}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
