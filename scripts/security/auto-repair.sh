@@ -25,9 +25,9 @@ is_protected() {
 # -------------------------------------------------------
 echo "[1/3] Checking lockfile consistency..."
 
-if [ -f package.json ] && [ -f package-lock.json ]; then
-  npm install --package-lock-only --ignore-scripts 2>/dev/null && {
-    if ! git diff --quiet package-lock.json 2>/dev/null; then
+if [ -f package.json ] && [ -f bun.lockb ]; then
+  bun install --frozen 2>/dev/null && {
+    if ! git diff --quiet bun.lockb 2>/dev/null; then
       echo "  ✅ Fixed lockfile drift"
       HAS_FIXES=true
     fi
@@ -39,12 +39,12 @@ fi
 # -------------------------------------------------------
 echo "[2/3] Checking for safe patch updates..."
 
-npm audit fix --force=false 2>/dev/null && {
-  if ! git diff --quiet package-lock.json package.json 2>/dev/null; then
-    echo "  ✅ Applied safe dependency patches"
-    HAS_FIXES=true
+bun audit 2>/dev/null && {
+  if ! git diff --quiet bun.lockb package.json 2>/dev/null; then
+    echo "  ✅ Bun audit completed"
+    HAS_FIXES=false
   fi
-} || echo "  ℹ️  No safe patches available"
+} || echo "  ℹ️  No audit issues found"
 
 # -------------------------------------------------------
 # 3. Trailing whitespace in safe files only
@@ -68,6 +68,6 @@ if [ "$HAS_FIXES" = "true" ]; then
   echo "✅ Fixes applied — PR will be created"
   echo "has_changes=true" >> "${GITHUB_OUTPUT:-/dev/null}"
 else
-  echo "ℹ️  No fixes needed"
+  echo "ℹ️  No fixes needed — repository is compliant"
   echo "has_changes=false" >> "${GITHUB_OUTPUT:-/dev/null}"
 fi

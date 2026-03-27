@@ -80,24 +80,24 @@ echo "  Secret scan: done"
 # -------------------------------------------------------
 echo "[3/8] Checking dependencies..."
 
-# package-lock.json must exist
-if [ ! -f package-lock.json ]; then
-  add_finding "high" "package-lock.json missing — npm-only policy violated" "package-lock.json" "false" "true" "Run npm install to generate package-lock.json"
+# bun.lockb must exist (Bun-only project policy)
+if [ ! -f bun.lockb ]; then
+  add_finding "high" "bun.lockb missing — Bun-only policy violated" "bun.lockb" "false" "true" "Run bun install to generate bun.lockb"
 fi
 
 # React version drift
 if [ -f node_modules/react/package.json ]; then
-  REACT_VER=$(node -e "console.log(require('./node_modules/react/package.json').version)" 2>/dev/null || echo "unknown")
+  REACT_VER=$(bun --bun -e "console.log(require('./node_modules/react/package.json').version)" 2>/dev/null || echo "unknown")
   MAJOR=$(echo "$REACT_VER" | cut -d. -f1)
   if [ "$MAJOR" != "18" ] && [ "$MAJOR" != "unknown" ]; then
     add_finding "critical" "React version drifted to $REACT_VER (must be 18.x)" "package.json" "false" "true" "Pin React to 18.x"
   fi
 fi
 
-# npm audit
-AUDIT_HIGH=$(npm audit --json 2>/dev/null | jq '[.vulnerabilities // {} | to_entries[] | select(.value.severity == "high" or .value.severity == "critical")] | length' 2>/dev/null || echo "0")
-if [ "$AUDIT_HIGH" -gt 0 ] 2>/dev/null; then
-  add_finding "high" "$AUDIT_HIGH high/critical npm vulnerabilities found" "package.json" "false" "false" "Run npm audit fix or update affected packages"
+# bun audit
+AUDIT_OUTPUT=$(bun audit 2>&1 || echo "")
+if echo "$AUDIT_OUTPUT" | grep -qi "vulnerabilities\|critical\|high"; then
+  add_finding "high" "Security vulnerabilities detected from bun audit" "package.json" "false" "false" "Run bun audit and update affected packages"
 fi
 
 echo "  Dependencies: done"
