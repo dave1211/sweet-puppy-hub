@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const NAV_SOLANA = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard },
+  { label: "Scanner", path: "/scanner", icon: Crosshair, isNew: true },
   { label: "Live Pairs", path: "/live-pairs", icon: BarChart3 },
   { label: "New Launches", path: "/new-launches", icon: Rocket },
   { label: "Sniper Mode", path: "/sniper-mode", icon: Crosshair },

@@ -37,17 +37,35 @@ export default function TokenDetailPage() {
   const token = signal ?? launch;
   const price = priceData?.[id ?? ""];
 
+  // Check if data sources have finished loading
+  const dataLoaded = !!launches || tokens.length > 0;
+
   if (!token) {
     return (
       <div className="space-y-4">
         <Link to="/live-pairs" className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-xs font-mono">
           <ArrowLeft className="h-4 w-4" /> Back to Live Pairs
         </Link>
-        <div className="text-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-3" />
-          <p className="text-xs font-mono text-muted-foreground">Loading token data for {id?.slice(0, 8)}…</p>
-          <p className="text-[10px] text-muted-foreground mt-2">If this persists, the token may not be in current feeds.</p>
-        </div>
+        {!dataLoaded ? (
+          <div className="text-center py-16">
+            <Loader2 className="h-6 w-6 animate-spin text-primary mx-auto mb-3" />
+            <p className="text-xs font-mono text-muted-foreground">Loading token data…</p>
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <div className="h-12 w-12 rounded-full bg-muted/30 flex items-center justify-center mx-auto mb-3">
+              <ArrowLeft className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <p className="text-sm font-mono text-foreground mb-1">Token not found</p>
+            <p className="text-[10px] text-muted-foreground mb-4 max-w-xs mx-auto">
+              The token {id?.slice(0, 8)}… is not in current live feeds. It may have been delisted or is not tracked.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <Link to="/live-pairs" className="text-[10px] font-mono text-primary hover:underline">← Live Pairs</Link>
+              <Link to="/scanner" className="text-[10px] font-mono text-primary hover:underline">Search Scanner →</Link>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
