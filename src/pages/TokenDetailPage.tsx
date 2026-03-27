@@ -5,12 +5,12 @@ import { ScoreMeter } from "@/components/shared/ScoreMeter";
 import { MiniChart } from "@/components/shared/MiniChart";
 import { formatPrice, formatVolume, pairAge } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Star, Copy, Loader2, ArrowUpDown, ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Star, Copy, Loader2, ArrowUpDown, ExternalLink, ShieldAlert } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useTokenPrices } from "@/hooks/useTokenPrices";
 import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
 import { useNewLaunches } from "@/hooks/useNewLaunches";
-import { assessRug } from "@/hooks/useRugDetection";
+import { assessTokenSafety, CAUTION_COLORS, CAUTION_LABELS, CHECK_STATUS_COLORS, CHECK_STATUS_LABELS } from "@/services/tokenSafetyService";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
 import { useJupiterSwap } from "@/hooks/useJupiterSwap";
@@ -31,6 +31,7 @@ export default function TokenDetailPage() {
   const { getQuote, buildSwapTransaction, preview, isQuoting, isBuilding, error: swapError, clearPreview } = useJupiterSwap();
   const [swapAmount, setSwapAmount] = useState("0.1");
   const [slippage, setSlippage] = useState("50");
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
 
   const signal = tokens.find(t => t.address === id);
   const launch = (launches ?? []).find(t => t.address === id);
@@ -70,7 +71,18 @@ export default function TokenDetailPage() {
     );
   }
 
-  const rug = assessRug({ liquidity: token.liquidity, volume24h: token.volume24h, change24h: token.change24h, pairCreatedAt: token.pairCreatedAt });
+  const safety = useMemo(() => assessTokenSafety({
+    liquidity: token.liquidity,
+    volume24h: token.volume24h,
+    change24h: token.change24h,
+    pairCreatedAt: token.pairCreatedAt,
+    lpLocked: null,
+    mintAuthorityRevoked: null,
+    freezeAuthorityRevoked: null,
+    isHoneypot: null,
+    contractVerified: null,
+  }), [token.liquidity, token.volume24h, token.change24h, token.pairCreatedAt]);
+
   const displayPrice = price?.price ?? token.price;
   const displayChange = price?.change24h ?? token.change24h;
 
