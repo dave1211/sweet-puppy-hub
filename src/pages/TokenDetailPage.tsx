@@ -6,7 +6,7 @@ import { MiniChart } from "@/components/shared/MiniChart";
 import { formatPrice, formatVolume, pairAge } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Star, Copy, Loader2, ArrowUpDown, ExternalLink, ShieldAlert } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useTokenPrices } from "@/hooks/useTokenPrices";
 import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
 import { useNewLaunches } from "@/hooks/useNewLaunches";
