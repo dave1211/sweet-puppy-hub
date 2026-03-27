@@ -20,13 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen
 
       - name: Run Tanner Sentinel scan
         id: scan
@@ -85,28 +82,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install --frozen
 
-      - name: npm audit (high + critical)
-        run: npm audit --audit-level=high || true
+      - name: Dependency audit
+        run: bun audit || true
 
       - name: Check lockfile consistency
         run: |
-          if [ ! -f package-lock.json ]; then
-            echo "::error::package-lock.json is missing — npm only policy"
+          if [ ! -f bun.lockb ]; then
+            echo "::error::bun.lockb is missing — Bun-only policy"
             exit 1
           fi
-          npm ci --ignore-scripts 2>&1 | grep -i "npm warn" && echo "::warning::Lockfile may have drift" || true
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            echo "::error::npm lockfiles detected — project is Bun-only"
+            exit 1
+          fi
+          echo "✓ Bun lockfile integrity verified"
 
       - name: Check React version
         run: |
-          REACT_VER=$(node -e "console.log(require('./node_modules/react/package.json').version)")
+          REACT_VER=$(bun exec "console.log(require('./node_modules/react/package.json').version)" 2>/dev/null || grep '"version"' node_modules/react/package.json | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           MAJOR=$(echo "$REACT_VER" | cut -d. -f1)
           if [ "$MAJOR" != "18" ]; then
             echo "::error::React must be 18.x, found $REACT_VER"

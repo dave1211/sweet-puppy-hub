@@ -16,10 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+      - uses: oven-sh/setup-bun@v2
 
       - name: Run auto-repair
         id: changes
@@ -38,6 +35,6 @@ jobs:
             This PR was created by the Security Auto Repair workflow.
             It uses PR flow so protected-branch rules and required checks run normally.
           branch: sentinel/auto-repair-work
-          base: sentinel/auto-repair
+          base: main
           delete-branch: false
           labels: security, auto-repair, sentinel
