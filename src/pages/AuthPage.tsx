@@ -195,10 +195,10 @@ function normalizeAuthFailure(error: unknown): { state: AuthFlowState; message: 
     return { state: "wallet_detected", message, code };
   }
 
-  if (code === "ROLE_ASSIGN_FAILED") {
+  if (code === "ROLE_ASSIGN_FAILED" || code === "PROFILE_PROVISION_FAILED") {
     return {
       state: "role_assignment_failed",
-      message: "Failed to assign wallet role. Retry access assignment or refresh session.",
+      message: "Failed to provision wallet access. Retry access assignment or refresh session.",
       code,
     };
   }
