@@ -6,11 +6,13 @@ import { useState, useMemo, useCallback } from "react";
 import {
   Bell, AlertTriangle, AlertCircle, Info, Shield, Rocket,
   Wallet, TrendingUp, Activity, Globe, CheckCheck, Trash2,
-  ChevronDown, ChevronRight, Loader2, Plus, Filter, X
+  ChevronDown, ChevronRight, Loader2, Plus, X
 } from "lucide-react";
-import { useSignalStore, filterSignals, severityCounts, type SignalSeverity, type SignalCategory, type TerminalSignal } from "@/stores/signalEngine";
+import { useSignalStore, filterSignals, severityCounts, type SignalSeverity, type TerminalSignal } from "@/stores/signalEngine";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useAlertGenerator } from "@/hooks/useAlertGenerator";
+import { useWatchlist } from "@/hooks/useWatchlist";
+import { useTrackedWallets } from "@/hooks/useTrackedWallets";
 import { PanelShell } from "@/components/shared/PanelShell";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -111,7 +113,6 @@ function AlertRow({ signal }: { signal: TerminalSignal }) {
         </div>
       </div>
 
-      {/* Expandable detail */}
       {expanded && signal.detail && (
         <div className="px-4 pb-3 pt-0">
           <div className="rounded-md bg-muted/30 border border-border/30 p-3">
@@ -166,11 +167,12 @@ function SeverityTab({ severity, count, active, onClick }: {
 
 /* ─── Main Page ─── */
 export default function AlertsCenterPage() {
-  // Activate alert generator
   useAlertGenerator();
 
   const { signals, unreadCount, markAllRead, clearAll } = useSignalStore();
   const { alerts: configuredAlerts, isLoading: alertsLoading, addAlert, toggleAlert, removeAlert } = useAlerts();
+  const { items: watchlistItems } = useWatchlist();
+  const { wallets } = useTrackedWallets();
   const [severityFilter, setSeverityFilter] = useState<SignalSeverity | "all">("all");
   const [showCreate, setShowCreate] = useState(false);
   const [newAddress, setNewAddress] = useState("");
@@ -326,8 +328,8 @@ export default function AlertsCenterPage() {
             <div className="space-y-2">
               {[
                 { icon: TrendingUp, label: "Price Thresholds", status: configuredAlerts.filter(a => a.enabled).length > 0, count: configuredAlerts.filter(a => a.enabled).length },
-                { icon: Activity, label: "Watchlist Movement", status: watchlistActive(), count: null },
-                { icon: Wallet, label: "Wallet Activity", status: walletActive(), count: null },
+                { icon: Activity, label: "Watchlist Movement", status: watchlistItems.length > 0, count: watchlistItems.length },
+                { icon: Wallet, label: "Wallet Activity", status: wallets.length > 0, count: wallets.length },
                 { icon: Rocket, label: "New Launches", status: true, count: null },
                 { icon: Shield, label: "Risk Detection", status: true, count: null },
                 { icon: Globe, label: "Chain Health", status: true, count: null },
@@ -426,15 +428,4 @@ export default function AlertsCenterPage() {
       </div>
     </div>
   );
-
-  function watchlistActive() { return watchlistItems.length > 0; }
-  function walletActive() { return wallets.length > 0; }
-
-  // Need these in scope for the sources panel
-  var { items: watchlistItems } = useWatchlist_stub();
-  var { wallets } = useWallets_stub();
 }
-
-// Stub functions to avoid hook ordering issues — real data comes from useAlertGenerator
-function useWatchlist_stub() { return { items: [] as { address: string; label: string | null }[] }; }
-function useWallets_stub() { return { wallets: [] as { address: string }[] }; }
