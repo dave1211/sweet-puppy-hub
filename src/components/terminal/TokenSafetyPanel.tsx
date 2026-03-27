@@ -41,12 +41,12 @@ export function TokenSafetyPanel() {
   const safety: TokenSafetyResult | null = useMemo(() => {
     if (!tokenInfo) return null;
     return assessTokenSafety({
-      liquidity: tokenInfo.liquidity ?? 0,
+      liquidity: 0,                // Not available from TokenInfo — will flag as unknown/low
       volume24h: tokenInfo.volume24h ?? 0,
       change24h: tokenInfo.change24h ?? 0,
-      pairCreatedAt: tokenInfo.pairCreatedAt,
       marketCap: tokenInfo.marketCap,
-      // These are null/undefined until on-chain verification is built
+      // Not available from basic TokenInfo endpoint
+      pairCreatedAt: undefined,
       topHolderPct: undefined,
       devHolderPct: undefined,
       buyCount24h: undefined,
