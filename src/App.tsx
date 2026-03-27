@@ -100,6 +100,7 @@ function AppInner() {
           <WalletProvider>
             <TierProvider>
               <PushNotificationInit />
+              <WalletAutoRegisterInit />
               <Toaster />
               <Sonner />
               <BrowserRouter>
