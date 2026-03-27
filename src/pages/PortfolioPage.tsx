@@ -1,4 +1,5 @@
 import { PortfolioPanel } from "@/components/portfolio/PortfolioPanel";
+import { PortfolioRiskPanel } from "@/components/portfolio/PortfolioRiskPanel";
 import { PnLPanel } from "@/components/portfolio/PnLPanel";
 import { TrustLineManager } from "@/components/portfolio/TrustLineManager";
 import { TransactionHistory } from "@/components/portfolio/TransactionHistory";
@@ -13,10 +14,11 @@ const PortfolioPage = () => {
         <PnLPanel />
       </div>
       <div className="lg:col-span-4 space-y-2">
-        <TrustLineManager />
+        <PortfolioRiskPanel />
         <TransactionHistory />
       </div>
       <div className="lg:col-span-3 space-y-2">
+        <TrustLineManager />
         <OpenOrders />
         <AlertCenter />
       </div>
