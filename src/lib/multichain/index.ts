@@ -66,5 +66,6 @@ export async function getMultiChainPortfolio(
   return { totalValueUSD, chains, lastUpdated: Date.now() };
 }
 
-export { CHAIN_CONFIGS, ACTIVE_CHAINS, COMPLIANCE_CHAINS, getChainConfig } from "./chains";
+export { CHAIN_CONFIGS, ACTIVE_CHAINS, COMPLIANCE_CHAINS, getChainConfig, CHAIN_READINESS } from "./chains";
+export type { ChainReadiness } from "./chains";
 export type { ChainId, ChainConfig, ChainBalance, ChainTokenBalance, ChainTransaction, ChainNetworkStatus, MultiChainPortfolio, ChainAdapter } from "./types";

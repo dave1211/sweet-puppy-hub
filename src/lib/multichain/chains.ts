@@ -1,5 +1,21 @@
 import type { ChainConfig, ChainId } from "./types";
 
+export type ChainReadiness = "live" | "beta" | "scaffolded";
+
+/** How production-ready each chain adapter is */
+export const CHAIN_READINESS: Record<ChainId, ChainReadiness> = {
+  solana: "live",
+  xrpl: "live",
+  stellar: "live",
+  bitcoin: "live",
+  ethereum: "live",
+  hedera: "beta",
+  xdc: "beta",
+  algorand: "scaffolded",
+  iota: "scaffolded",
+  quant: "scaffolded",
+};
+
 export const CHAIN_CONFIGS: Record<ChainId, ChainConfig> = {
   solana: {
     id: "solana",
