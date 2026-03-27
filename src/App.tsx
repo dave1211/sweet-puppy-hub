@@ -15,6 +15,7 @@ import { AIChatWidget } from "@/components/chat/AIChatWidget";
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useWalletAutoRegister } from "@/hooks/useWalletAutoRegister";
 import { validateEnv } from "@/lib/envValidation";
 import { EnvErrorScreen } from "@/components/shared/EnvErrorScreen";
 
