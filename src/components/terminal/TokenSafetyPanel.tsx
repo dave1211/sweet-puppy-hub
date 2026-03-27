@@ -1,26 +1,25 @@
 /**
- * TokenSafetyPanel — Real safety panel using ONLY tokenSafetyService.
+ * TokenSafetyPanel — Real safety panel using on-chain verification + tokenSafetyService.
  * Replaces EnhancedRugPanel (which used Math.random — FAKE DATA).
  *
  * Shows: safetyScore, cautionState, confidence, checks, flags.
  * UNKNOWN = "PENDING" (never green).
+ * Now uses real on-chain data for mint/freeze authority, holders, metadata.
  */
 
-import { Shield, AlertTriangle, CheckCircle, XCircle, Clock, Loader2, Info } from "lucide-react";
+import { Shield, AlertTriangle, CheckCircle, XCircle, Clock, Loader2, Info, Radio } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSelectedToken } from "@/contexts/SelectedTokenContext";
-import { useTokenInfo } from "@/hooks/useTokenInfo";
+import { useTokenOverview } from "@/hooks/useTokenOverview";
+import { useOnChainSafety } from "@/hooks/useOnChainSafety";
 import {
-  assessTokenSafety,
   CAUTION_COLORS,
   CAUTION_LABELS,
   CHECK_STATUS_COLORS,
   CHECK_STATUS_LABELS,
-  type TokenSafetyResult,
   type CheckStatus,
   type FlagSeverity,
 } from "@/services/tokenSafetyService";
-import { useMemo } from "react";
 
 const CHECK_ICONS: Record<CheckStatus, typeof CheckCircle> = {
   pass: CheckCircle,
@@ -36,28 +35,21 @@ const FLAG_SEVERITY_STYLES: Record<FlagSeverity, string> = {
 
 export function TokenSafetyPanel() {
   const { selectedAddress } = useSelectedToken();
-  const { data: tokenInfo, isLoading } = useTokenInfo(selectedAddress);
+  const { data: overview, isLoading: overviewLoading } = useTokenOverview(selectedAddress);
 
-  const safety: TokenSafetyResult | null = useMemo(() => {
-    if (!tokenInfo) return null;
-    return assessTokenSafety({
-      liquidity: 0,                // Not available from TokenInfo — will flag as unknown/low
-      volume24h: tokenInfo.volume24h ?? 0,
-      change24h: tokenInfo.change24h ?? 0,
-      marketCap: tokenInfo.marketCap,
-      // Not available from basic TokenInfo endpoint
-      pairCreatedAt: undefined,
-      topHolderPct: undefined,
-      devHolderPct: undefined,
-      buyCount24h: undefined,
-      sellCount24h: undefined,
-      lpLocked: null,
-      mintAuthorityRevoked: null,
-      freezeAuthorityRevoked: null,
-      isHoneypot: null,
-      contractVerified: null,
-    });
-  }, [tokenInfo]);
+  const { safety, isVerifying, verificationErrors } = useOnChainSafety(
+    selectedAddress,
+    overview ? {
+      liquidity: 0, // Not in overview — will be flagged
+      volume24h: overview.v24hUSD ?? 0,
+      change24h: overview.priceChange24h ?? 0,
+      marketCap: overview.mc,
+      buyCount24h: overview.buyCount,
+      sellCount24h: overview.sellCount,
+      txCount24h: overview.txCount,
+      lpLocked: overview.lpLocked ?? null,
+    } : undefined
+  );
 
   // ─── Empty state ───
   if (!selectedAddress) {
@@ -76,7 +68,7 @@ export function TokenSafetyPanel() {
   }
 
   // ─── Loading state ───
-  if (isLoading) {
+  if (overviewLoading && !safety) {
     return (
       <Card className="border-border bg-card">
         <CardHeader className="pb-2">
@@ -120,6 +112,11 @@ export function TokenSafetyPanel() {
         <CardTitle className="flex items-center justify-between text-sm font-mono">
           <span className="flex items-center gap-2">
             <Shield className="h-4 w-4 text-terminal-amber" />TOKEN SAFETY
+            {isVerifying && (
+              <span className="flex items-center gap-1 text-[8px] text-terminal-cyan">
+                <Radio className="h-3 w-3 animate-pulse" />VERIFYING ON-CHAIN
+              </span>
+            )}
           </span>
           <span className={`px-2 py-0.5 rounded text-[9px] font-bold border ${CAUTION_COLORS[safety.cautionState]}`}>
             {CAUTION_LABELS[safety.cautionState]}
@@ -212,10 +209,19 @@ export function TokenSafetyPanel() {
           </div>
         )}
 
+        {/* Verification errors (debug) */}
+        {verificationErrors.length > 0 && (
+          <div className="pt-1">
+            <p className="text-[8px] font-mono text-terminal-amber/60">
+              ⚠ {verificationErrors.length} verification issue{verificationErrors.length > 1 ? "s" : ""} — some checks may show PENDING
+            </p>
+          </div>
+        )}
+
         {/* Derived from */}
         <div className="pt-1 border-t border-border/50">
           <p className="text-[8px] font-mono text-muted-foreground/60">
-            Derived from: {safety.derivedFrom.join(", ")}
+            Derived from: {safety.derivedFrom.join(", ")} + on-chain RPC
           </p>
         </div>
       </CardContent>
