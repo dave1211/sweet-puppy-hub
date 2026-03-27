@@ -15,7 +15,7 @@ export type SignalCategory =
 export type SignalSeverity = "info" | "warning" | "critical";
 
 export type SignalSource = "dashboard" | "multichain" | "compliance" | "bridge" | "system"
-  | "watchlist" | "wallet_tracker" | "risk_engine" | "launch_scanner";
+  | "watchlist" | "wallet_tracker" | "risk_engine" | "launch_scanner" | "safety_engine";
 
 export interface TerminalSignal {
   id: string;

@@ -19,7 +19,7 @@ import { GatedPanel } from "@/components/terminal/GatedPanel";
 import { ExecutionControlsPanel } from "@/components/terminal/ExecutionControlsPanel";
 import { RugGuardPanel } from "@/components/terminal/RugGuardPanel";
 import { ProofPanel } from "@/components/terminal/ProofPanel";
-import { EnhancedRugPanel } from "@/components/terminal/EnhancedRugPanel";
+import { TokenSafetyPanel } from "@/components/terminal/TokenSafetyPanel";
 import { YourSolSystem } from "@/components/terminal/YourSolSystem";
 import { BurnIncinerator } from "@/components/terminal/BurnIncinerator";
 import { XRPBridgePanel } from "@/components/bridge/XRPBridgePanel";
@@ -81,7 +81,7 @@ const Dashboard = () => {
               <SniperModePanel />
             </GatedPanel>
             <NewLaunchesPanel />
-            <EnhancedRugPanel />
+            <TokenSafetyPanel />
             <GatedPanel gate="canUseCopyTrading" featureLabel="Copy Trading">
               <CopyTradingPanel />
             </GatedPanel>

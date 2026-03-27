@@ -1,5 +1,6 @@
 /**
  * Unified alert generator — ties watchlist, wallets, risk, launches into signal engine.
+ * Uses tokenSafetyService as single source of truth (not raw engines directly).
  * Runs as a hook inside the dashboard. Non-blocking, deduped, severity-based.
  */
 import { useEffect, useRef } from "react";
@@ -10,7 +11,7 @@ import { useTrackedWallets } from "@/hooks/useTrackedWallets";
 import { useWalletActivity } from "@/hooks/useWalletActivity";
 import { useNewLaunches } from "@/hooks/useNewLaunches";
 import { useAlerts } from "@/hooks/useAlerts";
-import { assessRug } from "@/hooks/useRugDetection";
+import { assessTokenSafety, CAUTION_LABELS } from "@/services/tokenSafetyService";
 
 const PRICE_MOVE_THRESHOLD = 5; // 5% move triggers alert
 const BIG_PRICE_MOVE = 15; // 15% triggers warning
@@ -80,31 +81,34 @@ export function useAlertGenerator() {
     }
   }, [prices, watchlistItems, emit]);
 
-  // ─── Risk/rug alerts for watchlist tokens ───
+  // ─── Risk/safety alerts for watchlist tokens ───
   useEffect(() => {
     if (!prices) return;
     for (const item of watchlistItems) {
       const priceData = prices[item.address];
       if (!priceData) continue;
 
-      const assessment = assessRug({
-        liquidity: priceData.change24h * 100, // rough proxy
+      const safety = assessTokenSafety({
+        liquidity: 0, // Not available from price data — will flag as unknown
         volume24h: Math.abs(priceData.change24h) * 1000,
         change24h: priceData.change24h,
       });
 
-      if (assessment.level === "high") {
+      if (safety.cautionState === "critical_risk" || safety.cautionState === "high_risk") {
         const label = item.label || `${item.address.slice(0, 6)}…`;
+        const criticalFlags = safety.flags.filter(f => f.severity === "critical");
         emit({
           category: "risk",
-          severity: "critical",
-          source: "risk_engine",
-          title: `⚠ HIGH RISK: ${label}`,
-          message: `${assessment.flags.map(f => f.label).join(", ")}`,
-          detail: `Token ${label} has ${assessment.flags.length} risk flags: ${assessment.flags.map(f => f.label).join(", ")}. Consider removing from watchlist or reducing exposure.`,
+          severity: safety.cautionState === "critical_risk" ? "critical" : "warning",
+          source: "safety_engine",
+          title: `⚠ ${CAUTION_LABELS[safety.cautionState]}: ${label}`,
+          message: criticalFlags.length > 0
+            ? criticalFlags.map(f => f.message.split(":")[0]).join(", ")
+            : `Safety score: ${safety.safetyScore}/100`,
+          detail: `Token ${label} scored ${safety.safetyScore}/100 (${CAUTION_LABELS[safety.cautionState]}). ${safety.flags.length} flag(s): ${safety.flags.map(f => f.message.split(":")[0]).join(", ")}. Consider reducing exposure.`,
           address: item.address,
           asset: item.label || undefined,
-          dedupeKey: `risk-${item.address}-high`,
+          dedupeKey: `safety-${item.address}-${safety.cautionState}`,
         });
       }
     }
@@ -165,7 +169,7 @@ export function useAlertGenerator() {
       if (seenLaunches.current.has(token.address)) continue;
       seenLaunches.current.add(token.address);
 
-      const rugCheck = assessRug({
+      const safety = assessTokenSafety({
         liquidity: token.liquidity,
         volume24h: token.volume24h,
         change24h: token.change24h,
@@ -174,11 +178,11 @@ export function useAlertGenerator() {
 
       emit({
         category: "launch",
-        severity: rugCheck.level === "high" ? "warning" : "info",
+        severity: safety.cautionState === "critical_risk" || safety.cautionState === "high_risk" ? "warning" : "info",
         source: "launch_scanner",
         title: `🚀 New: ${token.symbol}`,
-        message: `$${token.price < 0.01 ? token.price.toFixed(6) : token.price.toFixed(4)} on ${token.dexId}${rugCheck.level === "high" ? " ⚠ HIGH RISK" : ""}`,
-        detail: `New token launch detected: ${token.name} (${token.symbol}) at $${token.price.toFixed(8)} on ${token.dexId}. Volume: $${token.volume24h.toFixed(0)}. Liquidity: $${token.liquidity.toFixed(0)}.${rugCheck.flags.length > 0 ? ` Risk flags: ${rugCheck.flags.map(f => f.label).join(", ")}.` : ""}`,
+        message: `$${token.price < 0.01 ? token.price.toFixed(6) : token.price.toFixed(4)} on ${token.dexId}${safety.cautionState !== "safer" ? ` ⚠ ${CAUTION_LABELS[safety.cautionState]}` : ""}`,
+        detail: `New token launch detected: ${token.name} (${token.symbol}) at $${token.price.toFixed(8)} on ${token.dexId}. Volume: $${token.volume24h.toFixed(0)}. Liquidity: $${token.liquidity.toFixed(0)}. Safety: ${safety.safetyScore}/100.`,
         address: token.address,
         asset: token.symbol,
         dedupeKey: `launch-${token.address}`,

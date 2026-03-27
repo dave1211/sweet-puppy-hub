@@ -5,12 +5,12 @@ import { ScoreMeter } from "@/components/shared/ScoreMeter";
 import { MiniChart } from "@/components/shared/MiniChart";
 import { formatPrice, formatVolume, pairAge } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { ArrowLeft, Star, Copy, Loader2, ArrowUpDown, ExternalLink } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, Star, Copy, Loader2, ArrowUpDown, ExternalLink, ShieldAlert } from "lucide-react";
+import { useState, useMemo } from "react";
 import { useTokenPrices } from "@/hooks/useTokenPrices";
 import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
 import { useNewLaunches } from "@/hooks/useNewLaunches";
-import { assessRug } from "@/hooks/useRugDetection";
+import { assessTokenSafety, CAUTION_COLORS, CAUTION_LABELS, CHECK_STATUS_COLORS, CHECK_STATUS_LABELS } from "@/services/tokenSafetyService";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
 import { useJupiterSwap } from "@/hooks/useJupiterSwap";
@@ -31,6 +31,7 @@ export default function TokenDetailPage() {
   const { getQuote, buildSwapTransaction, preview, isQuoting, isBuilding, error: swapError, clearPreview } = useJupiterSwap();
   const [swapAmount, setSwapAmount] = useState("0.1");
   const [slippage, setSlippage] = useState("50");
+  const [riskAcknowledged, setRiskAcknowledged] = useState(false);
 
   const signal = tokens.find(t => t.address === id);
   const launch = (launches ?? []).find(t => t.address === id);
@@ -39,6 +40,22 @@ export default function TokenDetailPage() {
 
   // Check if data sources have finished loading
   const dataLoaded = !!launches || tokens.length > 0;
+
+  // Safety assessment — must be called before any early return (hooks rules)
+  const safety = useMemo(() => {
+    if (!token) return null;
+    return assessTokenSafety({
+      liquidity: token.liquidity,
+      volume24h: token.volume24h,
+      change24h: token.change24h,
+      pairCreatedAt: token.pairCreatedAt,
+      lpLocked: null,
+      mintAuthorityRevoked: null,
+      freezeAuthorityRevoked: null,
+      isHoneypot: null,
+      contractVerified: null,
+    });
+  }, [token?.liquidity, token?.volume24h, token?.change24h, token?.pairCreatedAt]);
 
   if (!token) {
     return (
@@ -70,7 +87,6 @@ export default function TokenDetailPage() {
     );
   }
 
-  const rug = assessRug({ liquidity: token.liquidity, volume24h: token.volume24h, change24h: token.change24h, pairCreatedAt: token.pairCreatedAt });
   const displayPrice = price?.price ?? token.price;
   const displayChange = price?.change24h ?? token.change24h;
 
@@ -125,8 +141,8 @@ export default function TokenDetailPage() {
       {/* Badges */}
       <div className="flex gap-1 sm:gap-1.5 flex-wrap">
         {signal && <StatusChip variant={signal.label === "HIGH SIGNAL" ? "success" : "info"} dot>{signal.label}</StatusChip>}
-        <StatusChip variant={rug.level === "low" ? "success" : rug.level === "watch" ? "warning" : "danger"}>{rug.label}</StatusChip>
-        {rug.flags.map(f => <StatusChip key={f.id} variant="warning">{f.label}</StatusChip>)}
+        {safety && <StatusChip variant={safety.cautionState === "safer" ? "success" : safety.cautionState === "caution" ? "warning" : "danger"}>{CAUTION_LABELS[safety.cautionState]}</StatusChip>}
+        {safety && safety.flags.filter(f => f.severity === "critical").map((f, i) => <StatusChip key={`flag-${i}`} variant="danger">{f.message.split(":")[0]}</StatusChip>)}
         {signal?.sniperType && <StatusChip variant="info">{signal.sniperType === "sniper" ? "Sniper" : "Early Accum."}</StatusChip>}
         {signal?.whaleCount && signal.whaleCount > 0 && <StatusChip variant="success">Whale ×{signal.whaleCount}</StatusChip>}
       </div>
@@ -180,8 +196,8 @@ export default function TokenDetailPage() {
           </div>
           <div className="terminal-panel p-3 sm:p-4">
             <p className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Safety Assessment</p>
-            <ScoreMeter value={Math.max(0, 100 - rug.flags.length * 25)} label="" size="md" />
-            <p className="text-[10px] text-muted-foreground mt-2">{rug.flags.length === 0 ? "No risk flags detected" : `${rug.flags.length} risk flag(s) identified`}</p>
+            <ScoreMeter value={safety?.safetyScore ?? 0} label="" size="md" />
+            <p className="text-[10px] text-muted-foreground mt-2">{safety ? `${CAUTION_LABELS[safety.cautionState]} — ${safety.confidence} confidence` : "Analyzing…"}</p>
           </div>
         </div>
       )}
@@ -199,7 +215,7 @@ export default function TokenDetailPage() {
         {activeTab === "Overview" && (
           <div className="space-y-3 text-xs sm:text-sm text-muted-foreground">
             <p>{token.name} ({token.symbol}) is traded on {token.dexId} with {formatVolume(token.liquidity)} liquidity and {formatVolume(token.volume24h)} daily volume.</p>
-            <p>The pair was created {pairAge(token.pairCreatedAt)} ago. Risk assessment: {rug.label}.</p>
+            <p>The pair was created {pairAge(token.pairCreatedAt)} ago. Safety: {safety ? CAUTION_LABELS[safety.cautionState] : "Analyzing…"}.</p>
             <a href={token.url} target="_blank" rel="noopener noreferrer" className="text-primary text-xs font-mono hover:underline block">View on DEX →</a>
           </div>
         )}
@@ -209,16 +225,46 @@ export default function TokenDetailPage() {
             <MiniChart baseValue={token.volume24h} change={0} height={80} type="bar" label="VOLUME" />
           </div>
         )}
-        {activeTab === "Risk Analysis" && (
+        {activeTab === "Risk Analysis" && safety && (
           <div className="space-y-3">
-            {rug.flags.length === 0 ? (
-              <p className="text-xs text-terminal-green">No risk flags detected for this token.</p>
-            ) : (
-              rug.flags.map(f => (
-                <div key={f.id} className="flex items-center gap-2 p-2 rounded bg-destructive/5 border border-destructive/10">
-                  <span className="text-xs font-mono text-foreground">{f.label}</span>
+            {/* Trade blocked banner */}
+            {!safety.tradeAllowed && (
+              <div className="p-2.5 rounded bg-terminal-red/10 border border-terminal-red/30">
+                <div className="flex items-center gap-1.5">
+                  <ShieldAlert className="h-4 w-4 text-terminal-red" />
+                  <span className="text-[10px] font-mono font-bold text-terminal-red">TRADING BLOCKED</span>
                 </div>
-              ))
+                {safety.blockReasons.map((r, i) => <p key={i} className="text-[9px] font-mono text-terminal-red/80 mt-1 pl-5">{r}</p>)}
+              </div>
+            )}
+
+            {/* Checks */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-mono text-muted-foreground font-bold">SECURITY CHECKS</p>
+              {safety.checks.map((check) => (
+                <div key={check.name} className="flex items-start justify-between text-[10px] font-mono gap-2">
+                  <div className="flex-1">
+                    <span className="text-muted-foreground">{check.name}</span>
+                    <p className="text-[8px] text-muted-foreground/60">{check.evidence}</p>
+                  </div>
+                  <span className={`shrink-0 ${CHECK_STATUS_COLORS[check.status]}`}>{CHECK_STATUS_LABELS[check.status]}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Flags */}
+            {safety.flags.length > 0 && (
+              <div className="space-y-1">
+                {safety.flags.map((flag, i) => (
+                  <div key={i} className={`flex items-start gap-2 p-2 rounded text-[9px] font-mono border ${
+                    flag.severity === "critical" ? "bg-terminal-red/10 border-terminal-red/20 text-terminal-red" :
+                    flag.severity === "warning" ? "bg-terminal-amber/10 border-terminal-amber/20 text-terminal-amber" :
+                    "bg-terminal-blue/10 border-terminal-blue/20 text-terminal-blue"
+                  }`}>
+                    <span>{flag.message}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -233,6 +279,41 @@ export default function TokenDetailPage() {
         ) : null}
         {activeTab === "Trade" && (
           <div className="space-y-4">
+            {/* Safety gate — BLOCKED */}
+            {safety && !safety.tradeAllowed && (
+              <div className="p-3 rounded bg-terminal-red/10 border border-terminal-red/30">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <ShieldAlert className="h-4 w-4 text-terminal-red" />
+                  <span className="text-[10px] font-mono font-bold text-terminal-red">TRADING BLOCKED BY SAFETY ENGINE</span>
+                </div>
+                {safety.blockReasons.map((r, i) => <p key={i} className="text-[9px] font-mono text-terminal-red/80 pl-5">{r}</p>)}
+                <p className="text-[8px] font-mono text-muted-foreground mt-2">This token has been blocked. No override available.</p>
+              </div>
+            )}
+
+            {/* Safety gate — WARNING: require acknowledgment */}
+            {safety && safety.tradeAllowed && safety.cautionState !== "safer" && (
+              <div className="p-3 rounded bg-terminal-amber/10 border border-terminal-amber/30">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <ShieldAlert className="h-4 w-4 text-terminal-amber" />
+                  <span className="text-[10px] font-mono font-bold text-terminal-amber">
+                    {CAUTION_LABELS[safety.cautionState]} — Safety Score: {safety.safetyScore}/100
+                  </span>
+                </div>
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={riskAcknowledged}
+                    onChange={e => setRiskAcknowledged(e.target.checked)}
+                    className="mt-0.5 accent-terminal-amber"
+                  />
+                  <span className="text-[9px] font-mono text-terminal-amber/80">
+                    I understand the risks. {safety.flags.length} flag(s) detected. I accept responsibility for this trade.
+                  </span>
+                </label>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div>
                 <label className="text-[9px] font-mono text-muted-foreground uppercase block mb-1">Amount (SOL)</label>
@@ -253,7 +334,11 @@ export default function TokenDetailPage() {
                 </div>
               </div>
 
-              <button onClick={handleQuote} disabled={isQuoting} className="w-full py-2.5 rounded bg-primary/10 text-primary text-xs font-mono font-medium border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+              <button
+                onClick={handleQuote}
+                disabled={isQuoting || (safety != null && !safety.tradeAllowed) || (safety != null && safety.cautionState !== "safer" && !riskAcknowledged)}
+                className="w-full py-2.5 rounded bg-primary/10 text-primary text-xs font-mono font-medium border border-primary/30 hover:bg-primary/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
                 {isQuoting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Getting Quote…</> : <><ArrowUpDown className="h-3.5 w-3.5" /> Get Jupiter Quote</>}
               </button>
 

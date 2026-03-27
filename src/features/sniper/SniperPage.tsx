@@ -1,6 +1,7 @@
 // Sniper Page — Responsive 3-panel layout with mobile tabs, hotkeys, auto-snipe, recorder
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useSniperFeed } from "@/features/sniper/hooks/useSniperFeed";
+import { assessTokenSafety } from "@/services/tokenSafetyService";
 import { useSniperHotkeys } from "@/features/sniper/hooks/useSniperHotkeys";
 import { useAutoSnipeEngine } from "@/features/sniper/hooks/useAutoSnipeEngine";
 import { SniperHeader } from "@/features/sniper/components/SniperHeader";
@@ -35,6 +36,30 @@ const SniperPage = () => {
     if (!selectedToken) { toast.error("Select a token first"); return; }
     if (!isConnected) { toast.error("Connect wallet first"); return; }
     if (config.amountSOL <= 0) { toast.error("Set buy amount"); return; }
+
+    // ── Pre-trade safety gate ──
+    const safety = assessTokenSafety({
+      liquidity: selectedToken.token.liquidity ?? 0,
+      volume24h: selectedToken.token.volume24h ?? 0,
+      change24h: selectedToken.token.change24h ?? 0,
+      pairCreatedAt: selectedToken.token.pairCreatedAt,
+      lpLocked: selectedToken.token.lpLocked ?? null,
+      mintAuthorityRevoked: null,
+      freezeAuthorityRevoked: null,
+      isHoneypot: null,
+      contractVerified: null,
+    });
+
+    if (!safety.tradeAllowed) {
+      toast.error(`🛑 BLOCKED: ${safety.blockReasons[0] || "Safety engine blocked this trade"}`);
+      return;
+    }
+
+    if (safety.cautionState !== "safer" && !isFastMode) {
+      // In normal mode, require confirmation modal
+      openConfirm();
+      return;
+    }
     if (isFastMode) {
       const record = {
         id: crypto.randomUUID(),
