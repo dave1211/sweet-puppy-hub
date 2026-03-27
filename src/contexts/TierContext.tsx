@@ -68,50 +68,79 @@ export function TierProvider({ children }: { children: ReactNode }) {
   const [tier, setTier] = useState<Tier>("free");
   const { user } = useAuth();
 
-  useEffect(() => {
-    let active = true;
-
-    const resolveTier = async () => {
-      if (!user?.id) {
-        if (active) setTier("free");
-        return;
-      }
-
+  const resolveTierForUser = useCallback(async (userId: string): Promise<Tier> => {
+    try {
       const { data: subscription } = await supabase
         .from("subscriptions")
         .select("tier")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("status", "active")
         .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (subscription?.tier === "pro" || subscription?.tier === "elite") {
-        if (active) setTier(subscription.tier);
-        return;
+        return subscription.tier;
       }
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("tier")
-        .eq("id", user.id)
+        .eq("id", userId)
         .maybeSingle();
 
-      const profileTier = profile?.tier;
-      if (profileTier === "pro" || profileTier === "elite") {
-        if (active) setTier(profileTier);
+      if (profile?.tier === "pro" || profile?.tier === "elite") {
+        return profile.tier;
+      }
+
+      const { data: isAdmin } = await supabase.rpc("has_role", {
+        _user_id: userId,
+        _role: "admin",
+      });
+
+      if (isAdmin) return "pro";
+    } catch {
+      return "free";
+    }
+
+    return "free";
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const applyTier = async () => {
+      if (!user?.id) {
+        if (active) setTier("free");
         return;
       }
 
-      if (active) setTier("free");
+      const resolvedTier = await resolveTierForUser(user.id);
+      if (active) setTier(resolvedTier);
     };
 
-    void resolveTier();
+    const onFocus = () => {
+      void applyTier();
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void applyTier();
+      }
+    };
+
+    void applyTier();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    const interval = window.setInterval(onFocus, 30_000);
 
     return () => {
       active = false;
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(interval);
     };
-  }, [user?.id]);
+  }, [user?.id, resolveTierForUser]);
 
   const requiredTier = useCallback(
     (gate: keyof TierGates) => GATE_REQUIRED_TIER[gate],
