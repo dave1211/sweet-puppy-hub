@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 export function WalletPanel() {
   const { wallets, isLoading, addWallet, removeWallet } = useTrackedWallets();
-  const { walletAddress, connected } = useWallet();
+  const { walletAddress, isConnected: connected } = useWallet();
   const [showForm, setShowForm] = useState(false);
   const [address, setAddress] = useState("");
   const [label, setLabel] = useState("");

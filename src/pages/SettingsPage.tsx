@@ -76,7 +76,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>(loadSettings);
   const [saved, setSaved] = useState(false);
   const { signOut, user } = useAuth();
-  const { walletAddress, connected, disconnect } = useWallet();
+  const { walletAddress, isConnected: connected, disconnect } = useWallet();
 
   const toggle = (key: string) => setSettings(prev => ({ ...prev, [key]: prev[key] === "true" ? "false" : "true" }));
 
