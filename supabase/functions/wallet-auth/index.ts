@@ -331,6 +331,48 @@ async function upsertRoleWithRetry(
   return { ok: false, error: new Error("Role upsert failed") };
 }
 
+async function provisionProfileWithRetry(
+  supabaseAdmin: SupabaseAdminClient,
+  userId: string,
+  walletAddress: string,
+  isAdmin: boolean,
+): Promise<{ ok: true } | { ok: false; error: unknown }> {
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("tier")
+      .eq("id", userId)
+      .maybeSingle();
+
+    const existingTier = existingProfile?.tier;
+    const resolvedTier = existingTier === "elite" || existingTier === "pro"
+      ? existingTier
+      : isAdmin
+        ? "pro"
+        : "free";
+
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          wallet_address: walletAddress,
+          tier: resolvedTier,
+          onboarded: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" },
+      );
+
+    if (!error) return { ok: true };
+    if (attempt === 2) return { ok: false, error };
+
+    await new Promise((resolve) => setTimeout(resolve, 120 * attempt));
+  }
+
+  return { ok: false, error: new Error("Profile provision failed") };
+}
+
 async function issueWalletSession(walletAddress: string, authCtx: AuthContextPayload): Promise<Response> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -408,6 +450,23 @@ async function issueWalletSession(walletAddress: string, authCtx: AuthContextPay
         await logAuthEvent("wallet_auth_failed", { code: "ROLE_ASSIGN_FAILED", role: "admin", walletAddress, host: authCtx.host }, session.user.id, authCtx.deviceId);
         return errorResponse(500, "ROLE_ASSIGN_FAILED", "Failed to assign wallet role");
       }
+    }
+
+    const profileProvisionResult = await provisionProfileWithRetry(
+      supabaseAdmin,
+      session.user.id,
+      walletAddress,
+      isAdmin,
+    );
+
+    if (!profileProvisionResult.ok) {
+      await logAuthEvent(
+        "wallet_auth_failed",
+        { code: "PROFILE_PROVISION_FAILED", walletAddress, host: authCtx.host },
+        session.user.id,
+        authCtx.deviceId,
+      );
+      return errorResponse(500, "PROFILE_PROVISION_FAILED", "Failed to provision wallet profile");
     }
   }
 
