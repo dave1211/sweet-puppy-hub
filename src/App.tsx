@@ -82,6 +82,16 @@ function PushNotificationInit() {
   return null;
 }
 
+/** Auto-registers connected wallet as a wallet profile */
+function WalletAutoRegisterInit() {
+  try {
+    useWalletAutoRegister();
+  } catch (e) {
+    console.warn("[WalletAutoRegister] Init failed:", e);
+  }
+  return null;
+}
+
 function AppInner() {
   return (
     <QueryClientProvider client={queryClient}>
