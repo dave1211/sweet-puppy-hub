@@ -6,11 +6,12 @@ import { MiniChart } from "@/components/shared/MiniChart";
 import { formatPrice, formatVolume, pairAge } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Star, Copy, Loader2, ArrowUpDown, ExternalLink, ShieldAlert } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useTokenPrices } from "@/hooks/useTokenPrices";
 import { useUnifiedSignals } from "@/hooks/useUnifiedSignals";
 import { useNewLaunches } from "@/hooks/useNewLaunches";
-import { assessTokenSafety, CAUTION_COLORS, CAUTION_LABELS, CHECK_STATUS_COLORS, CHECK_STATUS_LABELS } from "@/services/tokenSafetyService";
+import { CAUTION_COLORS, CAUTION_LABELS, CHECK_STATUS_COLORS, CHECK_STATUS_LABELS } from "@/services/tokenSafetyService";
+import { useOnChainSafety } from "@/hooks/useOnChainSafety";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
 import { useJupiterSwap } from "@/hooks/useJupiterSwap";
@@ -41,21 +42,17 @@ export default function TokenDetailPage() {
   // Check if data sources have finished loading
   const dataLoaded = !!launches || tokens.length > 0;
 
-  // Safety assessment — must be called before any early return (hooks rules)
-  const safety = useMemo(() => {
-    if (!token) return null;
-    return assessTokenSafety({
+  // Safety assessment — uses real on-chain verification
+  const { safety, isVerifying } = useOnChainSafety(
+    id ?? null,
+    token ? {
       liquidity: token.liquidity,
       volume24h: token.volume24h,
       change24h: token.change24h,
       pairCreatedAt: token.pairCreatedAt,
       lpLocked: null,
-      mintAuthorityRevoked: null,
-      freezeAuthorityRevoked: null,
-      isHoneypot: null,
-      contractVerified: null,
-    });
-  }, [token?.liquidity, token?.volume24h, token?.change24h, token?.pairCreatedAt]);
+    } : undefined
+  );
 
   if (!token) {
     return (
