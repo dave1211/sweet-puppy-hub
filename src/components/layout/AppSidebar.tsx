@@ -51,6 +51,7 @@ const SECTIONS: NavSection[] = [
     title: "PORTFOLIO",
     items: [
       { label: "Portfolio", path: "/portfolio", icon: PieChart },
+      { label: "Wallets", path: "/wallets", icon: Wallet, badge: "NEW" },
       { label: "Holdings", path: "/holdings", icon: Layers },
       { label: "Wallet Tracker", path: "/wallet-tracker", icon: Wallet },
       { label: "Watchlist", path: "/watchlist", icon: Star },
