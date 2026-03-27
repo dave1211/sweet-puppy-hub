@@ -366,8 +366,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     clearWalletSessionState();
-    console.info("[Wallet] disconnect success");
-    toast.info("Wallet disconnected");
+    // Also clear zustand wallet store to prevent stale hydration
+    sessionStorage.removeItem("tanner-wallet");
+    console.info("[Wallet] disconnect complete");
   }, [provider, clearWalletSessionState]);
 
   const signAndSendTransaction = useCallback(
