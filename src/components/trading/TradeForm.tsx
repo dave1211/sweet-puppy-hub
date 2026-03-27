@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { TradeConfirmModal } from "./TradeConfirmModal";
+import { PositionSizeGuide } from "./PositionSizeGuide";
+import { usePositionSizing } from "@/hooks/usePositionSizing";
 import { ArrowDownUp, Lock } from "lucide-react";
 
 export function TradeForm() {
@@ -20,6 +22,12 @@ export function TradeForm() {
   const numPrice = orderType === "market" ? lastPrice : Number(price) || 0;
   const numAmount = Number(amount) || 0;
   const total = numPrice * numAmount;
+
+  const sizing = usePositionSizing(
+    activePair.base.currency ?? null,
+    total,
+    { tokenSymbol: activePair.base.currency }
+  );
 
   const handleSubmit = () => {
     if (!isConnected) { toast.error("Connect wallet first"); return; }
@@ -159,6 +167,9 @@ export function TradeForm() {
               {total > 0 ? total.toFixed(5) : "—"} {activePair.quote.currency}
             </span>
           </div>
+
+          {/* Position sizing guidance */}
+          {sizing && total > 0 && <PositionSizeGuide result={sizing} />}
 
           {/* Submit */}
           <Button
