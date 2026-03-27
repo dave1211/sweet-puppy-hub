@@ -6,7 +6,7 @@ import { PriceTickerBar } from "./PriceTickerBar";
 import { useState, Component, type ReactNode, type ErrorInfo } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { Eye, AlertTriangle } from "lucide-react";
+import { Eye, AlertTriangle, RefreshCw } from "lucide-react";
 
 /** Inner error boundary so page crashes don't blank the whole shell */
 class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null }> {
@@ -23,16 +23,19 @@ class PageErrorBoundary extends Component<{ children: ReactNode }, { hasError: b
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3 p-6">
-          <AlertTriangle className="h-8 w-8 text-terminal-amber" />
-          <p className="text-sm font-mono text-foreground">This page encountered an error</p>
-          <p className="text-[10px] font-mono text-muted-foreground max-w-sm text-center">
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4 p-6">
+          <div className="rounded-full bg-terminal-amber/10 p-4">
+            <AlertTriangle className="h-8 w-8 text-terminal-amber" />
+          </div>
+          <p className="text-sm font-mono text-foreground">Something went wrong</p>
+          <p className="text-[10px] font-mono text-muted-foreground max-w-sm text-center leading-relaxed">
             {this.state.error?.message || "Unknown error"}
           </p>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-4 py-2 text-xs font-mono bg-primary text-primary-foreground rounded mt-2"
+            className="flex items-center gap-2 px-4 py-2 text-xs font-mono bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors mt-2"
           >
+            <RefreshCw className="h-3 w-3" />
             RETRY
           </button>
         </div>
@@ -51,10 +54,10 @@ export function AppShell() {
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden w-full">
       <AppTopbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} sidebarOpen={sidebarOpen} />
       {isGuest && (
-        <div className="bg-terminal-amber/10 border-b border-terminal-amber/20 px-4 py-1.5 flex items-center justify-between">
+        <div className="bg-terminal-amber/5 border-b border-terminal-amber/15 px-4 py-1.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Eye className="h-3 w-3 text-terminal-amber" />
-            <span className="text-[10px] font-mono text-terminal-amber">GUEST MODE — READ-ONLY</span>
+            <span className="text-[10px] font-mono text-terminal-amber/80">GUEST MODE — READ-ONLY</span>
           </div>
           <button
             onClick={() => { signOut(); navigate("/auth"); }}
@@ -66,7 +69,7 @@ export function AppShell() {
       )}
       <div className="flex-1 flex overflow-hidden relative">
         {sidebarOpen && (
-          <div className="fixed inset-0 bg-black/50 z-30 md:hidden" onClick={() => setSidebarOpen(false)} />
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden" onClick={() => setSidebarOpen(false)} />
         )}
         <div className={cn(
           "md:relative md:translate-x-0 transition-transform duration-200 z-40",
@@ -75,7 +78,7 @@ export function AppShell() {
         )}>
           <AppSidebar onNavigate={() => setSidebarOpen(false)} />
         </div>
-        <main className="flex-1 overflow-y-auto p-3 md:p-4">
+        <main className="flex-1 overflow-y-auto p-3 md:p-5">
           <PageErrorBoundary>
             <Outlet />
           </PageErrorBoundary>

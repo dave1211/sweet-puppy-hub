@@ -41,12 +41,70 @@ const Dashboard = () => {
 
   return (
     <SelectedTokenProvider>
-      <div className="space-y-4">
+      <div className="space-y-4 max-w-[1600px] mx-auto">
+        {/* Stats bar */}
         <DashboardStats watchlistCount={items.length} alertsCount={activeAlerts} />
+
+        {/* Section: Market Intelligence */}
+        <div className="section-divider"><span>Market Intelligence</span></div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-3 space-y-4"><WatchlistPanel /><AlertsPanel /><YourSolSystem /><DailyPerformancePanel /><ProofPanel /><GrowthPanel /></div>
-          <div className="lg:col-span-5 space-y-4"><TokenDetailPanel /><RugGuardPanel /><BurnIncinerator /><TopSignalsPanel /><GatedPanel gate="canUseAdvancedSignals" featureLabel="Advanced Signals"><SignalPanel /></GatedPanel><AdaptiveWeightsPanel /><ActivityFeed /></div>
-          <div className="lg:col-span-4 space-y-4"><XRPBridgePanel /><GatedPanel gate="canUseAutoSniper" featureLabel="Auto Sniper"><AutoSniperPanel /></GatedPanel><GatedPanel gate="canUseSniper" featureLabel="Sniper Mode"><SniperModePanel /></GatedPanel><GatedPanel gate="canUseCopyTrading" featureLabel="Copy Trading"><CopyTradingPanel /></GatedPanel><NewLaunchesPanel /><EnhancedRugPanel /><GatedPanel gate="canUseSmartMoney" featureLabel="Wallet Tracker"><WalletPanel /></GatedPanel><GatedPanel gate="canUseSmartMoney" featureLabel="Smart Money"><SmartMoneyPanel /></GatedPanel><ExecutionControlsPanel /><TradingPanel /></div>
+          {/* Left — Watchlist & Alerts */}
+          <div className="lg:col-span-3 space-y-4">
+            <WatchlistPanel />
+            <AlertsPanel />
+            <YourSolSystem />
+            <DailyPerformancePanel />
+          </div>
+
+          {/* Center — Token Detail & Signals */}
+          <div className="lg:col-span-5 space-y-4">
+            <TokenDetailPanel />
+            <RugGuardPanel />
+            <TopSignalsPanel />
+            <GatedPanel gate="canUseAdvancedSignals" featureLabel="Advanced Signals">
+              <SignalPanel />
+            </GatedPanel>
+            <AdaptiveWeightsPanel />
+            <ActivityFeed />
+          </div>
+
+          {/* Right — Trading & Tools */}
+          <div className="lg:col-span-4 space-y-4">
+            <WalletPanel />
+            <GatedPanel gate="canUseAutoSniper" featureLabel="Auto Sniper">
+              <AutoSniperPanel />
+            </GatedPanel>
+            <GatedPanel gate="canUseSniper" featureLabel="Sniper Mode">
+              <SniperModePanel />
+            </GatedPanel>
+            <NewLaunchesPanel />
+            <EnhancedRugPanel />
+            <GatedPanel gate="canUseCopyTrading" featureLabel="Copy Trading">
+              <CopyTradingPanel />
+            </GatedPanel>
+            <GatedPanel gate="canUseSmartMoney" featureLabel="Smart Money">
+              <SmartMoneyPanel />
+            </GatedPanel>
+            <ExecutionControlsPanel />
+            <TradingPanel />
+          </div>
+        </div>
+
+        {/* Section: Extended Tools */}
+        <div className="section-divider"><span>Extended Tools</span></div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div className="lg:col-span-4">
+            <XRPBridgePanel />
+          </div>
+          <div className="lg:col-span-4">
+            <BurnIncinerator />
+          </div>
+          <div className="lg:col-span-4 space-y-4">
+            <ProofPanel />
+            <GrowthPanel />
+          </div>
         </div>
       </div>
     </SelectedTokenProvider>
