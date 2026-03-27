@@ -8,11 +8,14 @@ import type { ChainId } from "@/lib/multichain/types";
 /* ─── Signal types ─── */
 export type SignalCategory =
   | "price" | "volume" | "whale" | "watchlist"
-  | "health" | "bridge" | "portfolio" | "compliance" | "system";
+  | "health" | "bridge" | "portfolio" | "compliance" | "system"
+  | "wallet_activity" | "risk" | "launch" | "liquidity"
+  | "authority" | "deployer";
 
 export type SignalSeverity = "info" | "warning" | "critical";
 
-export type SignalSource = "dashboard" | "multichain" | "compliance" | "bridge" | "system";
+export type SignalSource = "dashboard" | "multichain" | "compliance" | "bridge" | "system"
+  | "watchlist" | "wallet_tracker" | "risk_engine" | "launch_scanner";
 
 export interface TerminalSignal {
   id: string;
@@ -21,8 +24,10 @@ export interface TerminalSignal {
   source: SignalSource;
   title: string;
   message: string;
+  detail?: string;
   chainId?: ChainId;
   asset?: string;
+  address?: string;
   timestamp: number;
   read: boolean;
   dismissed: boolean;
@@ -41,8 +46,8 @@ interface SignalStore {
   clearAll: () => void;
 }
 
-const MAX_SIGNALS = 200;
-const DEDUP_WINDOW_MS = 30_000; // 30s dedup window
+const MAX_SIGNALS = 300;
+const DEDUP_WINDOW_MS = 60_000; // 60s dedup window
 
 export const useSignalStore = create<SignalStore>()((set, get) => ({
   signals: [],
@@ -113,4 +118,13 @@ export function filterSignals(
     if (filters.chainId && s.chainId !== filters.chainId) return false;
     return true;
   });
+}
+
+/* ─── Severity counts helper ─── */
+export function severityCounts(signals: TerminalSignal[]): Record<SignalSeverity, number> {
+  const counts: Record<SignalSeverity, number> = { info: 0, warning: 0, critical: 0 };
+  for (const s of signals) {
+    if (!s.dismissed) counts[s.severity]++;
+  }
+  return counts;
 }

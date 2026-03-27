@@ -31,6 +31,10 @@ const SOURCE_ICON: Record<SignalSource, React.ElementType> = {
   compliance: Shield,
   bridge: ArrowRightLeft,
   system: AlertCircle,
+  watchlist: Activity,
+  wallet_tracker: Activity,
+  risk_engine: Shield,
+  launch_scanner: Activity,
 };
 
 function SignalRow({ signal }: { signal: TerminalSignal }) {

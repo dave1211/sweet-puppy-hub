@@ -29,6 +29,7 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { useTokenPrices } from "@/hooks/useTokenPrices";
 import { useAlertPoller } from "@/hooks/useAlertPoller";
 import { useSmartMoneyAlerts } from "@/hooks/useSmartMoneyAlerts";
+import { useAlertGenerator } from "@/hooks/useAlertGenerator";
 
 const Dashboard = () => {
   const { items } = useWatchlist();
@@ -38,6 +39,7 @@ const Dashboard = () => {
   const { data: tokenPrices } = useTokenPrices(allAddresses);
   useAlertPoller(tokenPrices ?? {});
   useSmartMoneyAlerts();
+  useAlertGenerator();
 
   return (
     <SelectedTokenProvider>
