@@ -47,6 +47,7 @@ const Pricing = lazy(() => import("./pages/Pricing"));
 const WarRoomPage = lazy(() => import("./pages/WarRoomPage"));
 const MultiChainHubPage = lazy(() => import("./pages/MultiChainHubPage"));
 const ScannerPage = lazy(() => import("./pages/ScannerPage"));
+const WalletsPage = lazy(() => import("./pages/WalletsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -120,6 +121,7 @@ function AppInner() {
                       <Route path="xrpl" element={<XRPLPage />} />
                       <Route path="multichain" element={<MultiChainHubPage />} />
                       <Route path="scanner" element={<ScannerPage />} />
+                      <Route path="wallets" element={<WalletsPage />} />
                       <Route path="about" element={<AboutPage />} />
                       <Route path="memes" element={<MemeGeneratorPage />} />
                       <Route path="token/:id" element={<TokenDetailPage />} />

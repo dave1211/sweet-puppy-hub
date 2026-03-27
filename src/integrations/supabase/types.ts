@@ -985,6 +985,48 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_profiles: {
+        Row: {
+          address: string
+          chain: string
+          created_at: string
+          id: string
+          is_primary: boolean
+          is_watch_only: boolean
+          label: string | null
+          metadata: Json | null
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          chain?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          is_watch_only?: boolean
+          label?: string | null
+          metadata?: Json | null
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          chain?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          is_watch_only?: boolean
+          label?: string | null
+          metadata?: Json | null
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       watchlist: {
         Row: {
           address: string
