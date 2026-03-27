@@ -15,7 +15,13 @@ export class XDCAdapter extends BaseChainAdapter {
       });
       const wei = res?.result ? parseInt(res.result, 16) : 0;
       const balance = wei / 1e18;
-      return { chainId: this.chainId, nativeBalance: balance, nativeSymbol: "XDC", nativeValueUSD: 0, tokens: [], lastUpdated: Date.now() };
+
+      const priceData = await this.safeJsonFetch<{ "xdce-crowd-sale"?: { usd?: number } }>(
+        "https://api.coingecko.com/api/v3/simple/price?ids=xdce-crowd-sale&vs_currencies=usd"
+      );
+      const xdcPrice = priceData?.["xdce-crowd-sale"]?.usd ?? 0;
+
+      return { chainId: this.chainId, nativeBalance: balance, nativeSymbol: "XDC", nativeValueUSD: balance * xdcPrice, tokens: [], lastUpdated: Date.now() };
     } catch {
       return this.emptyBalance();
     }

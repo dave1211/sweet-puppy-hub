@@ -10,7 +10,13 @@ export class HederaAdapter extends BaseChainAdapter {
       const data = await this.safeJsonFetch<{ balance: { balance: number } }>(`${this.mirror}/api/v1/balances?account.id=${address}&limit=1`);
       const tinybars = data?.balance?.balance ?? 0;
       const balance = tinybars / 1e8;
-      return { chainId: this.chainId, nativeBalance: balance, nativeSymbol: "HBAR", nativeValueUSD: 0, tokens: [], lastUpdated: Date.now() };
+
+      const priceData = await this.safeJsonFetch<{ "hedera-hashgraph"?: { usd?: number } }>(
+        "https://api.coingecko.com/api/v3/simple/price?ids=hedera-hashgraph&vs_currencies=usd"
+      );
+      const hbarPrice = priceData?.["hedera-hashgraph"]?.usd ?? 0;
+
+      return { chainId: this.chainId, nativeBalance: balance, nativeSymbol: "HBAR", nativeValueUSD: balance * hbarPrice, tokens: [], lastUpdated: Date.now() };
     } catch {
       return this.emptyBalance();
     }
