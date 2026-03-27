@@ -63,6 +63,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
         {!collapsed && <p className="text-[8px] font-mono text-muted-foreground/50 tracking-widest px-2.5 pt-1 pb-0.5">SOLANA</p>}
         {NAV_SOLANA.map((item) => {
           const active = location.pathname === item.path;
+          const isNew = 'isNew' in item && item.isNew;
           return (
             <NavLink key={item.path} to={item.path} onClick={onNavigate}
               className={cn("flex items-center gap-3 px-2.5 py-2 rounded-md text-xs font-mono transition-all duration-150",
@@ -70,6 +71,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
               )}>
               <item.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
               {!collapsed && <span className="truncate tracking-wide text-[11px]">{item.label.toUpperCase()}</span>}
+              {!collapsed && isNew && <span className="text-[7px] font-mono px-1 py-0 rounded bg-primary/20 text-primary ml-auto">NEW</span>}
             </NavLink>
           );
         })}
