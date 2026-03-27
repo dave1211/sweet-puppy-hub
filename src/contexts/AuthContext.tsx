@@ -82,16 +82,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(nextUser);
 
       if (nextUser?.id) {
-        setTimeout(() => {
-          void checkAdmin(nextUser.id);
-        }, 0);
+        // Fire-and-forget admin check — never block auth flow
+        void checkAdmin(nextUser.id);
       } else {
         setIsAdmin(false);
       }
     };
 
+    // IMPORTANT: set up listener BEFORE getSession to avoid missing events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       console.info("[Auth] onAuthStateChange", { event, userId: nextSession?.user?.id ?? null });
+
+      // Clean up stale guest state on real sign-in
+      if (event === "SIGNED_IN" && nextSession?.user) {
+        setIsGuest(false);
+      }
+
+      // Clear state fully on sign-out
+      if (event === "SIGNED_OUT") {
+        setIsAdmin(false);
+        setIsGuest(false);
+      }
+
       applySession(nextSession);
       setIsLoading(false);
     });
@@ -110,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (active) setIsLoading(false);
       });
 
+    // Safety timeout — never leave app stuck on loading spinner
     const timeout = setTimeout(() => {
       setIsLoading((prev) => {
         if (prev) console.warn("[Auth] Timed out waiting for auth init, forcing ready");
@@ -192,9 +205,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
     setIsAdmin(false);
     setIsGuest(false);
+    // Clear any wallet persistence so reconnect doesn't fire stale state
+    localStorage.removeItem("tanner_wallet_provider");
+    sessionStorage.removeItem("tanner-wallet");
+    await supabase.auth.signOut();
   };
 
   return (
