@@ -98,7 +98,7 @@ export function TierProvider({ children }: { children: ReactNode }) {
         _role: "admin",
       });
 
-      if (isAdmin) return "pro";
+      if (isAdmin) return "elite";
     } catch {
       return "free";
     }
