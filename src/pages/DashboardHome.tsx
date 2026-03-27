@@ -1,6 +1,6 @@
 import {
   Brain, TrendingUp, Rocket, AlertTriangle, Wallet, BarChart3,
-  Zap, ShieldAlert, Eye, Globe, ArrowRight, Shield, Activity, Loader2
+  Zap, ShieldAlert, Eye, Globe, ArrowRight, Shield, Activity, Loader2, Radar, RefreshCw
 } from "lucide-react";
 import { DashboardStatCard } from "@/components/shared/DashboardStatCard";
 import { PanelShell } from "@/components/shared/PanelShell";
@@ -19,6 +19,7 @@ import { useSolPrice } from "@/hooks/useSolPrice";
 import { useLivePriceTicks } from "@/hooks/useLivePriceTicks";
 import { useSnipeHistory } from "@/hooks/useSnipeHistory";
 import { useWallet } from "@/contexts/WalletContext";
+import { useWalletPortfolio } from "@/hooks/useWalletPortfolio";
 import { ACTIVE_CHAINS } from "@/lib/multichain";
 import { DashboardAlertStrip } from "@/components/alerts/DashboardAlertStrip";
 import { useChainHealthMonitor } from "@/hooks/useChainHealthMonitor";
@@ -68,6 +69,8 @@ export default function DashboardHome() {
   const liveTicks = useLivePriceTicks(15_000);
   const { wins, history } = useSnipeHistory();
   const { isConnected, walletAddress, balanceSOL } = useWallet();
+  const { solBalance: portfolioSOL, tokens: walletTokens, refresh: refreshPortfolio } = useWalletPortfolio();
+  const effectiveSOL = isConnected ? (portfolioSOL || balanceSOL || 0) : 0;
   // Start health monitor (non-blocking, delayed)
   useChainHealthMonitor();
 
@@ -86,9 +89,11 @@ export default function DashboardHome() {
         </div>
         <div className="flex items-center gap-2">
           {isConnected && walletAddress && (
-            <span className="text-[9px] font-mono text-muted-foreground px-2 py-1 rounded border border-border/30 bg-card/30">
+            <span className="text-[9px] font-mono text-muted-foreground px-2 py-1 rounded border border-border/30 bg-card/30 flex items-center gap-1.5">
               {walletAddress.slice(0, 4)}…{walletAddress.slice(-4)}
-              {balanceSOL !== null && <span className="ml-1.5 text-foreground">{balanceSOL.toFixed(2)} SOL</span>}
+              <span className="text-foreground">{effectiveSOL.toFixed(4)} SOL</span>
+              {walletTokens.length > 0 && <span className="text-muted-foreground/60">· {walletTokens.length} tokens</span>}
+              <button onClick={refreshPortfolio} className="hover:text-primary transition-colors ml-0.5"><RefreshCw className="h-2.5 w-2.5" /></button>
             </span>
           )}
           <StatusChip variant="info" dot>LIVE</StatusChip>
@@ -97,6 +102,7 @@ export default function DashboardHome() {
 
       {/* Quick Actions strip */}
       <div className="flex flex-wrap gap-2">
+        <QuickAction to="/scanner" icon={Radar} label="SCANNER" />
         <QuickAction to="/live-pairs" icon={TrendingUp} label="LIVE PAIRS" />
         <QuickAction to="/sniper-mode" icon={Zap} label="SNIPER" />
         <QuickAction to="/ai-signals" icon={Brain} label="AI SIGNALS" />

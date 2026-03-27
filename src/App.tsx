@@ -46,6 +46,7 @@ const TokenHoldingsPage = lazy(() => import("./pages/TokenHoldingsPage"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const WarRoomPage = lazy(() => import("./pages/WarRoomPage"));
 const MultiChainHubPage = lazy(() => import("./pages/MultiChainHubPage"));
+const ScannerPage = lazy(() => import("./pages/ScannerPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -118,6 +119,7 @@ function AppInner() {
                       <Route path="holdings" element={<TokenHoldingsPage />} />
                       <Route path="xrpl" element={<XRPLPage />} />
                       <Route path="multichain" element={<MultiChainHubPage />} />
+                      <Route path="scanner" element={<ScannerPage />} />
                       <Route path="about" element={<AboutPage />} />
                       <Route path="memes" element={<MemeGeneratorPage />} />
                       <Route path="token/:id" element={<TokenDetailPage />} />
