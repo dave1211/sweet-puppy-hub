@@ -1,20 +1,15 @@
 
 
-# Plan: Create Owner Tablet Invite Code
+# Approved: Save Strict Execution Rules to Memory
 
-## What
-Insert a single one-time-use invite code `OWNER2` for the owner's tablet, similar to the existing `OWNER1` code.
+Executing immediately — two file writes:
 
-## How
-One database insert:
+## 1. Create `mem://constraints/strict-execution-rules.md`
+The full STRICT EXECUTION RULES block covering all 7 phases plus future phases.
 
-```sql
-INSERT INTO invite_codes (code, label, max_uses, current_uses, active, expires_at, metadata)
-VALUES ('OWNER2', 'Owner personal - tablet Phantom', 1, 0, true, NULL, '{"owner": true}');
-```
+## 2. Update `mem://index.md`
+- **Core section** — add: `STRICT: targeted changes only, no unrelated refactors, no removing working features, no fake integrations, label scaffolded features, preserve stability, output what changed and why.`
+- **Memories section** — add: `[Strict Execution Rules](mem://constraints/strict-execution-rules) — Mandatory rules for all 7+ phases`
 
-## Usage
-1. Open Tanner Terminal on your tablet in Phantom browser
-2. Enter invite code: **OWNER2**
-3. Connect wallet — code becomes used (1/1)
+No code changes. No regressions. Memory-only update.
 
