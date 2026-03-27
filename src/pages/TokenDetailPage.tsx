@@ -341,7 +341,6 @@ export default function TokenDetailPage() {
               >
                 {isQuoting ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Getting Quote…</> : <><ArrowUpDown className="h-3.5 w-3.5" /> Get Jupiter Quote</>}
               </button>
-              </button>
 
               {swapError && (
                 <div className="p-2.5 rounded bg-destructive/10 border border-destructive/20 text-[10px] font-mono text-destructive">{swapError}</div>
