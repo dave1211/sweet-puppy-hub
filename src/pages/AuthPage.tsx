@@ -785,23 +785,7 @@ export default function AuthPage() {
             No data leaves Tanner Terminal. All auth is internal.
           </p>
 
-          {/* Auth diagnostics panel — visible in dev/debug */}
-          <details className="mt-3 text-[8px] font-mono text-muted-foreground/60">
-            <summary className="cursor-pointer hover:text-muted-foreground">Auth diagnostics</summary>
-            <div className="mt-1 space-y-0.5 bg-muted/10 rounded p-2 border border-border/30">
-              <p>Route: {window.location.pathname}</p>
-              <p>Origin: {window.location.origin}</p>
-              <p>State: <span className="text-foreground">{machine.status}</span></p>
-              <p>Active wallet: {machine.activeWallet ?? "none"}</p>
-              <p>Provider detected: {availableWallets.map(w => w.type).join(", ") || "none"}</p>
-              <p>Wallet connected: {isConnected ? "yes" : "no"}</p>
-              <p>Wallet address: {walletAddress ? `${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` : "none"}</p>
-              <p>Supabase user: {user ? "yes" : "no"}</p>
-              <p>Guest mode: {isGuest ? "yes" : "no"}</p>
-              <p>Error code: {machine.errorCode ?? "none"}</p>
-              <p>Error: {machine.errorMessage ?? "none"}</p>
-            </div>
-          </details>
+          {/* Diagnostics removed for production */}
         </CardContent>
       </Card>
     </div>

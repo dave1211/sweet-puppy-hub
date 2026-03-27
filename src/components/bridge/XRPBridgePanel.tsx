@@ -57,22 +57,13 @@ export function XRPBridgePanel() {
     setIsProcessing(true);
     setStep("processing");
 
-    // Simulate bridge processing
+    // Bridge is not yet connected to real infrastructure
     setTimeout(() => {
-      const tx: BridgeTx = {
-        id: Math.random().toString(36).slice(2, 10),
-        from: quote.fromAsset.label,
-        to: quote.toAsset.label,
-        inputAmount: quote.inputAmount,
-        outputAmount: quote.outputAmount,
-        status: "complete",
-        timestamp: new Date(),
-      };
-      setHistory((prev) => [tx, ...prev]);
       setIsProcessing(false);
-      setStep("complete");
-      toast.success(`🌉 Bridged ${quote.inputAmount.toFixed(4)} ${quote.fromAsset.label} → ${quote.outputAmount.toFixed(4)} ${quote.toAsset.label}`);
-    }, 3000);
+      setStep("select");
+      setQuote(null);
+      toast.error("Bridge infrastructure coming soon. Real cross-chain bridges require external protocol integration.", { duration: 5000 });
+    }, 2000);
   }, [quote]);
 
   const handleReset = () => {
@@ -87,16 +78,10 @@ export function XRPBridgePanel() {
       <div className="flex items-center gap-2 mb-3">
         <Globe className="h-4 w-4 text-terminal-blue" />
         <h3 className="text-xs font-mono font-bold text-foreground tracking-wide">CROSS-CHAIN BRIDGE</h3>
-        <span className="ml-auto flex items-center gap-1.5">
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            className="text-[10px] font-mono text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-          >
-            <History className="h-3 w-3" />
-            {history.length > 0 && <span className="bg-primary/20 text-primary rounded px-1">{history.length}</span>}
-          </button>
-          <span className="text-[10px] font-mono text-terminal-blue bg-terminal-blue/10 px-1.5 py-0.5 rounded">XRP↔SOL</span>
-        </span>
+          <span className="ml-auto flex items-center gap-1.5">
+            <span className="text-[9px] font-mono text-terminal-amber bg-terminal-amber/10 px-1.5 py-0.5 rounded">PREVIEW</span>
+            <span className="text-[10px] font-mono text-terminal-blue bg-terminal-blue/10 px-1.5 py-0.5 rounded">XRP↔SOL</span>
+          </span>
       </div>
 
       {/* History Panel */}
