@@ -15,6 +15,7 @@ import { AIChatWidget } from "@/components/chat/AIChatWidget";
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useWalletAutoRegister } from "@/hooks/useWalletAutoRegister";
 import { validateEnv } from "@/lib/envValidation";
 import { EnvErrorScreen } from "@/components/shared/EnvErrorScreen";
 
@@ -81,6 +82,16 @@ function PushNotificationInit() {
   return null;
 }
 
+/** Auto-registers connected wallet as a wallet profile */
+function WalletAutoRegisterInit() {
+  try {
+    useWalletAutoRegister();
+  } catch (e) {
+    console.warn("[WalletAutoRegister] Init failed:", e);
+  }
+  return null;
+}
+
 function AppInner() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -89,6 +100,7 @@ function AppInner() {
           <WalletProvider>
             <TierProvider>
               <PushNotificationInit />
+              <WalletAutoRegisterInit />
               <Toaster />
               <Sonner />
               <BrowserRouter>
