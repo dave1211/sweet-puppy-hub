@@ -41,6 +41,22 @@ export default function TokenDetailPage() {
   // Check if data sources have finished loading
   const dataLoaded = !!launches || tokens.length > 0;
 
+  // Safety assessment — must be called before any early return (hooks rules)
+  const safety = useMemo(() => {
+    if (!token) return null;
+    return assessTokenSafety({
+      liquidity: token.liquidity,
+      volume24h: token.volume24h,
+      change24h: token.change24h,
+      pairCreatedAt: token.pairCreatedAt,
+      lpLocked: null,
+      mintAuthorityRevoked: null,
+      freezeAuthorityRevoked: null,
+      isHoneypot: null,
+      contractVerified: null,
+    });
+  }, [token?.liquidity, token?.volume24h, token?.change24h, token?.pairCreatedAt]);
+
   if (!token) {
     return (
       <div className="space-y-4">
@@ -70,18 +86,6 @@ export default function TokenDetailPage() {
       </div>
     );
   }
-
-  const safety = useMemo(() => assessTokenSafety({
-    liquidity: token.liquidity,
-    volume24h: token.volume24h,
-    change24h: token.change24h,
-    pairCreatedAt: token.pairCreatedAt,
-    lpLocked: null,
-    mintAuthorityRevoked: null,
-    freezeAuthorityRevoked: null,
-    isHoneypot: null,
-    contractVerified: null,
-  }), [token.liquidity, token.volume24h, token.change24h, token.pairCreatedAt]);
 
   const displayPrice = price?.price ?? token.price;
   const displayChange = price?.change24h ?? token.change24h;
