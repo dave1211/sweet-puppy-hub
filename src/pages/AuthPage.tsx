@@ -742,25 +742,7 @@ export default function AuthPage() {
             {renderRecoveryActions()}
           </div>
 
-          {isFailureState(machine.status) && (
-            <div className="rounded border border-destructive/30 bg-destructive/5 p-2.5">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
-                <p className="text-[10px] font-mono text-destructive">
-                  {machine.errorMessage ?? "Wallet authentication failed"}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => dispatch({ type: "SET_STATUS", status: availableWallets.length ? "wallet_detected" : "wallet_not_detected" })}
-                disabled={submitting}
-                className="mt-2 h-7 px-2 text-[10px] font-mono"
-              >
-                <RefreshCw className="h-3 w-3 mr-1" /> Dismiss
-              </Button>
-            </div>
-          )}
+          {/* Single error display — no duplicate error cards */}
 
           {/* Wallet buttons */}
           {visibleWallets.map(({ type, label, icon }) => (

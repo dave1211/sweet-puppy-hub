@@ -1,8 +1,7 @@
 {
   "imports": {
     "npm:@supabase/supabase-js@2": "npm:@supabase/supabase-js@2",
-    "npm:tweetnacl@1.0.3": "npm:tweetnacl@1.0.3",
-    "npm:bs58@5.0.0": "npm:bs58@5.0.0"
+    "npm:tweetnacl@1.0.3": "npm:tweetnacl@1.0.3"
   },
   "nodeModulesDir": "auto"
 }

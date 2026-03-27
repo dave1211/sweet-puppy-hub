@@ -1,6 +1,51 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import nacl from "npm:tweetnacl@1.0.3";
-import bs58 from "npm:bs58@5.0.0";
+
+// Inline base58 codec — avoids npm:bs58 Deno resolution issues
+const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const BASE58_MAP = new Uint8Array(256).fill(255);
+for (let i = 0; i < BASE58_ALPHABET.length; i++) BASE58_MAP[BASE58_ALPHABET.charCodeAt(i)] = i;
+
+const bs58 = {
+  decode(str: string): Uint8Array {
+    if (str.length === 0) return new Uint8Array(0);
+    const bytes: number[] = [0];
+    for (let i = 0; i < str.length; i++) {
+      const c = BASE58_MAP[str.charCodeAt(i)];
+      if (c === 255) throw new Error("Invalid base58 character");
+      let carry = c;
+      for (let j = 0; j < bytes.length; j++) {
+        carry += bytes[j] * 58;
+        bytes[j] = carry & 0xff;
+        carry >>= 8;
+      }
+      while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8; }
+    }
+    let leadingZeros = 0;
+    while (leadingZeros < str.length && str[leadingZeros] === "1") leadingZeros++;
+    const result = new Uint8Array(leadingZeros + bytes.length);
+    for (let i = 0; i < bytes.length; i++) result[leadingZeros + bytes.length - 1 - i] = bytes[i];
+    return result;
+  },
+  encode(bytes: Uint8Array): string {
+    if (bytes.length === 0) return "";
+    const digits: number[] = [0];
+    for (let i = 0; i < bytes.length; i++) {
+      let carry = bytes[i];
+      for (let j = 0; j < digits.length; j++) {
+        carry += digits[j] << 8;
+        digits[j] = carry % 58;
+        carry = (carry / 58) | 0;
+      }
+      while (carry > 0) { digits.push(carry % 58); carry = (carry / 58) | 0; }
+    }
+    let str = "";
+    let k = 0;
+    while (k < bytes.length && bytes[k] === 0) { str += "1"; k++; }
+    for (let q = digits.length - 1; q >= 0; q--) str += BASE58_ALPHABET[digits[q]];
+    return str;
+  },
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
