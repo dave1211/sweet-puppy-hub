@@ -35,6 +35,7 @@ const SOURCE_ICON: Record<SignalSource, React.ElementType> = {
   wallet_tracker: Activity,
   risk_engine: Shield,
   launch_scanner: Activity,
+  safety_engine: Shield,
 };
 
 function SignalRow({ signal }: { signal: TerminalSignal }) {
