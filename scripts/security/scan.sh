@@ -76,31 +76,142 @@ fi
 echo "  Secret scan: done"
 
 # -------------------------------------------------------
-# 3. DEPENDENCY CHECK
+# 3. DEPENDENCY & LOCKFILE CHECK (BUN-ONLY POLICY)
 # -------------------------------------------------------
-echo "[3/8] Checking dependencies..."
+echo "[3/8] Checking Bun-only lockfile policy..."
 
-# package-lock.json must exist
-if [ ! -f package-lock.json ]; then
-  add_finding "high" "package-lock.json missing — npm-only policy violated" "package-lock.json" "false" "true" "Run npm install to generate package-lock.json"
+# CRITICAL: This is a Bun-only repo
+# bun.lockb MUST exist
+if [ ! -f bun.lockb ]; then
+  add_finding "critical" "bun.lockb missing — Bun-only policy violated" "bun.lockb" "false" "true" "Run: bun install --frozen"
 fi
 
-# React version drift
-if [ -f node_modules/react/package.json ]; then
-  REACT_VER=$(node -e "console.log(require('./node_modules/react/package.json').version)" 2>/dev/null || echo "unknown")
+# Forbidden lockfiles MUST NOT exist
+for FORBIDDEN in package-lock.json yarn.lock pnpm-lock.yaml bun.lock; do
+  if [ -f "$FORBIDDEN" ]; then
+    add_finding "critical" "Forbidden lockfile detected — Bun-only policy violated" "$FORBIDDEN" "false" "true" "Remove: $FORBIDDEN (this repo uses bun.lockb only)"
+  fi
+done
+
+# React version drift check using Bun
+if command -v bun &>/dev/null && [ -f bun.lockb ]; then
+  REACT_VER=$(bun -p "require('./node_modules/react/package.json').version" 2>/dev/null || echo "unknown")
   MAJOR=$(echo "$REACT_VER" | cut -d. -f1)
   if [ "$MAJOR" != "18" ] && [ "$MAJOR" != "unknown" ]; then
     add_finding "critical" "React version drifted to $REACT_VER (must be 18.x)" "package.json" "false" "true" "Pin React to 18.x"
   fi
 fi
 
-# npm audit
-AUDIT_HIGH=$(npm audit --json 2>/dev/null | jq '[.vulnerabilities // {} | to_entries[] | select(.value.severity == "high" or .value.severity == "critical")] | length' 2>/dev/null || echo "0")
-if [ "$AUDIT_HIGH" -gt 0 ] 2>/dev/null; then
-  add_finding "high" "$AUDIT_HIGH high/critical npm vulnerabilities found" "package.json" "false" "false" "Run npm audit fix or update affected packages"
+echo "  Dependencies: done"
+
+# -------------------------------------------------------
+# 4. EDGE FUNCTION SECURITY
+# -------------------------------------------------------
+echo "[4/8] Scanning edge functions..."
+
+for fn in supabase/functions/*/index.ts; do
+  [ -f "$fn" ] || continue
+  FNAME=$(basename "$(dirname "$fn")")
+
+  # Check for missing CORS headers
+  if ! grep -q 'Access-Control-Allow-Origin' "$fn" 2>/dev/null; then
+    add_finding "medium" "Missing CORS headers in edge function" "$fn" "false" "false" "Add CORS headers to $FNAME"
+  fi
+
+  # Check for missing auth validation (skip wallet-auth which is the auth endpoint itself)
+  if [ "$FNAME" != "wallet-auth" ] && ! grep -q 'Authorization\|auth\.\|getClaims\|getUser' "$fn" 2>/dev/null; then
+    add_finding "high" "Edge function missing auth validation" "$fn" "false" "false" "Add JWT/auth validation to $FNAME"
+  fi
+
+  # Check for raw SQL execution
+  if grep -q 'execute_sql\|\.rpc.*sql' "$fn" 2>/dev/null; then
+    add_finding "critical" "Raw SQL execution in edge function" "$fn" "false" "true" "Remove raw SQL and use parameterized queries"
+  fi
+done
+
+echo "  Edge functions: done"
+
+# -------------------------------------------------------
+# 5. ENV USAGE
+# -------------------------------------------------------
+echo "[5/8] Checking env usage..."
+
+# .env committed with real values (check for service role)
+if [ -f .env ] && grep -q 'SERVICE_ROLE\|PRIVATE_KEY' .env 2>/dev/null; then
+  add_finding "critical" "Service role or private key in .env file" ".env" "false" "true" "Remove secrets from .env, use secrets management"
 fi
 
-echo "  Dependencies: done"
+echo "  Env check: done"
+
+# -------------------------------------------------------
+# 6. INPUT VALIDATION
+# -------------------------------------------------------
+echo "[6/8] Checking input validation..."
+
+for fn in supabase/functions/*/index.ts; do
+  [ -f "$fn" ] || continue
+  FNAME=$(basename "$(dirname "$fn")")
+
+  # Check if function accepts JSON but doesn't validate
+  if grep -q 'req.json()' "$fn" 2>/dev/null; then
+    if ! grep -q 'typeof\|\.length\|!.*||' "$fn" 2>/dev/null; then
+      add_finding "medium" "Edge function accepts JSON without validation" "$fn" "false" "false" "Add input validation to $FNAME"
+    fi
+  fi
+done
+
+echo "  Input validation: done"
+
+# -------------------------------------------------------
+# 7. PROTECTED PATH CHANGES (PR only)
+# -------------------------------------------------------
+echo "[7/8] Checking protected path changes..."
+
+if [ -n "${GITHUB_BASE_REF:-}" ]; then
+  PROTECTED_PATHS=$(cat scripts/security/protected-paths.json | jq -r '.protected_paths[]' 2>/dev/null || true)
+  CHANGED=$(git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" 2>/dev/null || true)
+
+  for path in $PROTECTED_PATHS; do
+    if echo "$CHANGED" | grep -q "^${path}$"; then
+      add_finding "high" "Protected file modified — requires strict review" "$path" "false" "false" "Review changes to $path carefully before merging"
+    fi
+  done
+fi
+
+echo "  Protected paths: done"
+
+# -------------------------------------------------------
+# 8. GENERATE REPORT
+# -------------------------------------------------------
+echo "[8/8] Generating report..."
+
+TOTAL=$(echo "$FINDINGS" | jq 'length')
+BLOCKED_COUNT=$(echo "$FINDINGS" | jq '[.[] | select(.blocked)] | length')
+PASSED=true
+if [ "$EXIT_CODE" -ne 0 ]; then PASSED=false; fi
+
+cat > "$REPORT" <<EOF
+{
+  "scan_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "passed": $PASSED,
+  "total_findings": $TOTAL,
+  "blocked_count": $BLOCKED_COUNT,
+  "findings": $FINDINGS
+}
+EOF
+
+echo ""
+echo "===================================="
+echo "Scan complete: $TOTAL findings, $BLOCKED_COUNT blocked"
+if [ "$PASSED" = "true" ]; then
+  echo "✅ All checks passed"
+else
+  echo "❌ CI BLOCKED — fix critical issues before merging"
+fi
+echo "Report: $REPORT"
+echo "===================================="
+
+exit $EXIT_CODE
 
 # -------------------------------------------------------
 # 4. EDGE FUNCTION SECURITY

@@ -21,35 +21,33 @@ is_protected() {
 }
 
 # -------------------------------------------------------
-# 1. Lockfile consistency
+# 1. Bun lockfile consistency (Bun-only repo)
 # -------------------------------------------------------
-echo "[1/3] Checking lockfile consistency..."
+echo "[1/2] Checking Bun lockfile consistency..."
 
-if [ -f package.json ] && [ -f package-lock.json ]; then
-  npm install --package-lock-only --ignore-scripts 2>/dev/null && {
-    if ! git diff --quiet package-lock.json 2>/dev/null; then
-      echo "  ✅ Fixed lockfile drift"
-      HAS_FIXES=true
-    fi
-  } || echo "  ⚠️  Could not fix lockfile"
+# Verify bun.lockb exists
+if [ ! -f bun.lockb ]; then
+  echo "  ℹ️  bun.lockb missing — cannot auto-repair without it"
+else
+  # Re-lock without installing to check consistency
+  if command -v bun &>/dev/null; then
+    bun install --frozen 2>/dev/null && {
+      if ! git diff --quiet bun.lockb 2>/dev/null; then
+        echo "  ✅ Updated bun.lockb to match dependencies"
+        HAS_FIXES=true
+      else
+        echo "  ✓ bun.lockb is consistent"
+      fi
+    } || echo "  ℹ️  Lockfile is already locked"
+  else
+    echo "  ⚠️  Bun not available"
+  fi
 fi
 
 # -------------------------------------------------------
-# 2. Safe dependency patches (patch-level only)
+# 2. Trailing whitespace in safe files only
 # -------------------------------------------------------
-echo "[2/3] Checking for safe patch updates..."
-
-npm audit fix --force=false 2>/dev/null && {
-  if ! git diff --quiet package-lock.json package.json 2>/dev/null; then
-    echo "  ✅ Applied safe dependency patches"
-    HAS_FIXES=true
-  fi
-} || echo "  ℹ️  No safe patches available"
-
-# -------------------------------------------------------
-# 3. Trailing whitespace in safe files only
-# -------------------------------------------------------
-echo "[3/3] Fixing trailing whitespace in safe files..."
+echo "[2/2] Fixing trailing whitespace in safe files..."
 
 for f in docs/*.md README.md SECURITY.md; do
   [ -f "$f" ] || continue

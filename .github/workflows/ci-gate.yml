@@ -16,7 +16,51 @@ concurrency:
   cancel-in-progress: false  # Don't cancel for main branch pushes
 
 jobs:
-  # ========== DEPENDENCY & LOCKFILE CHECKS ==========
+  # ========== CHANGE DETECTION ==========
+  detect-changes:
+    name: Detect Changed Paths
+    runs-on: ubuntu-latest
+    outputs:
+      app-changed: ${{ steps.detect.outputs.app-changed }}
+      deno-changed: ${{ steps.detect.outputs.deno-changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: detect
+        run: |
+          # Get list of changed files
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} 2>/dev/null || echo "")
+          else
+            # For push events, compare with previous commit
+            CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-tree -r --name-only HEAD)
+          fi
+          
+          # Check if app files changed (src/, package.json, tsconfig, etc.)
+          if echo "$CHANGED" | grep -qE '^src/|^package\.json|^tsconfig|^eslint|^vite\.config|^vitest\.config'; then
+            echo "app-changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "app-changed=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Check if Deno files changed
+          if echo "$CHANGED" | grep -qE '^supabase/functions/'; then
+            echo "deno-changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "deno-changed=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "=== CHANGE DETECTION ==="
+          echo "Changed files:"
+          echo "$CHANGED" | head -20
+          echo "---"
+          echo "App changed: $(grep 'app-changed' $GITHUB_OUTPUT | cut -d= -f2)"
+          echo "Deno changed: $(grep 'deno-changed' $GITHUB_OUTPUT | cut -d= -f2)"
+
+  # ========== DEPENDENCY & LOCKFILE CHECKS (ALWAYS RUN) ==========
   dependency-integrity:
     name: Dependency Integrity
     runs-on: ubuntu-latest
@@ -48,42 +92,71 @@ jobs:
             echo "::warning::React version not clearly pinned to 18 — verify intentional"
           fi
 
-  # ========== FRONTEND/APP CHECKS ==========
+  # ========== FRONTEND/APP CHECKS (ALWAYS RUN, pass silently if no app changes) ==========
   app-validate:
     name: App - Lint & TypeCheck
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: detect-changes
     steps:
       - uses: actions/checkout@v4
 
+      # Skip quickly if app files didn't change
+      - name: Check if app validation needed
+        id: check
+        run: |
+          if [ "${{ needs.detect-changes.outputs.app-changed }}" != "true" ]; then
+            echo "App files not changed — skipping validation"
+            exit 0
+          fi
+          echo "run-validation=true" >> $GITHUB_OUTPUT
+
       - uses: oven-sh/setup-bun@v2
+        if: steps.check.outputs.run-validation == 'true'
 
       - name: Install dependencies
+        if: steps.check.outputs.run-validation == 'true'
         run: bun install --frozen
 
       - name: Type check
+        if: steps.check.outputs.run-validation == 'true'
         run: bun run typecheck
 
       - name: Lint
+        if: steps.check.outputs.run-validation == 'true'
         run: bun run lint
 
-  # ========== DENO FUNCTIONS ==========
+  # ========== DENO FUNCTIONS (ALWAYS RUN, pass silently if no Deno changes) ==========
   deno-validate:
     name: Deno - Lint & Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    needs: detect-changes
     steps:
       - uses: actions/checkout@v4
 
+      # Skip quickly if Deno files didn't change
+      - name: Check if Deno validation needed
+        id: check
+        run: |
+          if [ "${{ needs.detect-changes.outputs.deno-changed }}" != "true" ]; then
+            echo "Deno files not changed — skipping validation"
+            exit 0
+          fi
+          echo "run-validation=true" >> $GITHUB_OUTPUT
+
       - uses: denoland/setup-deno@61fe2df320078202e33d7d5ad347e7dcfa0e8f31
+        if: steps.check.outputs.run-validation == 'true'
         with:
           deno-version: v1.x
 
       - name: Deno lint (auto-fix attempt)
+        if: steps.check.outputs.run-validation == 'true'
         continue-on-error: true
         run: deno lint --fix || true
 
       - name: Deno lint (strict - must pass)
+        if: steps.check.outputs.run-validation == 'true'
         run: |
           if deno lint; then
             echo "✓ All lint checks passed"
@@ -93,10 +166,12 @@ jobs:
           fi
 
       - name: Deno format check
+        if: steps.check.outputs.run-validation == 'true'
         run: deno fmt --check
 
-      - name: Deno tests
-        run: deno test -A --allow-all 2>&1 || echo "Note: Tests may not be configured"
+      - name: Deno tests (soft-pass if not configured)
+        if: steps.check.outputs.run-validation == 'true'
+        run: deno test -A --allow-all 2>&1 || echo "⚠️  Deno tests not configured — allowed"
 
   # ========== FINAL GATE: All checks must pass ==========
   ci-gate:
@@ -112,16 +187,19 @@ jobs:
           echo "App Validate: ${{ needs.app-validate.result }}"
           echo "Deno Validate: ${{ needs.deno-validate.result }}"
           
+          # All job results required to succeed
           if [ "${{ needs.dependency-integrity.result }}" != "success" ]; then
             echo "::error::Dependency checks failed"
             exit 1
           fi
+          
           if [ "${{ needs.app-validate.result }}" != "success" ]; then
-            echo "::error::App validation failed"
+            echo "::error::App validation failed: ${{ needs.app-validate.result }}"
             exit 1
           fi
+          
           if [ "${{ needs.deno-validate.result }}" != "success" ]; then
-            echo "::error::Deno validation failed"
+            echo "::error::Deno validation failed: ${{ needs.deno-validate.result }}"
             exit 1
           fi
           
