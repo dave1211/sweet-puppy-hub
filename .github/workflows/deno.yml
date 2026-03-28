@@ -6,9 +6,18 @@ on:
   pull_request:
     branches: [main]
 
+# PHASE 5: Hardened permissions
 permissions:
   contents: read
+  id-token: none
+  actions: none
+  checks: none
+  deployments: none
+  issues: none
+  pull-requests: none
+  statuses: none
 
+# PHASE 5: Concurrency control  
 concurrency:
   group: deno-${{ github.ref }}
   cancel-in-progress: true
