@@ -151,19 +151,18 @@ jobs:
           set -euo pipefail
           echo "=== PHASE 3: PACKAGE MANAGER USAGE SCAN ==="
           
-          # Scan workflows for npm, yarn, pnpm
-          VIOLATIONS=$(grep -r "npm " .github/workflows/ 2>/dev/null || true)
-          VIOLATIONS="$VIOLATIONS$(grep -r "yarn " .github/workflows/ 2>/dev/null || true)"
-          VIOLATIONS="$VIOLATIONS$(grep -r "pnpm " .github/workflows/ 2>/dev/null || true)"
-          VIOLATIONS="$VIOLATIONS$(grep -r "setup-node" .github/workflows/ 2>/dev/null || true)"
+          # Scan workflows for ACTUAL package manager commands (not just mentions in comments/echo)
+          # Look for: npm run/install, yarn install/run, pnpm install/run, actions/setup-node
+          VIOLATIONS=$(grep -rE '(^\s+run:|shell:|=>|exec)\s*(npm|yarn|pnpm|actions/setup-node)' .github/workflows/ 2>/dev/null || true)
+          VIOLATIONS="$VIOLATIONS$(grep -r 'uses: actions/setup-node' .github/workflows/ 2>/dev/null || true)"
           
           if [ -n "$VIOLATIONS" ]; then
-            echo "::error::FORBIDDEN: Detected non-Bun package manager usage"
+            echo "::error::FORBIDDEN: Detected non-Bun package manager USAGE (not just mentions)"
             echo "$VIOLATIONS" | head -5
             exit 1
           fi
           
-          echo "✓ No forbidden package manager usage in workflows"
+          echo "✓ No forbidden package manager commands detected in workflows"
 
       # PHASE 4: React version constraint
       - name: Enforce React 18 constraint
