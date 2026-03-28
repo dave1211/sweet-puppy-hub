@@ -92,46 +92,71 @@ jobs:
             echo "::warning::React version not clearly pinned to 18 — verify intentional"
           fi
 
-  # ========== FRONTEND/APP CHECKS (CONDITIONAL: Only if app files changed) ==========
+  # ========== FRONTEND/APP CHECKS (ALWAYS RUN, pass silently if no app changes) ==========
   app-validate:
     name: App - Lint & TypeCheck
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: detect-changes
-    if: needs.detect-changes.outputs.app-changed == 'true'
     steps:
       - uses: actions/checkout@v4
 
+      # Skip quickly if app files didn't change
+      - name: Check if app validation needed
+        id: check
+        run: |
+          if [ "${{ needs.detect-changes.outputs.app-changed }}" != "true" ]; then
+            echo "App files not changed — skipping validation"
+            exit 0
+          fi
+          echo "run-validation=true" >> $GITHUB_OUTPUT
+
       - uses: oven-sh/setup-bun@v2
+        if: steps.check.outputs.run-validation == 'true'
 
       - name: Install dependencies
+        if: steps.check.outputs.run-validation == 'true'
         run: bun install --frozen
 
       - name: Type check
+        if: steps.check.outputs.run-validation == 'true'
         run: bun run typecheck
 
       - name: Lint
+        if: steps.check.outputs.run-validation == 'true'
         run: bun run lint
 
-  # ========== DENO FUNCTIONS (CONDITIONAL: Only if Deno files changed) ==========
+  # ========== DENO FUNCTIONS (ALWAYS RUN, pass silently if no Deno changes) ==========
   deno-validate:
     name: Deno - Lint & Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: detect-changes
-    if: needs.detect-changes.outputs.deno-changed == 'true'
     steps:
       - uses: actions/checkout@v4
 
+      # Skip quickly if Deno files didn't change
+      - name: Check if Deno validation needed
+        id: check
+        run: |
+          if [ "${{ needs.detect-changes.outputs.deno-changed }}" != "true" ]; then
+            echo "Deno files not changed — skipping validation"
+            exit 0
+          fi
+          echo "run-validation=true" >> $GITHUB_OUTPUT
+
       - uses: denoland/setup-deno@61fe2df320078202e33d7d5ad347e7dcfa0e8f31
+        if: steps.check.outputs.run-validation == 'true'
         with:
           deno-version: v1.x
 
       - name: Deno lint (auto-fix attempt)
+        if: steps.check.outputs.run-validation == 'true'
         continue-on-error: true
         run: deno lint --fix || true
 
       - name: Deno lint (strict - must pass)
+        if: steps.check.outputs.run-validation == 'true'
         run: |
           if deno lint; then
             echo "✓ All lint checks passed"
@@ -141,9 +166,11 @@ jobs:
           fi
 
       - name: Deno format check
+        if: steps.check.outputs.run-validation == 'true'
         run: deno fmt --check
 
       - name: Deno tests (soft-pass if not configured)
+        if: steps.check.outputs.run-validation == 'true'
         run: deno test -A --allow-all 2>&1 || echo "⚠️  Deno tests not configured — allowed"
 
   # ========== FINAL GATE: All checks must pass ==========
@@ -153,30 +180,26 @@ jobs:
     if: always()
     needs: [dependency-integrity, app-validate, deno-validate]
     steps:
-      - name: Check all jobs passed or skipped
+      - name: Check all jobs passed
         run: |
           echo "=== CI GATE VERIFICATION ==="
           echo "Dependency Integrity: ${{ needs.dependency-integrity.result }}"
           echo "App Validate: ${{ needs.app-validate.result }}"
           echo "Deno Validate: ${{ needs.deno-validate.result }}"
           
-          # Dependency check always required
+          # All job results required to succeed
           if [ "${{ needs.dependency-integrity.result }}" != "success" ]; then
             echo "::error::Dependency checks failed"
             exit 1
           fi
           
-          # App validate: must succeed (or be skipped if no app changes)
-          APP_RESULT="${{ needs.app-validate.result }}"
-          if [ "$APP_RESULT" != "success" ] && [ "$APP_RESULT" != "skipped" ]; then
-            echo "::error::App validation failed: $APP_RESULT"
+          if [ "${{ needs.app-validate.result }}" != "success" ]; then
+            echo "::error::App validation failed: ${{ needs.app-validate.result }}"
             exit 1
           fi
           
-          # Deno validate: must succeed (or be skipped if no Deno changes)
-          DENO_RESULT="${{ needs.deno-validate.result }}"
-          if [ "$DENO_RESULT" != "success" ] && [ "$DENO_RESULT" != "skipped" ]; then
-            echo "::error::Deno validation failed: $DENO_RESULT"
+          if [ "${{ needs.deno-validate.result }}" != "success" ]; then
+            echo "::error::Deno validation failed: ${{ needs.deno-validate.result }}"
             exit 1
           fi
           
