@@ -104,7 +104,7 @@ jobs:
 
       - name: Check React version
         run: |
-          REACT_VER=$(node -e "console.log(require('./node_modules/react/package.json').version)")
+          REACT_VER=$(bun -p "require('./node_modules/react/package.json').version")
           MAJOR=$(echo "$REACT_VER" | cut -d. -f1)
           if [ "$MAJOR" != "18" ]; then
             echo "::error::React must be 18.x, found $REACT_VER"
