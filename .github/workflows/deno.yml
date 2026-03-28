@@ -45,26 +45,26 @@ jobs:
         id: lint_before
         run: |
           echo "=== PHASE 1: Initial Lint Status ==="
-          LINT_COUNT=$(deno lint 2>&1 | grep -c "error:" || echo "0")
+          LINT_COUNT=$(deno lint supabase/functions/ 2>&1 | grep -c "error:" || echo "0")
           echo "lint_count_before=$LINT_COUNT" >> "$GITHUB_OUTPUT"
           echo "Initial lint errors: $LINT_COUNT"
-          deno lint 2>&1 | head -100 || true
+          deno lint supabase/functions/ 2>&1 | head -100 || true
 
       # Phase 2: Auto-fix lint issues
       - name: Auto-fix lint issues
         id: lint_fix
         run: |
           echo "=== PHASE 2: Auto-Fixing Lint Issues ==="
-          echo "Running: deno lint --fix"
-          deno lint --fix || true
+          echo "Running: deno lint --fix supabase/functions/"
+          deno lint --fix supabase/functions/ || true
           echo "Auto-fix completed (exit code ignored)"
 
       # Phase 3: Verify formatting with deno fmt
       - name: Format code with deno fmt
         run: |
           echo "=== PHASE 3: Code Formatting ==="
-          echo "Running: deno fmt"
-          deno fmt || true
+          echo "Running: deno fmt supabase/functions/"
+          deno fmt supabase/functions/ || true
           echo "Code formatting completed"
 
       # Phase 4: Strict verification (must pass)
@@ -72,15 +72,15 @@ jobs:
         id: lint_after
         run: |
           echo "=== PHASE 4: Strict Lint Verification ==="
-          echo "Running: deno lint (STRICT - must pass)"
-          LINT_COUNT=$(deno lint 2>&1 | grep -c "error:" || echo "0")
+          echo "Running: deno lint supabase/functions/ (STRICT - must pass)"
+          LINT_COUNT=$(deno lint supabase/functions/ 2>&1 | grep -c "error:" || echo "0")
           echo "lint_count_after=$LINT_COUNT" >> "$GITHUB_OUTPUT"
           echo "Final lint errors: $LINT_COUNT"
           
           if [ "$LINT_COUNT" -gt "0" ]; then
             echo "ERROR: Lint verification failed with $LINT_COUNT errors"
             echo "=== Remaining lint errors ==="
-            deno lint 2>&1
+            deno lint supabase/functions/ 2>&1
             exit 1
           else
             echo "✓ All lint checks passed!"
@@ -90,7 +90,7 @@ jobs:
       - name: Run Deno tests
         run: |
           echo "=== PHASE 5: Running Tests ==="
-          deno test -A --allow-all || echo "Note: Tests may not be configured"
+          deno test -A --allow-all supabase/functions/ || echo "Note: Tests may not be configured"
 
       # Final reporting
       - name: Report lint statistics

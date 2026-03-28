@@ -61,53 +61,53 @@ jobs:
           
           # Check app source files
           if echo "$CHANGED" | grep -qE '^src/|^package\.json|^bun\.lockb|^tsconfig|^eslint|^vite\.config|^vitest\.config'; then
-            echo "app_changed=true" >> $GITHUB_OUTPUT
+            echo "app_changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "app_changed=false" >> $GITHUB_OUTPUT
+            echo "app_changed=false" >> "$GITHUB_OUTPUT"
           fi
           
           # Check Deno edge functions
           if echo "$CHANGED" | grep -qE '^supabase/functions/'; then
-            echo "deno_changed=true" >> $GITHUB_OUTPUT
+            echo "deno_changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "deno_changed=false" >> $GITHUB_OUTPUT
+            echo "deno_changed=false" >> "$GITHUB_OUTPUT"
           fi
           
           # Check workflow files
           if echo "$CHANGED" | grep -qE '^\.github/workflows/'; then
-            echo "workflow_changed=true" >> $GITHUB_OUTPUT
+            echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "workflow_changed=false" >> $GITHUB_OUTPUT
+            echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
           fi
           
           # Check Android build files
           if echo "$CHANGED" | grep -qE '^android/|^capacitor\.config'; then
-            echo "android_changed=true" >> $GITHUB_OUTPUT
+            echo "android_changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "android_changed=false" >> $GITHUB_OUTPUT
+            echo "android_changed=false" >> "$GITHUB_OUTPUT"
           fi
           
           # Check security/policy files
           if echo "$CHANGED" | grep -qE '^\.github/|^scripts/security/|^\.gitignore|^\.env'; then
-            echo "security_changed=true" >> $GITHUB_OUTPUT
+            echo "security_changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "security_changed=false" >> $GITHUB_OUTPUT
+            echo "security_changed=false" >> "$GITHUB_OUTPUT"
           fi
           
           # Aggregate: any meaningful changes?
           if [ -n "$CHANGED" ]; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
           fi
           
           # Summary report
           echo "=== CHANGE SUMMARY ==="
-          echo "App files: $(grep 'app_changed' $GITHUB_OUTPUT | cut -d= -f2)"
-          echo "Deno files: $(grep 'deno_changed' $GITHUB_OUTPUT | cut -d= -f2)"
-          echo "Workflows: $(grep 'workflow_changed' $GITHUB_OUTPUT | cut -d= -f2)"
-          echo "Android: $(grep 'android_changed' $GITHUB_OUTPUT | cut -d= -f2)"
-          echo "Security: $(grep 'security_changed' $GITHUB_OUTPUT | cut -d= -f2)"
+          echo "App files: $(grep 'app_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "Deno files: $(grep 'deno_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "Workflows: $(grep 'workflow_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "Android: $(grep 'android_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "Security: $(grep 'security_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
 
   # ========== PHASE 3: BUN-ONLY & DEPENDENCY ENFORCEMENT ==========
   dependency-integrity:
@@ -216,7 +216,7 @@ jobs:
             echo "SKIP: App files unchanged — validation not needed"
             exit 0
           fi
-          echo "run-validation=true" >> $GITHUB_OUTPUT
+          echo "run-validation=true" >> "$GITHUB_OUTPUT"
 
       - uses: oven-sh/setup-bun@v2
         if: steps.check.outputs.run-validation == 'true'
@@ -263,7 +263,7 @@ jobs:
             echo "SKIP: Deno files unchanged — validation not needed"
             exit 0
           fi
-          echo "run-validation=true" >> $GITHUB_OUTPUT
+          echo "run-validation=true" >> "$GITHUB_OUTPUT"
 
       - uses: denoland/setup-deno@61fe2df320078202e33d7d5ad347e7dcfa0e8f31
         if: steps.check.outputs.run-validation == 'true'
@@ -276,14 +276,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          deno lint --fix || true
+          deno lint --fix supabase/functions/ || true
 
       - name: Deno lint (strict validation)
         if: steps.check.outputs.run-validation == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          if deno lint; then
+          if deno lint supabase/functions/; then
             echo "✓ All Deno lint checks passed"
           else
             echo "✗ Deno lint validation failed"
@@ -295,14 +295,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          deno fmt --check
+          deno fmt --check supabase/functions/
 
       - name: Deno tests
         if: steps.check.outputs.run-validation == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          deno test -A --allow-all 2>&1 || echo "⚠️  Deno tests not configured — allowed"
+          deno test -A --allow-all supabase/functions/ 2>&1 || echo "⚠️  Deno tests not configured — allowed"
 
   # ========== PHASE 1: REQUIRED CHECK - ANDROID BUILD (ALWAYS RUNS) ==========
   android-build:
@@ -325,7 +325,7 @@ jobs:
             echo "SKIP: Android files unchanged — build not needed"
             exit 0
           fi
-          echo "run-build=true" >> $GITHUB_OUTPUT
+          echo "run-build=true" >> "$GITHUB_OUTPUT"
 
       - uses: oven-sh/setup-bun@v2
         if: steps.check.outputs.run-build == 'true'
