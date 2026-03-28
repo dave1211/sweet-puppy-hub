@@ -95,8 +95,8 @@ jobs:
       - name: Deno format check
         run: deno fmt --check
 
-      - name: Deno tests
-        run: deno test -A --allow-all 2>&1 || echo "Note: Tests may not be configured"
+      - name: Deno tests (soft-pass if not configured)
+        run: deno test -A --allow-all 2>&1 || echo "⚠️  Deno tests not configured — allowed"
 
   # ========== FINAL GATE: All checks must pass ==========
   ci-gate:

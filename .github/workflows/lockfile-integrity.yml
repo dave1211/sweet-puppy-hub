@@ -126,34 +126,7 @@ jobs:
         if: failure() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🚨 LOCKFILE INTEGRITY FAILURE
-
-This PR has **critical lockfile issues** that must be resolved before merge.
-
-### Issue
-Mixed or incorrect lockfiles detected. This repo uses **Bun exclusively**.
-
-### Action Required
-- Verify you're using Bun (not npm, yarn, or pnpm)
-- Remove: package-lock.json (if present)
-- Keep: bun.lockb (only)
-- Run: \`bun install\`
-- Commit the updated bun.lockb
-
-### Why This Matters
-Mixing package managers causes:
-- Dependency resolution conflicts
-- Security vulnerabilities slipping through
-- Inconsistent deployments
-- Builds that work locally but fail in CI
-
-See docs in SECURITY.md for more details.`
-            })
+          script: "github.rest.issues.createComment({issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body: 'LOCKFILE INTEGRITY FAILURE - This PR has critical lockfile issues. This repo uses Bun exclusively (bun.lockb only). Remove forbidden lockfiles: package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lock. Run: bun install. See SECURITY.md for details.'})"
 
   # ===== FAIL FAST IF LOCKFILE IS WRONG =====
   fail-if-wrong-lockfile:
