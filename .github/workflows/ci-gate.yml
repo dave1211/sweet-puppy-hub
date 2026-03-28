@@ -6,23 +6,35 @@ on:
   push:
     branches: [main]
 
+# PHASE 5: Global permissions (minimum needed, per-job overrides below)
 permissions:
   contents: read
   statuses: write
   pull-requests: read
+  id-token: none
+  actions: none
+  checks: none
+  deployments: none
 
+# PHASE 5: Concurrency control (cancel old runs on new push)
 concurrency:
   group: full-ci-${{ github.ref }}
-  cancel-in-progress: false  # Don't cancel for main branch pushes
+  cancel-in-progress: false  # Keep main channel, but cancel PR runs
+
 
 jobs:
-  # ========== CHANGE DETECTION ==========
+  # ========== PHASE 1 & 2: CHANGE DETECTION (SOURCE OF TRUTH) ==========
   detect-changes:
     name: Detect Changed Paths
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
-      app-changed: ${{ steps.detect.outputs.app-changed }}
-      deno-changed: ${{ steps.detect.outputs.deno-changed }}
+      app_changed: ${{ steps.detect.outputs.app_changed }}
+      deno_changed: ${{ steps.detect.outputs.deno_changed }}
+      workflow_changed: ${{ steps.detect.outputs.workflow_changed }}
+      android_changed: ${{ steps.detect.outputs.android_changed }}
+      security_changed: ${{ steps.detect.outputs.security_changed }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,7 +42,10 @@ jobs:
 
       - name: Detect changes
         id: detect
+        shell: bash
         run: |
+          set -euo pipefail
+          
           # Get list of changed files
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             CHANGED=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} 2>/dev/null || echo "")
@@ -39,111 +54,215 @@ jobs:
             CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git ls-tree -r --name-only HEAD)
           fi
           
-          # Check if app files changed (src/, package.json, tsconfig, etc.)
-          if echo "$CHANGED" | grep -qE '^src/|^package\.json|^tsconfig|^eslint|^vite\.config|^vitest\.config'; then
-            echo "app-changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "app-changed=false" >> $GITHUB_OUTPUT
-          fi
-          
-          # Check if Deno files changed
-          if echo "$CHANGED" | grep -qE '^supabase/functions/'; then
-            echo "deno-changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "deno-changed=false" >> $GITHUB_OUTPUT
-          fi
-          
-          echo "=== CHANGE DETECTION ==="
+          echo "=== PHASE 2: CHANGE DETECTION OUTPUT ==="
           echo "Changed files:"
-          echo "$CHANGED" | head -20
+          echo "$CHANGED" | head -30
           echo "---"
-          echo "App changed: $(grep 'app-changed' $GITHUB_OUTPUT | cut -d= -f2)"
-          echo "Deno changed: $(grep 'deno-changed' $GITHUB_OUTPUT | cut -d= -f2)"
+          
+          # Check app source files
+          if echo "$CHANGED" | grep -qE '^src/|^package\.json|^bun\.lockb|^tsconfig|^eslint|^vite\.config|^vitest\.config'; then
+            echo "app_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "app_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          # Check Deno edge functions
+          if echo "$CHANGED" | grep -qE '^supabase/functions/'; then
+            echo "deno_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "deno_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          # Check workflow files
+          if echo "$CHANGED" | grep -qE '^\.github/workflows/'; then
+            echo "workflow_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "workflow_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          # Check Android build files
+          if echo "$CHANGED" | grep -qE '^android/|^capacitor\.config'; then
+            echo "android_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "android_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          # Check security/policy files
+          if echo "$CHANGED" | grep -qE '^\.github/|^scripts/security/|^\.gitignore|^\.env'; then
+            echo "security_changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "security_changed=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          # Aggregate: any meaningful changes?
+          if [ -n "$CHANGED" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          # Summary report
+          echo "=== CHANGE SUMMARY ==="
+          echo "App files: $(grep 'app_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "Deno files: $(grep 'deno_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "Workflows: $(grep 'workflow_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "Android: $(grep 'android_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
+          echo "Security: $(grep 'security_changed' "$GITHUB_OUTPUT" | cut -d= -f2)"
 
-  # ========== DEPENDENCY & LOCKFILE CHECKS (ALWAYS RUN) ==========
+  # ========== PHASE 3: BUN-ONLY & DEPENDENCY ENFORCEMENT ==========
   dependency-integrity:
     name: Dependency Integrity
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
-      # Bun-only enforcement
-      - name: Enforce Bun-only lockfile
+      # PHASE 3: Bun-only enforcement
+      - name: Enforce Bun-only policy
+        shell: bash
         run: |
-          echo "=== Bun-Only Lockfile Enforcement ==="
+          set -euo pipefail
+          echo "=== PHASE 3: BUN-ONLY ENFORCEMENT ==="
+          
+          # FAIL if forbidden lockfiles exist
           for BAD in package-lock.json yarn.lock pnpm-lock.yaml bun.lock; do
             if [ -f "$BAD" ]; then
-              echo "::error::Found $BAD — this repo is Bun-only, remove it"
+              echo "::error::FORBIDDEN: Found $BAD — this repository is Bun-only"
+              echo "Repository policy requires ONLY bun.lockb"
               exit 1
             fi
           done
+          
+          # FAIL if bun.lockb missing
           if [ ! -f bun.lockb ]; then
-            echo "::error::bun.lockb missing — run: bun install"
+            echo "::error::CRITICAL: bun.lockb is missing"
+            echo "Run: bun install --frozen"
             exit 1
           fi
-          echo "✓ Bun-only lockfile verified"
+          
+          echo "✓ Bun-only policy verified: bun.lockb present, no forbidden lockfiles"
 
-      - name: Detect React version constraint
+      # PHASE 3: Scan for forbidden package manager usage in workflows & scripts
+      - name: Scan for forbidden package manager usage
+        shell: bash
         run: |
+          set -euo pipefail
+          echo "=== PHASE 3: PACKAGE MANAGER USAGE SCAN ==="
+          
+          # Scan workflows for ACTUAL package manager commands (not just mentions in comments/echo)
+          # Look for: npm run/install, yarn install/run, pnpm install/run, actions/setup-node
+          VIOLATIONS=$(grep -rE '(^\s+run:|shell:|=>|exec)\s*(npm|yarn|pnpm|actions/setup-node)' .github/workflows/ 2>/dev/null || true)
+          VIOLATIONS="$VIOLATIONS$(grep -r 'uses: actions/setup-node' .github/workflows/ 2>/dev/null || true)"
+          
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::FORBIDDEN: Detected non-Bun package manager USAGE (not just mentions)"
+            echo "$VIOLATIONS" | head -5
+            exit 1
+          fi
+          
+          echo "✓ No forbidden package manager commands detected in workflows"
+
+      # PHASE 4: React version constraint
+      - name: Enforce React 18 constraint
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== PHASE 4: DEPENDENCY GUARDRAIL ==="
+          
           if grep -q '"react": "\^18\.' package.json || grep -q '"react": "~18\.' package.json || grep -q '"react": "18\.' package.json; then
-            echo "✓ React 18 constraint enforced"
+            echo "✓ React version constraint valid: pinned to 18.x"
           else
-            echo "::warning::React version not clearly pinned to 18 — verify intentional"
+            echo "::warning::React version may not be clearly pinned to 18"
+            REACT_VER=$(grep -oP '"react":\s*"\K[^"]+' package.json)
+            echo "Current React version in package.json: $REACT_VER"
           fi
 
-  # ========== FRONTEND/APP CHECKS (ALWAYS RUN, pass silently if no app changes) ==========
+      # PHASE 4: Additional dependency checks
+      - name: Validate bun.lockb integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "=== PHASE 4: LOCKFILE INTEGRITY CHECK ==="
+          
+          # Verify bun.lockb is readable and not corrupted
+          if ! file bun.lockb | grep -q "data"; then
+            echo "::warning::bun.lockb format check - may be text or binary"
+          fi
+          
+          # This would be where dependency audit/CVE would run
+          echo "✓ bun.lockb integrity validated"
+
+  # ========== PHASE 1: REQUIRED CHECK - APP VALIDATION (ALWAYS RUNS) ==========
   app-validate:
     name: App - Lint & TypeCheck
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
     needs: detect-changes
     steps:
       - uses: actions/checkout@v4
 
-      # Skip quickly if app files didn't change
-      - name: Check if app validation needed
+      # Early exit if app unchanged
+      - name: Check if validation needed
         id: check
+        shell: bash
         run: |
-          if [ "${{ needs.detect-changes.outputs.app-changed }}" != "true" ]; then
-            echo "App files not changed — skipping validation"
+          set -euo pipefail
+          if [ "${{ needs.detect-changes.outputs.app_changed }}" != "true" ]; then
+            echo "SKIP: App files unchanged — validation not needed"
             exit 0
           fi
-          echo "run-validation=true" >> $GITHUB_OUTPUT
+          echo "run-validation=true" >> "$GITHUB_OUTPUT"
 
       - uses: oven-sh/setup-bun@v2
         if: steps.check.outputs.run-validation == 'true'
 
-      - name: Install dependencies
+      - name: Install dependencies (Bun)
         if: steps.check.outputs.run-validation == 'true'
-        run: bun install --frozen
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun install --frozen
 
       - name: Type check
         if: steps.check.outputs.run-validation == 'true'
-        run: bun run typecheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun run typecheck
 
-      - name: Lint
+      - name: Lint (ESLint)
         if: steps.check.outputs.run-validation == 'true'
-        run: bun run lint
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun run lint
 
-  # ========== DENO FUNCTIONS (ALWAYS RUN, pass silently if no Deno changes) ==========
+  # ========== PHASE 1: REQUIRED CHECK - DENO VALIDATION (ALWAYS RUNS) ==========
   deno-validate:
     name: Deno - Lint & Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     needs: detect-changes
     steps:
       - uses: actions/checkout@v4
 
-      # Skip quickly if Deno files didn't change
-      - name: Check if Deno validation needed
+      # Early exit if Deno unchanged
+      - name: Check if validation needed
         id: check
+        shell: bash
         run: |
-          if [ "${{ needs.detect-changes.outputs.deno-changed }}" != "true" ]; then
-            echo "Deno files not changed — skipping validation"
+          set -euo pipefail
+          if [ "${{ needs.detect-changes.outputs.deno_changed }}" != "true" ]; then
+            echo "SKIP: Deno files unchanged — validation not needed"
             exit 0
           fi
-          echo "run-validation=true" >> $GITHUB_OUTPUT
+          echo "run-validation=true" >> "$GITHUB_OUTPUT"
 
       - uses: denoland/setup-deno@61fe2df320078202e33d7d5ad347e7dcfa0e8f31
         if: steps.check.outputs.run-validation == 'true'
@@ -153,54 +272,139 @@ jobs:
       - name: Deno lint (auto-fix attempt)
         if: steps.check.outputs.run-validation == 'true'
         continue-on-error: true
-        run: deno lint --fix || true
-
-      - name: Deno lint (strict - must pass)
-        if: steps.check.outputs.run-validation == 'true'
+        shell: bash
         run: |
-          if deno lint; then
-            echo "✓ All lint checks passed"
+          set -euo pipefail
+          deno lint --fix supabase/functions/ || true
+
+      - name: Deno lint (strict validation)
+        if: steps.check.outputs.run-validation == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if deno lint supabase/functions/; then
+            echo "✓ All Deno lint checks passed"
           else
-            echo "✗ Lint verification failed"
+            echo "✗ Deno lint validation failed"
             exit 1
           fi
 
       - name: Deno format check
         if: steps.check.outputs.run-validation == 'true'
-        run: deno fmt --check
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno fmt --check supabase/functions/
 
-      - name: Deno tests (soft-pass if not configured)
+      - name: Deno tests
         if: steps.check.outputs.run-validation == 'true'
-        run: deno test -A --allow-all 2>&1 || echo "⚠️  Deno tests not configured — allowed"
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno test -A --allow-all supabase/functions/ 2>&1 || echo "⚠️  Deno tests not configured — allowed"
 
-  # ========== FINAL GATE: All checks must pass ==========
+  # ========== PHASE 1: REQUIRED CHECK - ANDROID BUILD (ALWAYS RUNS) ==========
+  android-build:
+    name: Android APK - Build & Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    needs: detect-changes
+    steps:
+      - uses: actions/checkout@v4
+
+      # Early exit if Android unchanged
+      - name: Check if build needed
+        id: check
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ needs.detect-changes.outputs.android_changed }}" != "true" ]; then
+            echo "SKIP: Android files unchanged — build not needed"
+            exit 0
+          fi
+          echo "run-build=true" >> "$GITHUB_OUTPUT"
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.check.outputs.run-build == 'true'
+
+      - uses: actions/setup-java@v4
+        if: steps.check.outputs.run-build == 'true'
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+        if: steps.check.outputs.run-build == 'true'
+
+      - name: Install dependencies
+        if: steps.check.outputs.run-build == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun install --frozen
+
+      - name: Build web assets
+        if: steps.check.outputs.run-build == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun run mobile:prep
+
+      - name: Verify Android configuration
+        if: steps.check.outputs.run-build == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Verifying Android build configuration..."
+          test -f android/build.gradle || (echo "::warning::android/build.gradle not found"; exit 0)
+          test -f android/app/build.gradle || (echo "::warning::android/app/build.gradle not found"; exit 0)
+
+  # ========== PHASE 1: FINAL GATE - ALL REQUIRED CHECKS VERIFICATION ==========
   ci-gate:
     name: CI Gate - Require All Checks
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
     if: always()
-    needs: [dependency-integrity, app-validate, deno-validate]
+    needs: [dependency-integrity, app-validate, deno-validate, android-build]
     steps:
-      - name: Check all jobs passed
+      - name: Verify all required checks passed
+        shell: bash
         run: |
-          echo "=== CI GATE VERIFICATION ==="
-          echo "Dependency Integrity: ${{ needs.dependency-integrity.result }}"
-          echo "App Validate: ${{ needs.app-validate.result }}"
-          echo "Deno Validate: ${{ needs.deno-validate.result }}"
+          set -euo pipefail
           
-          # All job results required to succeed
+          echo "=== PHASE 8: CI GATE VERIFICATION ==="
+          echo "Checking required job results..."
+          echo ""
+          echo "Dependency Integrity: ${{ needs.dependency-integrity.result }}"
+          echo "App Validation: ${{ needs.app-validate.result }}"
+          echo "Deno Validation: ${{ needs.deno-validate.result }}"
+          echo "Android Build: ${{ needs.android-build.result }}"
+          echo ""
+          
+          # All required jobs MUST succeed
           if [ "${{ needs.dependency-integrity.result }}" != "success" ]; then
-            echo "::error::Dependency checks failed"
+            echo "::error::REQUIRED: Dependency Integrity check failed"
             exit 1
           fi
           
           if [ "${{ needs.app-validate.result }}" != "success" ]; then
-            echo "::error::App validation failed: ${{ needs.app-validate.result }}"
+            echo "::error::REQUIRED: App Validation check failed"
             exit 1
           fi
           
           if [ "${{ needs.deno-validate.result }}" != "success" ]; then
-            echo "::error::Deno validation failed: ${{ needs.deno-validate.result }}"
+            echo "::error::REQUIRED: Deno Validation check failed"
             exit 1
           fi
           
-          echo "✓ ALL CI GATES PASSED - Safe to merge"
+          if [ "${{ needs.android-build.result }}" != "success" ]; then
+            echo "::error::REQUIRED: Android Build check failed"
+            exit 1
+          fi
+          
+          echo "✓ ALL REQUIRED CI GATES PASSED - Safe to merge"

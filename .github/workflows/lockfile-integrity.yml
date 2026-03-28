@@ -22,7 +22,18 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  pull-requests: none
+  id-token: none
+  actions: none
+  checks: none
+  deployments: none
+  issues: none
+  statuses: none
+
+# PHASE 5: Concurrency control
+concurrency:
+  group: lockfile-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lockfile-check:
